@@ -1,0 +1,10 @@
+app = "iskin-ra"  # или ra-light, как ты назовёшь при запуске
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PYTHONUNBUFFERED = "1"
+
+[experimental]
+  auto_rollback = true
