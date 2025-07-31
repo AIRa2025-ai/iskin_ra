@@ -8,4 +8,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "ra_bot_gpt.py"]
+CMD ["python3", "ra_bot_gpt.py"]
