@@ -1,4 +1,4 @@
-app = "iskin-ra"  # или ra-light, как ты назовёшь при запуске
+app = "iskin-ra"
 
 [build]
   dockerfile = "Dockerfile"
