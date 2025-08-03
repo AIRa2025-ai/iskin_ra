@@ -10,4 +10,3 @@ COPY . .
 
 CMD ["python3", "ra_bot_gpt.py"]
 
-<!-- trigger redeploy -->
