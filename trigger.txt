@@ -1,0 +1,4 @@
+echo "deploy" > trigger.txt
+git add trigger.txt
+git commit -m "chore: проверка деплоя после настройки"
+git push
