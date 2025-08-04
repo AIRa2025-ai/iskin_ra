@@ -29,6 +29,10 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 import uuid
 
+print("🚀 Ра запускается...")
+import time
+time.sleep(10)
+
 nest_asyncio.apply()
 
 # === Загрузка конфигурации ===
