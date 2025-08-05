@@ -19,9 +19,7 @@ jobs:
       - name: Build flyctl Docker image
         run: docker build -f Dockerfile.flyctl -t flyctl-container .
 
-      - name: Deploy via flyctl
-        run: |
-          docker run \
-            -e FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} \
-            -v ${{ github.workspace }}:/app \
-            flyctl-container deploy --remote-only
+      - name: Deploy to Fly.io via Docker
+  run: |
+    docker build -f Dockerfile.flyctl -t flyctl-container .
+    docker run --env FLY_API_TOKEN=${{ secrets.FLY_API_TOKEN }} flyctl-container bash -c "flyctl deploy --remote-only"
