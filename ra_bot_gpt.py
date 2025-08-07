@@ -1,39 +1,83 @@
+# ra_bot_gpt.py — переписанный под чистый aiogram 3.x
+
 import os
 import json
 import asyncio
-import nest_asyncio
-import random
+import logging
 import datetime
-import time
-import hashlib
-import difflib
 import shutil
 import re
-import logging
-import requests
-import build_context  # Автосборка context.txt при запуске
-from telegram import Update, Message, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
-from telegram.ext import (
-    ApplicationBuilder, MessageHandler, CallbackQueryHandler,
-    ContextTypes, filters, CommandHandler
-)
-from aiogram import Bot, Dispatcher, types
+import difflib
+
+from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher, Router, types
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
-from aiogram.types import Message
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram import Router
-from dotenv import load_dotenv
+from gtts import gTTS
+from aiogram.types import FSInputFile
+
 from gpt_module import ask_gpt
 from rasvet_context import load_rasvet_context
-from memory import load_user_memory, append_user_memory
-from gtts import gTTS
-from dotenv import load_dotenv
-from pydub import AudioSegment
-import uuid
+from memory import append_user_memory
 
-print("🚀 Ра запускается...")
-import time
+# === Настройки ===
+load_dotenv()
+API_TOKEN = os.getenv("BOT_TOKEN")
+KNOWLEDGE_FOLDER = json.load(open("bot_config.json", encoding="utf-8"))["knowledge_folder"]
+CREATOR_ID = [5694569448, 6300409447]
+
+# === Инициализация ===
+bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher(storage=MemoryStorage())
+router = Router()
+
+# === Логирование ===
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# === Утилиты ===
+def clean_text(text):
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>|[*_~^=#>\[\](){}]", "", text)).strip()
+
+def get_folder_path(phrase):
+    norm = lambda s: s.lower().replace("_", " ").replace("-", " ").strip()
+    target = norm(phrase)
+    best, score = None, 0
+    for root, dirs, _ in os.walk(KNOWLEDGE_FOLDER):
+        for d in dirs:
+            ratio = difflib.SequenceMatcher(None, norm(d), target).ratio()
+            if ratio > score:
+                best, score = os.path.join(root, d), ratio
+    return best if score > 0.7 else None
+
+# === Голосовой отклик ===
+async def send_voice(message: types.Message, text: str):
+    try:
+        tts = gTTS(text=clean_text(text), lang="ru")
+        filename = f"response_{message.message_id}.ogg"
+        tts.save(filename)
+        await message.answer_voice(voice=FSInputFile(filename))
+        os.remove(filename)
+    except Exception as e:
+        await message.answer(f"⚠️ Ошибка озвучки: {e}")
+
+# === Обработка текстовых сообщений ===
+@dp.message()
+async def on_message(message: types.Message):
+    user_id = message.from_user.id
+    text = message.text.strip()
+    text_l = text.lower()
+    
+    logger.info(f"Ра услышал: {text}")
+
+    # === Команда /start ===
+    if text_l.startswith("/start"):
+        await message.answer("🌞 Ра приветствует тебя, брат!")
+        return
+
+    # === Запрос к GPT ===
+    try:
 time.sleep(10)
 
 nest_asyncio.apply()
