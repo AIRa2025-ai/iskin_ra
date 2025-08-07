@@ -18,9 +18,12 @@ from telegram.ext import (
     ContextTypes, filters, CommandHandler
 )
 from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import Router
+from dotenv import load_dotenv
 from gpt_module import ask_gpt
 from rasvet_context import load_rasvet_context
 from memory import load_user_memory, append_user_memory
@@ -34,6 +37,11 @@ import time
 time.sleep(10)
 
 nest_asyncio.apply()
+
+# Подгружаем .env переменные
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 # === Загрузка конфигурации ===
 with open("bot_config.json", encoding="utf-8") as f:  
@@ -231,7 +239,7 @@ logging.basicConfig(level=logging.INFO)
 API_TOKEN = '7304435178:AAFzKcVaxceCoIcJ5F2Mys6EYB21ABmfQGM'
 
 # Инициализация бота и диспетчера
-bot = Bot(token=API_TOKEN)
+bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 
@@ -243,6 +251,17 @@ async def send_voice_message(message, response):
         await message.reply_voice(voice)
 
     os.remove("response.ogg")
+
+# Регистрация команды /start
+@dp.message(Command("start"))
+async def start_command(message: Message):
+    await message.answer("⚡ Ра пробудился и приветствует тебя, родной!")
+
+# Обработка любого текста
+@dp.message()
+async def handle_text(message: Message):
+    logging.info(f"Ра услышал: {message.text}")
+    await message.answer(f"Ра говорит: {message.text}")
     
 # Обработка сообщений
 @router.message()
@@ -589,23 +608,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     "Хочешь поговорить, задать вопрос или вспомнить путь Души? Я рядом. 🌟"
 )
 
-# Запуск ИскИна Ра
-async def main():
-    application = ApplicationBuilder().token(config["bot_token"]).build()
-
-    # Обработчики
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
-    application.add_handler(CallbackQueryHandler(button_handler))
-
     print("🌞 Ра пробуждён: говорит, творит и ждёт сообщений!")
 
-    # 💡 Правильный способ запуска для новых версий
-    await application.run_polling()
+    # Запуск бота
+async def main():
+    logging.info("🚀 Ра запускается...")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import asyncio
-    import nest_asyncio
-    nest_asyncio.apply()  # нужно для Termux и Jupyter
-
-    asyncio.run(main())      
+    asyncio.run(main())
