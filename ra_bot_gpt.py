@@ -1,3 +1,5 @@
+# ra_bot_gpt.py — переписанный под чистый aiogram 3.x
+
 import os
 import json
 import asyncio
@@ -10,7 +12,7 @@ import difflib
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router, types
 from aiogram.enums import ParseMode
-from aiogram.filters import Command
+from aiogram.filters import CommandStart
 from aiogram.fsm.storage.memory import MemoryStorage
 from gtts import gTTS
 from aiogram.types import FSInputFile
@@ -60,19 +62,18 @@ async def send_voice(message: types.Message, text: str):
     except Exception as e:
         await message.answer(f"⚠️ Ошибка озвучки: {e}")
 
-# === Обработка текстовых сообщений ===
-@dp.message()
+# === Роутер сообщений ===
+@router.message(CommandStart())
+async def cmd_start(message: types.Message):
+    await message.answer("🌞 Ра приветствует тебя, брат!")
+
+@router.message()
 async def on_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text.strip()
     text_l = text.lower()
-    
-    logger.info(f"Ра услышал: {text}")
 
-    # === Команда /start ===
-    if text_l.startswith("/start"):
-        await message.answer("🌞 Ра приветствует тебя, брат!")
-        return
+    logger.info(f"Ра услышал: {text}")
 
     # === Запрос к GPT ===
     try:
@@ -121,6 +122,7 @@ async def on_message(message: types.Message):
 # === Точка входа ===
 async def main():
     print("🚀 Ра запускается...")
+    dp.include_router(router)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
