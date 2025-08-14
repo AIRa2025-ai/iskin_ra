@@ -1,7 +1,4 @@
 {
-  "bot_token": "7304435178:AAFzKcVaxceCoIcJ5F2Mys6EYB21ABmfQGM",
   "knowledge_folder": "/mnt/data/knowledge",
-  "creator_id": [5694569448, 6300409447],
-  "api_key": "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",
   "model": "deepseek/deepseek-r1-0528:free"
 }
