@@ -1,6 +1,0 @@
-FROM amd64/alpine
-
-RUN apk add --no-cache curl bash && \
-    curl -L https://fly.io/install.sh | sh
-
-ENTRYPOINT ["/root/.fly/bin/flyctl"]
