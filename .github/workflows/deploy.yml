@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🔽 Checkout
-        uses: actions/checkout@v4
+      - name: 🔽 Checkout кода
+        uses: actions/checkout@v3
 
-      - name: 🔑 Setup Fly.io CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: 🔑 Настройка Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@1.5
 
-      - name: 🚀 Deploy to Fly.io
+      - name: 🚀 Деплой на Fly.io
         run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
