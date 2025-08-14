@@ -5,6 +5,9 @@ from mega_downloader import download_mega_file  # нужна библиотек�
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message
+from mega_downloader import download_mega_file
+
+download_mega_file("https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro", "./knowledge")
 
 # === Загрузка переменных из .env ===
 load_dotenv()
