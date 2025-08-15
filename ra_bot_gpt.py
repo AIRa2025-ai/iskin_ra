@@ -4,52 +4,47 @@ import asyncio
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message
-from mega_downloader import download_mega_file  # библиотека mega-lite
+from gpt_module import ask_gpt
+from memory import append_user_memory
+from mega_downloader import download_mega_file
 
-# === Загружаем переменные окружения из .env ===
+# === Загружаем переменные окружения ===
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CREATOR_IDS = [int(x) for x in os.getenv("CREATOR_IDS", "").split(",") if x.strip()]
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528:free")
 KNOWLEDGE_FOLDER = os.getenv("KNOWLEDGE_FOLDER", "knowledge")
+CREATOR_IDS = [int(x) for x in os.getenv("CREATOR_IDS", "").split(",") if x.strip()]
 
-# === Ссылка на Mega-архив с РаСвет ===
-MEGA_LINK = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
-
-# === Подготовка папки знаний ===
+# === Инициализация папки знаний ===
 def init_knowledge_folder():
-    if os.path.isdir(KNOWLEDGE_FOLDER):
-        print(f"📂 Папка знаний уже готова: {KNOWLEDGE_FOLDER}")
-        return
+    if not os.path.isdir(KNOWLEDGE_FOLDER):
+        print("⬇️ Скачиваю архив знаний с Mega...")
+        download_mega_file(
+            "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro",
+            ".temp_mega"
+        )
+        with zipfile.ZipFile(".temp_mega/RaSvet.zip", "r") as zp:
+            zp.extractall(KNOWLEDGE_FOLDER)
+        print(f"✅ Папка знаний готова: {KNOWLEDGE_FOLDER}")
+    else:
+        print(f"📂 Папка знаний найдена: {KNOWLEDGE_FOLDER}")
 
-    print("⬇️ Скачиваю архив RaSvet.zip с Mega...")
-    temp_dir = ".temp_mega"
-    os.makedirs(temp_dir, exist_ok=True)
-
-    download_mega_file(MEGA_LINK, temp_dir)
-
-    zip_path = os.path.join(temp_dir, "RaSvet.zip")
-    if not os.path.exists(zip_path):
-        raise FileNotFoundError("❌ Не найден RaSvet.zip после загрузки с Mega.")
-
-    with zipfile.ZipFile(zip_path, "r") as zp:
-        zp.extractall(KNOWLEDGE_FOLDER)
-
-    print(f"✅ Папка знаний готова: {KNOWLEDGE_FOLDER}")
-
-# === Telegram Bot ===
+# === Роутер aiogram ===
 router = Router()
 
 @router.message(F.text)
 async def handle_message(message: Message):
-    # Если пишет создатель — можно расширить функционал
-    if message.from_user.id in CREATOR_IDS:
-        await message.answer(f"🌞 Привет, родной!\nТы сказал: {message.text}")
-    else:
-        await message.answer(f"Ра говорит: {message.text}")
+    user_id = message.from_user.id
+    user_input = message.text.strip()
 
+    print(f"💬 Сообщение от {user_id}: {user_input}")
+
+    reply = await ask_gpt(user_id, user_input)
+    append_user_memory(user_id, user_input, reply)
+
+    await message.answer(reply)
+
+# === Запуск бота ===
 async def main():
     print("🚀 Ра запускается...")
     init_knowledge_folder()
