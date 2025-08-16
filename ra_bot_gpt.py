@@ -74,14 +74,25 @@ def ask_openrouter(user_id: str, user_text: str) -> str:
     }
 
     try:
-        r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
+        r = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": OPENROUTER_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=60
+        )
         r.raise_for_status()
-        data = r.json()
-        return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        logger.exception("OpenRouter error")
-        return f"⚠️ Ра не дозвонился до источника: {e}"
+        return r.json()["choices"][0]["message"]["content"]
 
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"OpenRouter error: {e}")
+        time.sleep(10)
+        return "⚠️ Ра не дозвонился до источника..."
 
 # =============================
 # Aiogram 3.x
