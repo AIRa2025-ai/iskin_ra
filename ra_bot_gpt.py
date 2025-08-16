@@ -127,6 +127,18 @@ async def cmd_read(message: types.Message):
         await message.answer("⚠ Неподдерживаемый тип файла или ошибка чтения.")
 
 
+# --- Ответ на любые обычные сообщения ---
+@dp.message()
+async def reply_to_any(message: types.Message):
+    log_command_usage("message", message.from_user.id)
+    prompt = message.text.strip()
+    if not prompt:
+        return
+
+    answer = await generate_answer(prompt)
+    await message.answer(answer)
+
+
 # --- Главный запуск ---
 async def main():
     try:
@@ -138,4 +150,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
