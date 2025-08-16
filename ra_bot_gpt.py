@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import json
+import time
 from typing import List
 
 from dotenv import load_dotenv
@@ -75,16 +76,10 @@ def ask_openrouter(user_id: str, user_text: str) -> str:
 
     try:
         r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": OPENROUTER_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            timeout=60
+            OPENROUTER_URL,
+            headers=headers,
+            json=payload,
+            timeout=60,
         )
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"]
@@ -93,6 +88,7 @@ def ask_openrouter(user_id: str, user_text: str) -> str:
         logger.error(f"OpenRouter error: {e}")
         time.sleep(10)
         return "⚠️ Ра не дозвонился до источника..."
+
 
 # =============================
 # Aiogram 3.x
@@ -111,6 +107,7 @@ async def on_text(message: Message):
 
     reply = ask_openrouter(user_id, text)
     await message.answer(reply, parse_mode=ParseMode.HTML)
+
     # Пишем память (не падаем, даже если что-то пойдёт не так)
     try:
         append_user_memory(user_id, text, reply)
@@ -140,4 +137,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("🛑 Ра остановлен.")
+        logger.info("🛑 Ра остановлен.")")
