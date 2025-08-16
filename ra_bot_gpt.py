@@ -10,11 +10,12 @@ from aiogram.filters import Command
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Токены и настройки из переменных окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528:free")
 CREATOR_IDS = os.getenv("CREATOR_IDS", "").split(",")
 KNOWLEDGE_FOLDER = os.getenv("KNOWLEDGE_FOLDER", "RaSvet")
 
@@ -131,9 +132,10 @@ async def main():
     try:
         await dp.start_polling(bot)
     except Exception as e:
-        logging.error(f"❌ Ошибка в основном цикле: {e}")
-        time.sleep(10)  # теперь правильно с отступом внутри try
+        logger.error(f"❌ Ошибка в основном цикле: {e}")
+        time.sleep(10)  # подождать и попробовать снова
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
