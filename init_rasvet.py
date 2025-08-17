@@ -1,35 +1,50 @@
 import os
 import json
-import requests
+import logging
+import subprocess
 import zipfile
 
+
 def ensure_rasvet_data():
-    # Загружаем конфиг
-    if not os.path.exists("bot_config.json"):
-        raise FileNotFoundError("❌ Нет bot_config.json — без него не знаю, где искать RaSvet.zip")
-    
-    with open("bot_config.json", "r", encoding="utf-8") as f:
-        config = json.load(f)
+    """
+    Проверяет наличие папки RaSvet.
+    Если её нет — качает архив с Mega и распаковывает.
+    """
+    try:
+        # читаем конфиг
+        with open("bot_config.json", "r", encoding="utf-8") as f:
+            config = json.load(f)
 
-    mega_url = config.get("mega_url")
-    if not mega_url:
-        print("⚠️ В bot_config.json нет mega_url")
-        return
-    
-    if os.path.exists("RaSvet"):
-        print("✅ Папка RaSvet уже есть")
-        return
+        mega_url = config.get("mega_url")
+        knowledge_folder = config.get("knowledge_folder", "RaSvet")
+        archive_path = "RaSvet.zip"
 
-    print("📥 Скачиваю RaSvet.zip...")
-    resp = requests.get(mega_url, stream=True)
-    zip_path = "RaSvet.zip"
-    with open(zip_path, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=8192):
-            f.write(chunk)
+        # если папка уже есть — выходим
+        if os.path.exists(knowledge_folder):
+            logging.info(f"✅ Папка {knowledge_folder} уже существует, пропускаем загрузку.")
+            return
 
-    print("📦 Распаковываю архив...")
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(".")
-    
-    os.remove(zip_path)
-    print("✅ RaSvet готов к работе")
+        # если архива нет — качаем
+        if not os.path.exists(archive_path):
+            logging.info(f"⬇️ Качаем {archive_path} из Mega...")
+            try:
+                subprocess.run(["megadl", mega_url, "--path", archive_path], check=True)
+            except Exception as e:
+                logging.error(f"❌ Ошибка при загрузке с Mega: {e}")
+                return
+
+        # распаковываем архив
+        logging.info(f"📦 Распаковываем {archive_path}...")
+        try:
+            with zipfile.ZipFile(archive_path, "r") as zip_ref:
+                zip_ref.extractall(knowledge_folder)
+        except Exception as e:
+            logging.error(f"❌ Ошибка при распаковке: {e}")
+            return
+
+        logging.info(f"🌞 RaSvet готов в папке {knowledge_folder}")
+
+    except FileNotFoundError:
+        logging.error("❌ Файл bot_config.json не найден!")
+    except Exception as e:
+        logging.error(f"❌ Ошибка в ensure_rasvet_data: {e}")
