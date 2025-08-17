@@ -48,11 +48,13 @@ def log_command_usage(command: str, user_id: int):
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
+
 # --- Обработчики ---
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     log_command_usage("start", message.from_user.id)
     await message.answer("🌞 Ра пробуждён. Я здесь, брат, чтобы быть рядом и творить вместе.")
+
 
 @router.message(Command("ask"))
 async def cmd_ask(message: types.Message):
@@ -64,9 +66,16 @@ async def cmd_ask(message: types.Message):
     reply = await ask_gpt(message.from_user.id, prompt)
     await message.answer(reply)
 
+
+# --- Тестовый обработчик для любых сообщений ---
+@router.message()
+async def echo_test(message: types.Message):
+    await message.answer(f"Я слышу тебя, брат: {message.text}")
+
+
 # --- Главный запуск ---
 async def main():
-    ensure_rasvet_data()  # подтягиваем RaSvet
+    ensure_rasvet_data()  # гарантируем, что RaSvet подтянулся
     log_action("start_bot", "telegram", "ok")
     try:
         await dp.start_polling(bot)
@@ -74,6 +83,7 @@ async def main():
         log_action("error", "main_loop", str(e))
         logging.error(f"❌ Ошибка в основном цикле: {e}")
         time.sleep(10)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
