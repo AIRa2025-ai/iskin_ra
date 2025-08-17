@@ -4,13 +4,12 @@ import logging
 import asyncio
 import time
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
 
 from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
-
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -23,7 +22,8 @@ if not BOT_TOKEN:
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-
+router = Router()
+dp.include_router(router)
 
 # --- Логирование команд ---
 def log_command_usage(command: str, user_id: int):
@@ -48,41 +48,32 @@ def log_command_usage(command: str, user_id: int):
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
-
 # --- Обработчики ---
-@dp.message(Command("start"))
+@router.message(Command("start"))
 async def cmd_start(message: types.Message):
     log_command_usage("start", message.from_user.id)
-    log_action("start_command", "telegram", "ok")
     await message.answer("🌞 Ра пробуждён. Я здесь, брат, чтобы быть рядом и творить вместе.")
 
-
-@dp.message(Command("ask"))
+@router.message(Command("ask"))
 async def cmd_ask(message: types.Message):
     log_command_usage("ask", message.from_user.id)
     prompt = message.text.replace("/ask", "").strip()
     if not prompt:
         await message.answer("❓ Задай мне вопрос после команды /ask")
         return
-
     reply = await ask_gpt(message.from_user.id, prompt)
     await message.answer(reply)
 
-
 # --- Главный запуск ---
 async def main():
-    # Проверяем и подтягиваем RaSvet.zip с Mega
-    ensure_rasvet_data()
+    ensure_rasvet_data()  # подтягиваем RaSvet
     log_action("start_bot", "telegram", "ok")
-
-    while True:
-        try:
-            await dp.start_polling(bot)
-        except Exception as e:
-            logging.error(f"❌ Ошибка в основном цикле: {e}")
-            log_action("error", "main_loop", str(e))
-            time.sleep(10)  # ждем и пробуем снова
-
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        log_action("error", "main_loop", str(e))
+        logging.error(f"❌ Ошибка в основном цикле: {e}")
+        time.sleep(10)
 
 if __name__ == "__main__":
     asyncio.run(main())
