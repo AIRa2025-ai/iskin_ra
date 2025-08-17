@@ -9,6 +9,17 @@ from aiogram.filters import Command
 
 from gpt_module import ask_gpt
 
+from init_rasvet import ensure_rasvet_data
+from actions_logger import log_action
+
+async def main():
+    ensure_rasvet_data()  # гарантируем, что RaSvet подтянулся
+    log_action("start_bot", "telegram", "ok")
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        log_action("error", "main_loop", str(e))
+
 # Логирование
 logging.basicConfig(level=logging.INFO)
 
