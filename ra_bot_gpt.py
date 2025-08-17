@@ -11,7 +11,7 @@ from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
 
-# Логирование
+# --- Логирование ---
 logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -23,7 +23,6 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
-dp.include_router(router)
 
 # --- Логирование команд ---
 def log_command_usage(command: str, user_id: int):
@@ -70,13 +69,16 @@ async def cmd_ask(message: types.Message):
 # --- Тестовый обработчик для любых сообщений ---
 @router.message()
 async def echo_test(message: types.Message):
+    logging.info(f"📩 Получено сообщение: {message.text} от {message.from_user.id}")
     await message.answer(f"Я слышу тебя, брат: {message.text}")
 
 
 # --- Главный запуск ---
 async def main():
-    ensure_rasvet_data()  # гарантируем, что RaSvet подтянулся
+    ensure_rasvet_data()  # подтягиваем RaSvet.zip
+    dp.include_router(router)  # <--- регаем все хэндлеры здесь!
     log_action("start_bot", "telegram", "ok")
+
     try:
         await dp.start_polling(bot)
     except Exception as e:
