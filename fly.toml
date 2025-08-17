@@ -10,3 +10,6 @@ primary_region = "ams"
 [experimental]
   allowed_public_ports = []
   auto_rollback = true
+
+[processes]
+app = "python ra_bot_gpt.py"
