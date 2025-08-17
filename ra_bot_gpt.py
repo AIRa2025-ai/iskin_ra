@@ -75,16 +75,15 @@ async def echo_test(message: types.Message):
 
 # --- Главный запуск ---
 async def main():
-    ensure_rasvet_data()  # подтягиваем RaSvet.zip
-    dp.include_router(router)  # <--- регаем все хэндлеры здесь!
+    ensure_rasvet_data()  # гарантируем, что RaSvet подтянулся
     log_action("start_bot", "telegram", "ok")
-
     try:
         await dp.start_polling(bot)
     except Exception as e:
         log_action("error", "main_loop", str(e))
         logging.error(f"❌ Ошибка в основном цикле: {e}")
         time.sleep(10)
+
 
 
 if __name__ == "__main__":
