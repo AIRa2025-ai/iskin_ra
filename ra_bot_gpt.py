@@ -31,7 +31,7 @@ router = Router()
 with open("bot_config.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
-CREATOR_ID = int(config.get("creator_id", 0))  # твой id сюда
+CREATOR_ID = int(config.get(5694569448, 6300409447))  # твой id сюда
 
 # --- Логирование команд ---
 def log_command_usage(command: str, user_id: int):
