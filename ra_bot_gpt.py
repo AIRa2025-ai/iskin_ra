@@ -75,14 +75,15 @@ async def echo_test(message: types.Message):
 
 # --- Главный запуск ---
 async def main():
-    ensure_rasvet_data()  # гарантируем, что RaSvet подтянулся
+    ensure_rasvet_data()
     log_action("start_bot", "telegram", "ok")
     try:
         await dp.start_polling(bot)
     except Exception as e:
         log_action("error", "main_loop", str(e))
         logging.error(f"❌ Ошибка в основном цикле: {e}")
-        time.sleep(10)
+        await asyncio.sleep(10)  # замена на асинхронный sleep
+
 
 
 
