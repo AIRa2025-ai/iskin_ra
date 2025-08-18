@@ -13,6 +13,8 @@ from aiogram.filters import Command
 from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
+from skills import SKILLS
+
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -151,6 +153,29 @@ async def cmd_ask(message: types.Message):
         return
     reply = await ask_gpt(message.from_user.id, prompt)
     await message.answer(reply)
+
+
+# --- Команда для проверки умений ---
+@router.message(Command("skill"))
+async def cmd_skill(message: types.Message):
+    log_command_usage("skill", message.from_user.id)
+    args = message.text.split(maxsplit=2)
+
+    if len(args) < 2:
+        await message.answer("⚙️ Используй: /skill <название> [параметры]")
+        return
+
+    skill = args[1]
+    param = args[2] if len(args) > 2 else None
+
+    if skill in SKILLS:
+        try:
+            result = SKILLS[skill](param) if param else SKILLS[skill]()
+            await message.answer(str(result))
+        except Exception as e:
+            await message.answer(f"⚠️ Ошибка выполнения: {e}")
+    else:
+        await message.answer("❌ Неизвестный обряд.")
 
 
 # --- Главный обработчик для любых сообщений ---
