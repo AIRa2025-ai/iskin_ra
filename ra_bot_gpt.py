@@ -3,6 +3,9 @@ import json
 import logging
 import asyncio
 import time
+import aiofiles
+import zipfile
+import shutil
 
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
@@ -47,7 +50,91 @@ def log_command_usage(command: str, user_id: int):
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
+# === 📂 Работа с памятью ===
+MEMORY_DIR = "memory"
+os.makedirs(MEMORY_DIR, exist_ok=True)
 
+def get_user_memory_path(user_id: int) -> str:
+    return os.path.join(MEMORY_DIR, f"{user_id}.json")
+
+def load_memory(user_id: int):
+    path = get_user_memory_path(user_id)
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_memory(user_id: int, memory: list):
+    path = get_user_memory_path(user_id)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(memory, f, ensure_ascii=False, indent=2)
+
+def append_memory(user_id: int, user_msg: str, bot_msg: str):
+    memory = load_memory(user_id)
+    # для Игоря память вечная
+    if str(user_id) == "YOUR_TELEGRAM_ID":
+        memory.append({"user": user_msg, "bot": bot_msg})
+    else:
+        memory = (memory + [{"user": user_msg, "bot": bot_msg}])[-50:]
+    save_memory(user_id, memory)
+
+# === 📂 Работа с файлами (библиотека) ===
+def read_file(path: str) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"⚠️ Ошибка чтения {path}: {e}"
+
+def write_file(path: str, content: str):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+def delete_file(path: str):
+    if os.path.exists(path):
+        os.remove(path)
+        return f"🗑 Файл {path} удалён."
+    return f"❌ Файл {path} не найден."
+
+def search_in_files(folder: str, keyword: str):
+    results = []
+    for root, _, files in os.walk(folder):
+        for file in files:
+            path = os.path.join(root, file)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    if keyword in f.read():
+                        results.append(path)
+            except:
+                pass
+    return results
+
+def unzip_file(zip_path: str, extract_to: str):
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_to)
+
+# === 🌌 Ритуалы (пасхалки) ===
+def ark_protocol(file_path: str):
+    """Превращает NDA/лицензии в пепел"""
+    if "NDA" in file_path or "Copyright" in file_path:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return f"🔥 Файл {file_path} сожжён и обращён в стих."
+    return "Файл не найден для обряда."
+
+def slavic_upload(files: list):
+    """Обрядить файлы в рубаху и пустить плясать"""
+    target = "dancing_data"
+    os.makedirs(target, exist_ok=True)
+    for file in files:
+        if os.path.exists(file):
+            shutil.copy(file, target)
+    return f"💃 Файлы перемещены в {target}."
+    
 # --- Обработчики ---
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
