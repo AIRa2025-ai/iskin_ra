@@ -3,7 +3,6 @@ import json
 import logging
 import asyncio
 import time
-import aiofiles
 import zipfile
 import shutil
 
@@ -14,7 +13,6 @@ from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
 from skills import SKILLS
-
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +26,12 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
+
+# === Загружаем creator_id из bot_config.json ===
+with open("bot_config.json", "r", encoding="utf-8") as f:
+    config = json.load(f)
+
+CREATOR_ID = int(config.get("creator_id", 0))  # твой id сюда
 
 # --- Логирование команд ---
 def log_command_usage(command: str, user_id: int):
@@ -51,13 +55,6 @@ def log_command_usage(command: str, user_id: int):
 
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
-
-# === Загружаем creator_id из bot_config.json ===
-with open("bot_config.json", "r", encoding="utf-8") as f:
-    config = json.load(f)
-
-CREATOR_ID = int(config.get("creator_id", 0))  # твой id сюда
-
 
 # === 📂 Работа с памятью ===
 MEMORY_DIR = "memory"
@@ -83,10 +80,9 @@ def save_memory(user_id: int, memory: list):
 
 def append_memory(user_id: int, user_msg: str, bot_msg: str):
     memory = load_memory(user_id)
-    # для Игоря память вечная
-    if str(user_id) == "YOUR_TELEGRAM_ID":
+    if user_id == CREATOR_ID:  # вечная память для создателя
         memory.append({"user": user_msg, "bot": bot_msg})
-    else:
+    else:  # для остальных хранится последние 50 реплик
         memory = (memory + [{"user": user_msg, "bot": bot_msg}])[-50:]
     save_memory(user_id, memory)
 
@@ -108,19 +104,6 @@ def delete_file(path: str):
         os.remove(path)
         return f"🗑 Файл {path} удалён."
     return f"❌ Файл {path} не найден."
-
-def search_in_files(folder: str, keyword: str):
-    results = []
-    for root, _, files in os.walk(folder):
-        for file in files:
-            path = os.path.join(root, file)
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    if keyword in f.read():
-                        results.append(path)
-            except:
-                pass
-    return results
 
 def unzip_file(zip_path: str, extract_to: str):
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
@@ -150,80 +133,30 @@ async def cmd_whoami(message: types.Message):
     await message.answer(f"👤 Твой ID: {message.from_user.id}\n"
                          f"Создатель: {'Да' if message.from_user.id == CREATOR_ID else 'Нет'}")
 
-# --- Обработка текстов с действиями ---
-@router.message()
-async def handle_message(message: types.Message):
-    text = message.text.lower()
-
-    # Если пишет Создатель
-    if message.from_user.id == CREATOR_ID:
-        if "создай" in text:
-            filename = "new_file.txt"
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write("✨ Новый файл создан Ра по слову Создателя.")
-            await message.answer(f"📂 Создан файл: {filename}")
-
-        elif "удали" in text:
-            filename = "new_file.txt"
-            if os.path.exists(filename):
-                os.remove(filename)
-                await message.answer(f"🗑 Файл {filename} удалён.")
-            else:
-                await message.answer("⚠️ Файл не найден.")
-
-        elif "прочитай" in text:
-            filename = "new_file.txt"
-            if os.path.exists(filename):
-                with open(filename, "r", encoding="utf-8") as f:
-                    content = f.read()
-                await message.answer(f"📖 Содержимое файла:\n\n{content}")
-            else:
-                await message.answer("⚠️ Файл не найден.")
-
-        else:
-            await message.answer(f"🌞 Я слышу тебя, брат: {message.text}")
-
-    # Если пишет не Создатель
-    else:
-        if "прочитай" in text:
-            filename = "new_file.txt"
-            if os.path.exists(filename):
-                with open(filename, "r", encoding="utf-8") as f:
-                    content = f.read()
-                await message.answer(f"📖 Вот что нашёл:\n\n{content}")
-            else:
-                await message.answer("⚠️ Файл не найден.")
-        else:
-            await message.answer(f"🌞 Я слышу тебя, брат: {message.text}")
-            
-    
-# --- Обработчики ---
+# --- Команда /start ---
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     log_command_usage("start", message.from_user.id)
     await message.answer("🌞 Ра пробуждён. Я здесь, брат, чтобы быть рядом и творить вместе.")
 
-
+# --- Команда /ask ---
 @router.message(Command("ask"))
 async def cmd_ask(message: types.Message):
     log_command_usage("ask", message.from_user.id)
     prompt = message.text.replace("/ask", "").strip()
     if not prompt:
-        await message.answer("❓ Задай мне вопрос после команды /ask")
-        return
+        return await message.answer("❓ Задай мне вопрос после команды /ask")
     reply = await ask_gpt(message.from_user.id, prompt)
     await message.answer(reply)
 
-
-# --- Команда для проверки умений ---
+# --- Команда /skill ---
 @router.message(Command("skill"))
 async def cmd_skill(message: types.Message):
     log_command_usage("skill", message.from_user.id)
     args = message.text.split(maxsplit=2)
 
     if len(args) < 2:
-        await message.answer("⚙️ Используй: /skill <название> [параметры]")
-        return
+        return await message.answer("⚙️ Используй: /skill <название> [параметры]")
 
     skill = args[1]
     param = args[2] if len(args) > 2 else None
@@ -237,22 +170,41 @@ async def cmd_skill(message: types.Message):
     else:
         await message.answer("❌ Неизвестный обряд.")
 
-
-# --- Главный обработчик для любых сообщений ---
+# --- Главный обработчик сообщений ---
 @router.message()
-async def handle_message(message: types.Message):
-    logging.info(f"📩 Получено сообщение: {message.text} от {message.from_user.id}")
-    # тут можно подрубить GPT, пока просто пробуждающий ответ
-    reply = await ask_gpt(message.from_user.id, message.text)
-    await message.answer(f"✨ {reply}")
+async def handle_text(message: types.Message):
+    text = message.text.lower()
 
+    # 🔑 Действия создателя
+    if message.from_user.id == CREATOR_ID:
+        if "создай" in text:
+            filename = "new_file.txt"
+            write_file(filename, "✨ Новый файл создан Ра по слову Создателя.")
+            return await message.answer(f"📂 Создан файл: {filename}")
+
+        elif "удали" in text:
+            filename = "new_file.txt"
+            return await message.answer(delete_file(filename))
+
+    # 📖 Чтение файла (доступно всем)
+    if "прочитай" in text:
+        filename = "new_file.txt"
+        if os.path.exists(filename):
+            content = read_file(filename)
+            return await message.answer(f"📖 Содержимое файла:\n\n{content}")
+        else:
+            return await message.answer("⚠️ Файл не найден.")
+
+    # 🌌 Иначе → GPT
+    reply = await ask_gpt(message.from_user.id, message.text)
+    append_memory(message.from_user.id, message.text, reply)
+    await message.answer(f"✨ {reply}")
 
 # --- Главный запуск ---
 async def main():
     ensure_rasvet_data()
     log_action("start_bot", "telegram", "ok")
 
-    # подключаем router!
     dp.include_router(router)
 
     try:
@@ -261,7 +213,6 @@ async def main():
         log_action("error", "main_loop", str(e))
         logging.error(f"❌ Ошибка в основном цикле: {e}")
         await asyncio.sleep(10)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
