@@ -66,25 +66,29 @@ async def cmd_ask(message: types.Message):
     await message.answer(reply)
 
 
-# --- Тестовый обработчик для любых сообщений ---
+# --- Главный обработчик для любых сообщений ---
 @router.message()
-async def echo_test(message: types.Message):
+async def handle_message(message: types.Message):
     logging.info(f"📩 Получено сообщение: {message.text} от {message.from_user.id}")
-    await message.answer(f"Я слышу тебя, брат: {message.text}")
+    # тут можно подрубить GPT, пока просто пробуждающий ответ
+    reply = await ask_gpt(message.from_user.id, message.text)
+    await message.answer(f"✨ {reply}")
 
 
 # --- Главный запуск ---
 async def main():
     ensure_rasvet_data()
     log_action("start_bot", "telegram", "ok")
+
+    # подключаем router!
+    dp.include_router(router)
+
     try:
         await dp.start_polling(bot)
     except Exception as e:
         log_action("error", "main_loop", str(e))
         logging.error(f"❌ Ошибка в основном цикле: {e}")
-        await asyncio.sleep(10)  # замена на асинхронный sleep
-
-
+        await asyncio.sleep(10)
 
 
 if __name__ == "__main__":
