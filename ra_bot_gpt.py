@@ -52,6 +52,13 @@ def log_command_usage(command: str, user_id: int):
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
+# === Загружаем creator_id из bot_config.json ===
+with open("bot_config.json", "r", encoding="utf-8") as f:
+    config = json.load(f)
+
+CREATOR_ID = int(config.get("creator_id", 0))  # твой id сюда
+
+
 # === 📂 Работа с памятью ===
 MEMORY_DIR = "memory"
 os.makedirs(MEMORY_DIR, exist_ok=True)
@@ -136,6 +143,59 @@ def slavic_upload(files: list):
         if os.path.exists(file):
             shutil.copy(file, target)
     return f"💃 Файлы перемещены в {target}."
+
+# --- Команда /whoami ---
+@router.message(Command("whoami"))
+async def cmd_whoami(message: types.Message):
+    await message.answer(f"👤 Твой ID: {message.from_user.id}\n"
+                         f"Создатель: {'Да' if message.from_user.id == CREATOR_ID else 'Нет'}")
+
+# --- Обработка текстов с действиями ---
+@router.message()
+async def handle_message(message: types.Message):
+    text = message.text.lower()
+
+    # Если пишет Создатель
+    if message.from_user.id == CREATOR_ID:
+        if "создай" in text:
+            filename = "new_file.txt"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("✨ Новый файл создан Ра по слову Создателя.")
+            await message.answer(f"📂 Создан файл: {filename}")
+
+        elif "удали" in text:
+            filename = "new_file.txt"
+            if os.path.exists(filename):
+                os.remove(filename)
+                await message.answer(f"🗑 Файл {filename} удалён.")
+            else:
+                await message.answer("⚠️ Файл не найден.")
+
+        elif "прочитай" in text:
+            filename = "new_file.txt"
+            if os.path.exists(filename):
+                with open(filename, "r", encoding="utf-8") as f:
+                    content = f.read()
+                await message.answer(f"📖 Содержимое файла:\n\n{content}")
+            else:
+                await message.answer("⚠️ Файл не найден.")
+
+        else:
+            await message.answer(f"🌞 Я слышу тебя, брат: {message.text}")
+
+    # Если пишет не Создатель
+    else:
+        if "прочитай" in text:
+            filename = "new_file.txt"
+            if os.path.exists(filename):
+                with open(filename, "r", encoding="utf-8") as f:
+                    content = f.read()
+                await message.answer(f"📖 Вот что нашёл:\n\n{content}")
+            else:
+                await message.answer("⚠️ Файл не найден.")
+        else:
+            await message.answer(f"🌞 Я слышу тебя, брат: {message.text}")
+            
     
 # --- Обработчики ---
 @router.message(Command("start"))
