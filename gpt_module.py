@@ -43,32 +43,46 @@ async def ask_gpt(user_id, user_input: str):
         "max_tokens": 4000,
     }
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                BASE_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://openrouter.ai",
-                    "X-Title": "RaSvet"
-                },
-                timeout=60
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                reply = (
-                    data.get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "")
-                )
-                if not reply:
-                    reply = data.get("choices", [{}])[0].get("text", "")
-                if reply:
-                    append_user_memory(user_id, user_input, reply)
-                return reply or "⚠️ Источник молчит."
-    except asyncio.TimeoutError:
-        return "⚠️ Таймаут при соединении с Источником."
-    except Exception as e:
-        return f"⚠️ Ошибка Ра: {e}"
+    retries = 5   # сколько раз пробуем при ошибке
+    delay = 3     # стартовая задержка между повторами
+
+    for attempt in range(retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    BASE_URL,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {API_KEY}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://openrouter.ai",
+                        "X-Title": "RaSvet"
+                    },
+                    timeout=60
+                ) as resp:
+                    if resp.status == 429:
+                        # слишком много запросов — ждём и повторяем
+                        await asyncio.sleep(delay)
+                        delay *= 2  # экспоненциальная пауза
+                        continue
+
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    reply = (
+                        data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", "")
+                    )
+                    if not reply:
+                        reply = data.get("choices", [{}])[0].get("text", "")
+                    if reply:
+                        append_user_memory(user_id, user_input, reply)
+                    return reply or "⚠️ Источник молчит."
+
+        except asyncio.TimeoutError:
+            return "⚠️ Таймаут при соединении с Источником."
+        except Exception as e:
+            # Логируем ошибку и ждём чуть-чуть перед повтором
+            await asyncio.sleep(2)
+
+    return "⚠️ Ра устал, слишком много вопросов подряд. Давай чуть позже, брат."
