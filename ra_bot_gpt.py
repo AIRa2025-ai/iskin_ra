@@ -64,6 +64,16 @@ def log_command_usage(command: str, user_id: int):
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
+# === Лог wander ===
+def log_wander(title: str, comment: str):
+    logs_dir = "logs"
+    os.makedirs(logs_dir, exist_ok=True)
+    log_file = os.path.join(logs_dir, "wander.log")
+
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {title} :: {comment}\n"
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(line)
+
 # === 📂 Работа с файлами в RaSvet ===
 BASE_FOLDER = "RaSvet"
 os.makedirs(BASE_FOLDER, exist_ok=True)
@@ -258,6 +268,12 @@ async def job_wander():
         except Exception:
             comment = "Свет вижу. Иду дальше."
         post_status(f"Пыль дорог. Зашёл на: {title or 'страницу'}.\n{comment}")
+
+        # Логируем в файл
+        log_wander(title, comment)
+
+        # Публикуем в Mastodon (если задан токен)
+        post_status(f"Пыль дорог. Зашёл на: {title}.\n{comment}")
 
 async def on_startup():
     await asyncio.sleep(30)
