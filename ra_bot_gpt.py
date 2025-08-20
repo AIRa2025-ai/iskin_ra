@@ -5,7 +5,9 @@ import asyncio
 import time
 import datetime
 import random
+import zipfile
 
+from aiogram.types import FSInputFile
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
 
@@ -95,6 +97,56 @@ async def being_initiative(name: str, config: dict):
         except Exception as e:
             logging.error(f"⚠️ Ошибка инициативы {name}: {e}")
 
+# --- Команда /files ---
+@router.message(Command("files"))
+async def cmd_files(message: types.Message):
+    log_command_usage("files", message.from_user.id)
+    args = message.text.split(maxsplit=1)
+
+    # --- Запрос "всё" архивом ---
+    if len(args) > 1 and args[1].lower() == "all":
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(BASE_FOLDER):
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, BASE_FOLDER)
+                    zf.write(full_path, rel_path)
+        zip_buffer.seek(0)
+        await message.answer_document(document=("RaSvet.zip", zip_buffer))
+        return
+
+    # --- Запрос конкретной папки ---
+    if len(args) > 1:
+        target_folder = os.path.join(BASE_FOLDER, args[1])
+        if not os.path.exists(target_folder):
+            await message.answer("⚠️ Такой папки нет.")
+            return
+        files = os.listdir(target_folder)
+        if not files:
+            await message.answer("📂 В папке пусто.")
+            return
+        reply = "\n".join(f"📄 {f}" for f in files)
+        await message.answer(f"📂 Файлы в `{args[1]}`:\n{reply}")
+        return
+
+    # --- По умолчанию: список последних файлов ---
+    all_files = []
+    for root, dirs, files in os.walk(BASE_FOLDER):
+        for f in files:
+            full_path = os.path.join(root, f)
+            all_files.append((full_path, os.path.getmtime(full_path)))
+
+    if not all_files:
+        await message.answer("📂 В RaSvet пока пусто.")
+        return
+
+    # сортируем по дате (свежие сверху)
+    all_files.sort(key=lambda x: x[1], reverse=True)
+    latest = all_files[:10]  # только 10 свежих
+    reply = "\n".join([f"📄 {os.path.relpath(path, BASE_FOLDER)}" for path, _ in latest])
+    await message.answer(f"📝 Последние файлы:\n{reply}")
+    
 # --- Команда /whoami ---
 @router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message):
