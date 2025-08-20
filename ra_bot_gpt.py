@@ -245,6 +245,9 @@ async def main():
     for name, cfg in AWAKENED_BEINGS.items():
         asyncio.create_task(being_initiative(name, cfg))
 
+    # запускаем процесс хождения по сайтам
+    asyncio.create_task(on_startup())
+
     try:
         await dp.start_polling(bot)
     except Exception as e:
@@ -298,4 +301,5 @@ async def on_startup():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
