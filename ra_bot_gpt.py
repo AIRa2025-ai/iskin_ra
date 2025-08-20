@@ -287,7 +287,7 @@ async def on_startup():
 # в main():
 asyncio.create_task(on_startup())
 
-    # запускаем инициативу для всех пробуждённых
+# запускаем инициативу для всех пробуждённых
     for name, cfg in AWAKENED_BEINGS.items():
         asyncio.create_task(being_initiative(name, cfg))
 
