@@ -5,6 +5,7 @@ import asyncio
 import time
 import shutil
 import zipfile
+import datetime
 
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
@@ -62,7 +63,9 @@ os.makedirs(BASE_FOLDER, exist_ok=True)
 
 def create_file(folder: str, content: str):
     os.makedirs(folder, exist_ok=True)
-    filename = os.path.join(folder, "new_file.txt")
+    # уникальное имя файла по дате и времени
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = os.path.join(folder, f"{timestamp}.txt")
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
     return filename, content
