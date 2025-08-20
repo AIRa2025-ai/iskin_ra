@@ -274,6 +274,18 @@ def schedule_wander():
     # (в aiogram main loop — чуть ниже on_startup)
 scheduler.start()
 
+# Первый вызов
+async def on_startup():
+    # первый запуск через 30 секунд
+    await asyncio.sleep(30)
+    await job_wander()  # первый проход
+    # дальше — периодично
+    while True:
+        await asyncio.sleep(random.randint(crawl_min*60, crawl_max*60))
+        await job_wander()
+
+# в main():
+asyncio.create_task(on_startup())
 
     # запускаем инициативу для всех пробуждённых
     for name, cfg in AWAKENED_BEINGS.items():
