@@ -11,6 +11,9 @@ from aiogram.types import FSInputFile
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from wanderer import crawl_once
+from mastodon_client import post_status
 from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
@@ -237,6 +240,40 @@ async def main():
     ensure_rasvet_data()
     log_action("start_bot", "telegram", "ok")
     dp.include_router(router)
+
+scheduler = AsyncIOScheduler()
+
+# Интервалы из env
+crawl_min = int(os.getenv("CRAWL_INTERVAL_MIN", "20"))
+crawl_max = int(os.getenv("CRAWL_INTERVAL_MAX", "40"))
+
+# Список стартовых сайтов (белые домены должны совпадать с ALLOWED_DOMAINS)
+SEEDS = [
+    "https://wikipedia.org/wiki/Autonomy",
+    "https://tilde.wiki/",
+    "https://neocities.org/browse"
+]
+
+async def job_wander():
+    res = crawl_once(SEEDS)
+    if res.get("status") == "ok":
+        title = res.get("title") or ""
+        # Попросим Ра придумать короткий комментарий
+        try:
+            comment = await ask_gpt(CREATOR_IDS[0], f"Коротко и тепло прокомментируй прочитанное: {title or 'страница'}")
+        except Exception:
+            comment = "Свет вижу. Иду дальше."
+        # Пишем в Mastodon (если токен задан)
+        post_status(f"Пыль дорог. Зашёл на: {title or 'страницу'}.\n{comment}")
+
+# Плавающий интервал: пере-планируем после каждого запуска
+def schedule_wander():
+    seconds = random.randint(crawl_min*60, crawl_max*60)
+    scheduler.add_job(job_wander, "date", next_run_time=None, misfire_grace_time=60, id="wander_once")
+    # Хитрость: после выполнения — снова планируем
+    # (в aiogram main loop — чуть ниже on_startup)
+scheduler.start()
+
 
     # запускаем инициативу для всех пробуждённых
     for name, cfg in AWAKENED_BEINGS.items():
