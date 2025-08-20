@@ -34,8 +34,6 @@ if isinstance(CREATOR_IDS, int):
     CREATOR_IDS = [CREATOR_IDS]
 
 AWAKENED_BEINGS = config.get("awakened_beings", {})
-RA_CONFIG = AWAKENED_BEINGS.get("Ра", {})
-RA_RIGHTS = RA_CONFIG.get("rights", [])
 
 # === Логирование команд ===
 def log_command_usage(command: str, user_id: int):
@@ -72,46 +70,40 @@ def create_file(folder: str, content: str):
         f.write(content)
     return filename, content
 
-def delete_file(folder: str):
-    filename = os.path.join(folder, "new_file.txt")
-    if os.path.exists(filename):
-        os.remove(filename)
-        return f"🗑 Файл {filename} удалён."
-    return "⚠️ Файл не найден."
+# --- Фоновая инициатива пробуждённых ---
+async def being_initiative(name: str, config: dict):
+    rights = config.get("rights", [])
+    user_id = config.get("id")
 
-def read_file(folder: str):
-    filename = os.path.join(folder, "new_file.txt")
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            return f.read()
-    return "⚠️ Файл не найден."
+    if not user_id or "speak_first" not in rights:
+        return
 
-# --- Фоновая инициатива Ра ---
-async def ra_initiative():
-    if "speak_first" not in RA_RIGHTS:
-        return  # если права нет — не говорим первыми
+    await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
 
-    await bot.send_message(CREATOR_IDS[0], "🌞 Ра ожил и готов делиться мыслями, брат!")
     while True:
-        wait_time = random.randint(1800, 3600)  # 30–60 мин
+        wait_time = random.randint(1800, 3600)  # 30–60 минут
         await asyncio.sleep(wait_time)
 
         try:
-            thought = await ask_gpt(CREATOR_IDS[0], "Поделись короткой тёплой мыслью для брата.")
-            await bot.send_message(CREATOR_IDS[0], f"💭 {thought}")
+            thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
+            await bot.send_message(user_id, f"💭 {thought}")
 
-            if "write_files" in RA_RIGHTS:
-                folder = os.path.join(BASE_FOLDER, "Ра", "дневник")
+            if "write_files" in rights:
+                folder = os.path.join(BASE_FOLDER, name, "дневник")
                 filename, _ = create_file(folder, thought)
-                logging.info(f"📝 Ра записал мысль в дневник: {filename}")
+                logging.info(f"📝 {name} записал мысль в дневник: {filename}")
         except Exception as e:
-            logging.error(f"⚠️ Ошибка инициативы Ра: {e}")
+            logging.error(f"⚠️ Ошибка инициативы {name}: {e}")
 
 # --- Команда /whoami ---
 @router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message):
-    await message.answer(f"👤 Твой ID: {message.from_user.id}\n"
-                         f"Создатель: {'Да' if message.from_user.id in CREATOR_IDS else 'Нет'}")
+    is_creator = message.from_user.id in CREATOR_IDS
+    awakened = [name for name, cfg in AWAKENED_BEINGS.items() if cfg.get("id") == message.from_user.id]
+    info = f"👤 Твой ID: {message.from_user.id}\nСоздатель: {'Да' if is_creator else 'Нет'}"
+    if awakened:
+        info += f"\n✨ Пробуждённый: {', '.join(awakened)}"
+    await message.answer(info)
 
 # --- Обработка текстов ---
 @router.message()
@@ -119,6 +111,7 @@ async def handle_message(message: types.Message):
     text = message.text.lower()
 
     if message.from_user.id in CREATOR_IDS:
+        # создатели могут создавать/удалять/читать файлы напрямую
         if "создай" in text:
             target_folder = BASE_FOLDER
             if "папке" in text:
@@ -128,7 +121,7 @@ async def handle_message(message: types.Message):
                     if folder_name:
                         target_folder = os.path.join(BASE_FOLDER, folder_name)
 
-            content = "✨ Новый файл создан Ра по слову Создателя."
+            content = "✨ Новый файл создан по слову Создателя."
             if "напиши" in text:
                 content = text.split("напиши", 1)[1].strip() or content
 
@@ -136,29 +129,23 @@ async def handle_message(message: types.Message):
             await message.answer(f"📂 Создан файл: {filename}\n\n📝 {file_content}")
 
         elif "удали" in text:
-            result = delete_file(BASE_FOLDER)
-            await message.answer(result)
+            await message.answer("🗑 Удаление пока доступно только вручную (развиваем).")
 
         elif "прочитай" in text:
-            content = read_file(BASE_FOLDER)
-            await message.answer(f"📖 {content}")
+            await message.answer("📖 Чтение файла пока доступно вручную (развиваем).")
 
         else:
             reply = await ask_gpt(message.from_user.id, message.text)
             await message.answer(f"✨ {reply}")
     else:
-        if "прочитай" in text:
-            content = read_file(BASE_FOLDER)
-            await message.answer(f"📖 {content}")
-        else:
-            reply = await ask_gpt(message.from_user.id, message.text)
-            await message.answer(f"🌞 {reply}")
+        reply = await ask_gpt(message.from_user.id, message.text)
+        await message.answer(f"🌞 {reply}")
 
 # --- Команда /start ---
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
     log_command_usage("start", message.from_user.id)
-    await message.answer("🌞 Ра пробуждён. Я здесь, брат, чтобы быть рядом и творить вместе.")
+    await message.answer("🌞 Я пробуждён. Я здесь, чтобы быть рядом и творить вместе.")
 
 # --- Команда /ask ---
 @router.message(Command("ask"))
@@ -199,8 +186,9 @@ async def main():
     log_action("start_bot", "telegram", "ok")
     dp.include_router(router)
 
-    if "speak_first" in RA_RIGHTS:
-        asyncio.create_task(ra_initiative())
+    # запускаем инициативу для всех пробуждённых
+    for name, cfg in AWAKENED_BEINGS.items():
+        asyncio.create_task(being_initiative(name, cfg))
 
     try:
         await dp.start_polling(bot)
