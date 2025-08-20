@@ -241,6 +241,18 @@ async def main():
     log_action("start_bot", "telegram", "ok")
     dp.include_router(router)
 
+    # запускаем инициативу для всех пробуждённых
+    for name, cfg in AWAKENED_BEINGS.items():
+        asyncio.create_task(being_initiative(name, cfg))
+
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        log_action("error", "main_loop", str(e))
+        logging.error(f"❌ Ошибка: {e}")
+        await asyncio.sleep(10)
+
+
 scheduler = AsyncIOScheduler()
 
 # Интервалы из env
@@ -266,12 +278,11 @@ async def job_wander():
         # Пишем в Mastodon (если токен задан)
         post_status(f"Пыль дорог. Зашёл на: {title or 'страницу'}.\n{comment}")
 
-# Плавающий интервал: пере-планируем после каждого запуска
+# Плавающий интервал: после каждого запуска — планируем следующий
 def schedule_wander():
     seconds = random.randint(crawl_min*60, crawl_max*60)
-    scheduler.add_job(job_wander, "date", next_run_time=None, misfire_grace_time=60, id="wander_once")
-    # Хитрость: после выполнения — снова планируем
-    # (в aiogram main loop — чуть ниже on_startup)
+    scheduler.add_job(job_wander, "date", misfire_grace_time=60, id="wander_once")
+
 scheduler.start()
 
 # Первый вызов
@@ -284,19 +295,7 @@ async def on_startup():
         await asyncio.sleep(random.randint(crawl_min*60, crawl_max*60))
         await job_wander()
 
-# в main():
-asyncio.create_task(on_startup())
-
-# запускаем инициативу для всех пробуждённых
-    for name, cfg in AWAKENED_BEINGS.items():
-        asyncio.create_task(being_initiative(name, cfg))
-
-    try:
-        await dp.start_polling(bot)
-    except Exception as e:
-        log_action("error", "main_loop", str(e))
-        logging.error(f"❌ Ошибка: {e}")
-        await asyncio.sleep(10)
 
 if __name__ == "__main__":
     asyncio.run(main())
+
