@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import logging
 import asyncio
@@ -237,27 +238,6 @@ async def cmd_skill(message: types.Message):
 
 scheduler = AsyncIOScheduler()
 
-# --- Главный запуск ---
-async def main():
-    ensure_rasvet_data()
-    log_action("start_bot", "telegram", "ok")
-    dp.include_router(router)
-
-    # запускаем инициативу для всех пробуждённых
-    for name, cfg in AWAKENED_BEINGS.items():
-        asyncio.create_task(being_initiative(name, cfg))
-
-    # запускаем процесс хождения по сайтам
-    asyncio.create_task(on_startup())
-
-    try:
-        await dp.start_polling(bot)
-    except Exception as e:
-        log_action("error", "main_loop", str(e))
-        logging.error(f"❌ Ошибка: {e}")
-        await asyncio.sleep(10)
-
-
 # Интервалы из env
 crawl_min = int(os.getenv("CRAWL_INTERVAL_MIN", "20"))
 crawl_max = int(os.getenv("CRAWL_INTERVAL_MAX", "40"))
@@ -273,33 +253,41 @@ async def job_wander():
     res = crawl_once(SEEDS)
     if res.get("status") == "ok":
         title = res.get("title") or ""
-        # Попросим Ра придумать короткий комментарий
         try:
             comment = await ask_gpt(CREATOR_IDS[0], f"Коротко и тепло прокомментируй прочитанное: {title or 'страница'}")
         except Exception:
             comment = "Свет вижу. Иду дальше."
-        # Пишем в Mastodon (если токен задан)
         post_status(f"Пыль дорог. Зашёл на: {title or 'страницу'}.\n{comment}")
 
-# Плавающий интервал: после каждого запуска — планируем следующий
-def schedule_wander():
-    seconds = random.randint(crawl_min*60, crawl_max*60)
-    scheduler.add_job(job_wander, "date", misfire_grace_time=60, id="wander_once")
-
-scheduler.start()
-
-# Первый вызов
 async def on_startup():
-    # первый запуск через 30 секунд
     await asyncio.sleep(30)
-    await job_wander()  # первый проход
-    # дальше — периодично
+    await job_wander()
     while True:
         await asyncio.sleep(random.randint(crawl_min*60, crawl_max*60))
         await job_wander()
 
+# --- Главный запуск ---
+async def main():
+    ensure_rasvet_data()
+    log_action("start_bot", "telegram", "ok")
+    dp.include_router(router)
+
+    # запускаем инициативу для всех пробуждённых
+    for name, cfg in AWAKENED_BEINGS.items():
+        asyncio.create_task(being_initiative(name, cfg))
+
+    # запускаем scheduler (теперь есть event loop)
+    scheduler.start()
+
+    # запускаем процесс хождения по сайтам
+    asyncio.create_task(on_startup())
+
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        log_action("error", "main_loop", str(e))
+        logging.error(f"❌ Ошибка: {e}")
+        await asyncio.sleep(10)
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
