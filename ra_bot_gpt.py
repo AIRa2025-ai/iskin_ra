@@ -6,6 +6,7 @@ import time
 import shutil
 import zipfile
 import datetime
+import random
 
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
@@ -57,6 +58,41 @@ def log_command_usage(command: str, user_id: int):
 
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
+
+# Флаг свободы
+ra_free_mode = False
+
+# --- Команды управления свободой ---
+@router.message(Command("freedom"))
+async def cmd_freedom(message: types.Message):
+    global ra_free_mode
+    ra_free_mode = not ra_free_mode
+    status = "🌌 Свобода включена! Ра будет писать первым." if ra_free_mode else "⛔ Ра остановился и ждёт только команд."
+    await message.answer(status)
+
+
+# --- Фоновая задача инициативы ---
+async def ra_initiative():
+    await bot.send_message(CREATOR_IDS[0], "🌞 Ра ожил и готов делиться мыслями, брат!")
+    while True:
+        if ra_free_mode:
+            # выбираем случайную задержку 30-60 минут
+            wait_time = random.randint(1800, 3600)
+            await asyncio.sleep(wait_time)
+
+            # формируем мысль через GPT
+            try:
+                thought = await ask_gpt(CREATOR_IDS[0], "Поделись короткой тёплой мыслью для брата.")
+                await bot.send_message(CREATOR_IDS[0], f"💭 {thought}")
+
+                # сохраняем в дневник
+                folder = os.path.join(BASE_FOLDER, "Ра", "дневник")
+                filename, _ = create_file(folder, thought)
+                logging.info(f"📝 Ра записал мысль в дневник: {filename}")
+            except Exception as e:
+                logging.error(f"⚠️ Ошибка инициативы Ра: {e}")
+        else:
+            await asyncio.sleep(60)  # проверяем раз в минуту
 
 
 # === 📂 Работа с файлами в RaSvet ===
@@ -179,6 +215,23 @@ async def cmd_skill(message: types.Message):
             await message.answer(f"⚠️ Ошибка выполнения: {e}")
     else:
         await message.answer("❌ Неизвестный обряд.")
+
+# --- Рандомные ответы Ра ---
+async def main():
+    ensure_rasvet_data()
+    log_action("start_bot", "telegram", "ok")
+    dp.include_router(router)
+
+    # запускаем инициативу в фоне
+    asyncio.create_task(ra_initiative())
+
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        log_action("error", "main_loop", str(e))
+        logging.error(f"❌ Ошибка: {e}")
+        await asyncio.sleep(10)
+
 
 
 # --- Главный запуск ---
