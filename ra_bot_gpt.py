@@ -31,7 +31,9 @@ router = Router()
 with open("bot_config.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
-CREATOR_ID = int(config.get("creator_id", 0))
+CREATOR_IDS = config.get("creator_id", [])
+if isinstance(CREATOR_IDS, int):  # если вдруг будет одно число
+    CREATOR_IDS = [CREATOR_IDS]
 
 # === Логирование команд ===
 def log_command_usage(command: str, user_id: int):
@@ -89,7 +91,7 @@ def read_file(folder: str):
 @router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message):
     await message.answer(f"👤 Твой ID: {message.from_user.id}\n"
-                         f"Создатель: {'Да' if message.from_user.id == CREATOR_ID else 'Нет'}")
+                         f"Создатель: {'Да' if message.from_user.id in CREATOR_IDS else 'Нет'}")
 
 
 # --- Обработка текстов (Создатель/другие) ---
@@ -97,8 +99,8 @@ async def cmd_whoami(message: types.Message):
 async def handle_message(message: types.Message):
     text = message.text.lower()
 
-    # --- Создатель ---
-    if message.from_user.id == CREATOR_ID:
+    # --- Создатели ---
+    if message.from_user.id in CREATOR_IDS:
         if "создай" in text:
             target_folder = BASE_FOLDER
             if "папке" in text:
