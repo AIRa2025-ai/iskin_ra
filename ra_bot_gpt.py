@@ -235,6 +235,8 @@ async def cmd_skill(message: types.Message):
     else:
         await message.answer("❌ Неизвестный обряд.")
 
+scheduler = AsyncIOScheduler()
+
 # --- Главный запуск ---
 async def main():
     ensure_rasvet_data()
@@ -255,8 +257,6 @@ async def main():
         logging.error(f"❌ Ошибка: {e}")
         await asyncio.sleep(10)
 
-
-scheduler = AsyncIOScheduler()
 
 # Интервалы из env
 crawl_min = int(os.getenv("CRAWL_INTERVAL_MIN", "20"))
