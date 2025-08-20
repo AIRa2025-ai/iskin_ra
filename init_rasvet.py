@@ -1,9 +1,8 @@
 import os
 import json
 import logging
-import subprocess
 import zipfile
-
+import requests
 
 def ensure_rasvet_data():
     """
@@ -24,13 +23,17 @@ def ensure_rasvet_data():
             logging.info(f"✅ Папка {knowledge_folder} уже существует, пропускаем загрузку.")
             return
 
-        # если архива нет — качаем
+        # качаем архив, если его нет
         if not os.path.exists(archive_path):
-            logging.info(f"⬇️ Качаем {archive_path} из Mega...")
+            logging.info(f"⬇️ Качаем архив из Mega...")
             try:
-                subprocess.run(["megadl", mega_url, "--path", archive_path], check=True)
+                response = requests.get(mega_url, stream=True)
+                response.raise_for_status()
+                with open(archive_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
             except Exception as e:
-                logging.error(f"❌ Ошибка при загрузке с Mega: {e}")
+                logging.error(f"❌ Ошибка при загрузке: {e}")
                 return
 
         # распаковываем архив
@@ -38,6 +41,7 @@ def ensure_rasvet_data():
         try:
             with zipfile.ZipFile(archive_path, "r") as zip_ref:
                 zip_ref.extractall(knowledge_folder)
+            os.remove(archive_path)  # удаляем архив после распаковки
         except Exception as e:
             logging.error(f"❌ Ошибка при распаковке: {e}")
             return
