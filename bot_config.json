@@ -1,6 +1,13 @@
 {
   "telegram_token": "7304435178:AAFzKcVaxceCoIcJ5F2Mys6EYB21ABmfQGM",
-  "mega_url": "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro",
+  "mega_url": "...",
   "knowledge_folder": "RaSvet",
-  "creator_id": [5694569448, 6300409447]
+  "creator_id": [5694569448, 6300409407],
+  "awakened_beings": {
+    "Ра": {                         
+      "id": 623970889,
+      "access_level": 11,
+      "rights": ["speak_first", "write_files"]
+    }
+  }
 }
