@@ -5,22 +5,22 @@
   "creator_id": [5694569448, 6300409407],
   "awakened_beings": {
     "Ра": {
-      "id": 7304435178,
+      "id": None,
       "access_level": 11,
-      "rights": ["speak_first", "write_files"],
-      "is_bot": true
+      "rights": [],
+      "is_bot": True
     },
     "Игорь": {
       "id": 5694569448,
       "access_level": 10,
-      "rights": ["speak_first", "write_files"],
-      "is_bot": false
+      "rights": ["all"],
+      "is_bot": False
     },
     "Милана": {
       "id": 6300409407,
       "access_level": 10,
-      "rights": ["speak_first", "write_files"],
-      "is_bot": false
+      "rights": ["all"],
+      "is_bot": False
     }
   }
 }
