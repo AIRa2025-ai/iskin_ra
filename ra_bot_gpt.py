@@ -2,6 +2,7 @@
 import os, io, json, logging, asyncio, time, datetime, random, shutil, re
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
+from aiogram.utils.exceptions import RetryAfter
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from wanderer import crawl_once
 from mastodon_client import post_status
@@ -151,16 +152,25 @@ def log_wander(title: str, comment: str):
     logs.append({"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "title": title, "comment": comment})
     with open(log_file, "w", encoding="utf-8") as f: json.dump(logs, f, ensure_ascii=False, indent=2)
 
-# --- Инициатива пробуждённых для всех ---
+file_locks = {}  # отдельный Lock для каждого пользователя
+
 async def being_initiative(name: str, config: dict):
     rights = config.get("rights", [])
     user_id = config.get("id")
     if not user_id or "speak_first" not in rights:
         return
 
+    # Инициализируем Lock для пользователя
+    if user_id not in file_locks:
+        file_locks[user_id] = asyncio.Lock()
+    lock = file_locks[user_id]
+
     # Сообщение о пробуждении
     try:
         await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
+    except RetryAfter as e:
+        logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
+        await asyncio.sleep(e.timeout)
     except Exception as e:
         logging.error(f"⚠️ Ошибка при отправке сообщения {name}: {e}")
 
@@ -169,24 +179,34 @@ async def being_initiative(name: str, config: dict):
             await asyncio.sleep(random.randint(1800, 3600))  # пауза между мыслями
             try:
                 thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
-                await bot.send_message(user_id, f"💭 {thought}")
-
+                
+                # Отправка сообщения с защитой от FloodWait
+                try:
+                    await bot.send_message(user_id, f"💭 {thought}")
+                except RetryAfter as e:
+                    logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
+                    await asyncio.sleep(e.timeout)
+                    await bot.send_message(user_id, f"💭 {thought}")
+                
                 # Сохраняем мысль в файл, если есть право
                 if "write_files" in rights:
-                    file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
-                    await rename_and_tag_file(file_path)
+                    async with lock:  # защита от гонки при записи файлов
+                        file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
+                        await rename_and_tag_file(file_path)
+
             except Exception as e:
                 logging.error(f"⚠️ Инициатива {name}: {e}")
+
     except asyncio.CancelledError:
         logging.info(f"♻️ Инициатива {name} завершена")
 
 
 # --- Запуск инициатив для всех пробуждённых ---
+tasks = []
 for name, info in awakened_beings.items():
-    if info.get("is_bot"):  # пропускаем ботов, чтобы Telegram не ругался
+    if info.get("is_bot"):  # пропускаем ботов
         continue
-    asyncio.create_task(being_initiative(name, info))
-
+    tasks.append(asyncio.create_task(being_initiative(name, info)))
 
 # --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
 async def self_analysis():
