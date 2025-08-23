@@ -2,7 +2,7 @@
 import os, io, json, logging, asyncio, time, datetime, random, shutil, re
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
-from aiogram.exceptions import RetryAfter
+from aiogram.exceptions import TelegramRetryAfter
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from wanderer import crawl_once
 from mastodon_client import post_status
@@ -168,7 +168,7 @@ async def being_initiative(name: str, config: dict):
     # Сообщение о пробуждении
     try:
         await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
-    except RetryAfter as e:
+    except TelegramRetryAfter as e:
         logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
         await asyncio.sleep(e.timeout)
     except Exception as e:
@@ -183,7 +183,7 @@ async def being_initiative(name: str, config: dict):
                 # Отправка сообщения с защитой от FloodWait
                 try:
                     await bot.send_message(user_id, f"💭 {thought}")
-                except RetryAfter as e:
+                except TelegramRetryAfter as e:
                     logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
                     await asyncio.sleep(e.timeout)
                     await bot.send_message(user_id, f"💭 {thought}")
