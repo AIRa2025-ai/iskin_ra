@@ -139,6 +139,30 @@ async def auto_publish_files():
                 except Exception as e:
                     logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
 
+# --- Ежедневный самоанализ и работа с файлами ---
+async def self_analysis():
+    while True:
+        try:
+            logging.info("🌀 Запуск самоанализа RaSvet")
+
+            # Архивируем старые файлы (старше 30 дней)
+            archive_old_files(days=30)
+
+            # Тегируем новые файлы
+            await auto_tag_all_files()
+
+            # Суммарное резюме дня
+            summary_text = summarize_folder(BASE_FOLDER)
+            ts = datetime.datetime.now().strftime("%Y-%m-%d")
+            create_file(os.path.join(BASE_FOLDER, "самоанализ"), f"Самоанализ на {ts}:\n\n{summary_text[:10000]}")
+
+            logging.info("✅ Самоанализ завершён")
+
+        except Exception as e:
+            logging.error(f"❌ Ошибка в self_analysis: {e}")
+
+        # Пауза 24 часа
+        await asyncio.sleep(24 * 60 * 60)
 
 # --- Логирование ---
 def log_command_usage(command: str, user_id: int):
