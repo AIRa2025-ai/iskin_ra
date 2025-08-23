@@ -111,19 +111,48 @@ async def auto_tag_all_files():
         for f in files:
             if f.endswith(".txt") and "tagged" not in root:
                 await rename_and_tag_file(os.path.join(root,f))
+# --- Автопубликация новых файлов ---
+PUBLISH_FOLDER = os.path.join(BASE_FOLDER, "Публикации")
+os.makedirs(PUBLISH_FOLDER, exist_ok=True)
 
-# --- Автопубликация файлов ---
-async def auto_publish(file_path: str, title: str, tags: str):
+async def publish_new_file(file_path: str):
+    """Публикует файл в Telegram и Mastodon после тегирования"""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        # Отправляем в Mastodon
-        post_status(f"📂 {title}\n{content[:1000]}...\n#RaSvet #{tags}")
-        # Отправляем в Telegram канал (если есть переменная окружения TELEGRAM_CHANNEL_ID)
-        channel_id = os.getenv("TELEGRAM_CHANNEL_ID")
-        if channel_id:
-            await bot.send_message(channel_id, f"📂 {title}\n{content[:2000]}\n#RaSvet #{tags}")
-        logging.info(f"🚀 Файл опубликован: {title}")
+        
+        # Отправка в Telegram каждому пробуждённому
+        for name, cfg in AWAKENED_BEINGS.items():
+            user_id = cfg.get("id")
+            if user_id:
+                try:
+                    await bot.send_message(user_id, f"📢 Новое творение RaSvet:\n{content[:2000]}")
+                except Exception as e:
+                    logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}")
+        
+        # Отправка в Mastodon
+        try:
+            post_status(content[:5000])  # обрезаем до лимита
+        except Exception as e:
+            logging.error(f"❌ Ошибка постинга в Mastodon: {e}")
+
+        # Перемещаем файл в папку публикаций
+        new_path = os.path.join(PUBLISH_FOLDER, os.path.basename(file_path))
+        shutil.move(file_path, new_path)
+        logging.info(f"🚀 Файл опубликован и перемещён: {os.path.basename(file_path)}")
+
+    except Exception as e:
+        logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
+
+async def auto_publish_files():
+    """Находит новые файлы и публикует их"""
+    for root, dirs, files in os.walk(BASE_FOLDER):
+        for f in files:
+            if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
+                file_path = os.path.join(root, f)
+                await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
+                await publish_new_file(file_path)
+             logging.info(f"🚀 Файл опубликован: {title}")
     except Exception as e:
         logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
 
@@ -167,21 +196,36 @@ async def being_initiative(name: str, config: dict):
             except Exception as e: logging.error(f"⚠️ Инициатива {name}: {e}")
     except asyncio.CancelledError: logging.info(f"♻️ Инициатива {name} завершена")
 
-# --- Самоанализ и рекомендации RaSvet ---
+# --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
 async def self_analysis():
     while True:
-        await asyncio.sleep(24*3600)
+        await asyncio.sleep(24*3600)  # раз в день
         try:
+            logging.info("🔎 Начинаем ежедневный самоанализ RaSvet...")
+            
+            # 1️⃣ Сводка текущих файлов
             summary = summarize_folder(BASE_FOLDER)
+            
+            # 2️⃣ Запрос советов от GPT
             advice = await ask_gpt(CREATOR_IDS[0],
                 f"Проанализируй структуру RaSvet, предложи новые категории и улучшения организации файлов.\n\nСводка:\n{summary[:2000]}"
             )
             create_file(BASE_FOLDER, f"🪞 Самоанализ RaSvet:\n{advice}")
+            logging.info("📝 Рекомендации от GPT записаны.")
+            
+            # 3️⃣ Архивируем старые файлы
             archive_old_files(days=30)
+            
+            # 4️⃣ Автоматически тегируем и переименовываем новые файлы
             await auto_tag_all_files()
-            logging.info("✅ RaSvet проанализирован, рекомендации записаны, файлы переименованы, тегированы и опубликованы.")
+            
+            # 5️⃣ Автопубликация новых файлов
+            await auto_publish_files()
+            
+            logging.info("✅ Ежедневный самоанализ, архивирование, тегирование и публикация завершены.")
         except Exception as e:
-            logging.error(f"❌ Ошибка самоанализа RaSvet: {e}")
+            logging.error(f"❌ Ошибка ежедневного самоанализа RaSvet: {e}")
+
 
 # --- Команды ---
 @router.message(Command("start"))
