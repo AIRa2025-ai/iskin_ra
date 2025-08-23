@@ -27,7 +27,7 @@ MEMORY_FOLDER = "memory"
 os.makedirs(BASE_FOLDER, exist_ok=True)
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
-CREATOR_IDS = [123456789]  # пример, замените на реальные ID
+CREATOR_IDS = [5694569448, 6300409407]  # пример, замените на реальные ID
 
 # --- Работа с памятью ---
 def get_memory_path(user_id: int):
