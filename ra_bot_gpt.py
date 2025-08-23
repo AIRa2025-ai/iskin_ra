@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, datetime, random, re, zipfile
+import os, io, json, logging, asyncio, datetime, random, re, zipfile, requests
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
@@ -31,9 +31,8 @@ os.makedirs(MEMORY_FOLDER, exist_ok=True)
 CREATOR_IDS = [5694569448, 6300409407]  # ID создателей
 
 # --- Mega ---
-MEGA_EMAIL = os.getenv("MEGA_EMAIL")       # email для Mega
-MEGA_PASSWORD = os.getenv("MEGA_PASSWORD") # пароль для Mega
-MEGA_FILE = "RaSvet.zip"
+MEGA_URL = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
+MEGA_ZIP = "RaSvet.zip"
 
 # --- Работа с памятью ---
 def get_memory_path(user_id: int):
@@ -103,21 +102,31 @@ def read_all_rasvet_files():
 
 # --- Mega загрузка и распаковка ---
 def download_and_extract_rasvet():
-    if not MEGA_EMAIL or not MEGA_PASSWORD:
-        logging.warning("⚠️ Mega данные не заданы. Пропускаем загрузку RaSvet.zip")
+    if not MEGA_URL:
+        logging.warning("⚠️ Ссылка Mega не задана. Пропускаем загрузку RaSvet.zip")
         return
-    mega = Mega()
-    m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
-    logging.info("⬇️ Скачиваем RaSvet.zip с Mega...")
-    file = m.find(MEGA_FILE)
-    if not file:
-        logging.warning("⚠️ Не найден RaSvet.zip на Mega")
+
+    # Скачиваем файл
+    try:
+        logging.info("⬇️ Скачиваем RaSvet.zip с Mega...")
+        response = requests.get(MEGA_URL, stream=True)
+        response.raise_for_status()
+        with open(MEGA_ZIP, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        logging.info("📂 RaSvet.zip скачан")
+    except Exception as e:
+        logging.error(f"❌ Ошибка скачивания RaSvet.zip: {e}")
         return
-    m.download(file, dest_filename=MEGA_FILE)
-    logging.info("📂 Распаковываем RaSvet.zip...")
-    with zipfile.ZipFile(MEGA_FILE, 'r') as zip_ref:
-        zip_ref.extractall(BASE_FOLDER)
-    logging.info("✅ Файлы RaSvet готовы к использованию")
+
+    # Распаковываем
+    try:
+        logging.info("📂 Распаковываем RaSvet.zip...")
+        with zipfile.ZipFile(MEGA_ZIP, 'r') as zip_ref:
+            zip_ref.extractall(BASE_FOLDER)
+        logging.info("✅ Файлы RaSvet готовы к использованию")
+    except Exception as e:
+        logging.error(f"❌ Ошибка распаковки RaSvet.zip: {e}")
 
 # --- Умная организация ---
 async def smart_rasvet_organizer(interval_hours: int = 24):
