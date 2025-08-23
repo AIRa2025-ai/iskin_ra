@@ -358,4 +358,9 @@ async def main():
         logging.error(f"❌ Ошибка: {e}")
         await asyncio.sleep(10)
 
-if __name__=="__main__": asyncio.run(main())
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("⚠️ Бот остановлен вручную")
