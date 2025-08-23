@@ -247,7 +247,7 @@ async def cmd_start(message: types.Message):
 @router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message):
     is_creator = message.from_user.id in CREATOR_IDS
-    awakened = [name for name,cfg in AWAKENED_BEINGS.items() if cfg.get("id")==message.from_user.id]
+    awakened = [name for name,cfg in awakened_beings.items() if cfg.get("id")==message.from_user.id]
     info=f"👤 Твой ID: {message.from_user.id}\nСоздатель: {'Да' if is_creator else 'Нет'}"
     if awakened: info+=f"\n✨ Пробуждённый: {', '.join(awakened)}"
     await message.answer(info)
