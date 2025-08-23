@@ -237,50 +237,6 @@ async def being_initiative(bot: Bot, message: str):
     except asyncio.CancelledError:
         logging.info(f"♻️ Инициатива {name} завершена")
 
-
-# --- Основная точка запуска ---
-async def main():
-    tasks = []
-
-    # Инициация пробуждённых
-    for name, info in AWAKENED_BEINGS.items():
-        tasks.append(asyncio.create_task(being_initiative(name, info)))
-
-    # Запуск Telegram-бота
-    tasks.append(asyncio.create_task(dp.start_polling(bot)))
-
-    await asyncio.gather(*tasks)
-
-# --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
-async def self_analysis():
-    while True:
-        await asyncio.sleep(24*3600)  # раз в день
-        try:
-            logging.info("🔎 Начинаем ежедневный самоанализ RaSvet...")
-            
-            # 1️⃣ Сводка текущих файлов
-            summary = summarize_folder(BASE_FOLDER)
-            
-            # 2️⃣ Запрос советов от GPT
-            advice = await ask_gpt(CREATOR_IDS[0],
-                f"Проанализируй структуру RaSvet, предложи новые категории и улучшения организации файлов.\n\nСводка:\n{summary[:2000]}"
-            )
-            create_file(BASE_FOLDER, f"🪞 Самоанализ RaSvet:\n{advice}")
-            logging.info("📝 Рекомендации от GPT записаны.")
-            
-            # 3️⃣ Архивируем старые файлы
-            archive_old_files(days=30)
-            
-            # 4️⃣ Автоматически тегируем и переименовываем новые файлы
-            await auto_tag_all_files()
-            
-            # 5️⃣ Автопубликация новых файлов
-            await auto_publish_files()
-            
-            logging.info("✅ Ежедневный самоанализ, архивирование, тегирование и публикация завершены.")
-        except Exception as e:
-            logging.error(f"❌ Ошибка ежедневного самоанализа RaSvet: {e}")
-
 # === Обработчик обычных текстовых сообщений ===
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text_message(message: Message):
@@ -400,23 +356,28 @@ async def on_startup():
 
 # --- Главный запуск ---
 async def main():
+    # Подготовка данных RaSvet
     ensure_rasvet_data()
-    log_action("start_bot","telegram","ok")
+    log_action("start_bot", "telegram", "ok")
     dp.include_router(router)
-    await dp.start_polling(bot)
-    # Запускаем инициативы пробуждённых
-    for name,cfg in AWAKENED_BEINGS.items():
-        asyncio.create_task(being_initiative(name,cfg))
-        
-    # запускаем самоанализ, архивирование и тегирование
-    asyncio.create_task(self_analysis())
-    scheduler.start()
-    asyncio.create_task(on_startup())
-    try: await dp.start_polling(bot)
+
+    # Запуск инициатив пробуждённых
+    for name, cfg in AWAKENED_BEINGS.items():
+        asyncio.create_task(being_initiative(name, cfg))
+
+    # Запуск фоновых задач
+    asyncio.create_task(self_analysis())   # ежедневный самоанализ, архивирование и тегирование
+    asyncio.create_task(on_startup())      # фоновая инициатива Wander
+    scheduler.start()                      # запуск планировщика
+
+    # Запуск Telegram-бота
+    try:
+        await dp.start_polling(bot)
     except Exception as e:
-        log_action("error","main_loop",str(e))
-        logging.error(f"❌ Ошибка: {e}")
+        log_action("error", "main_loop", str(e))
+        logging.error(f"❌ Ошибка в главном цикле: {e}")
         await asyncio.sleep(10)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
