@@ -144,22 +144,28 @@ async def self_analysis():
     while True:
         try:
             logging.info("🌀 Запуск самоанализа RaSvet")
-
-            # Архивируем старые файлы (старше 30 дней)
             archive_old_files(days=30)
-
-            # Тегируем новые файлы
             await auto_tag_all_files()
 
-            # Суммарное резюме дня
-            summary_text = summarize_folder(BASE_FOLDER)
+            # Суммируем последние 500 файлов
+            all_files = []
+            for root, dirs, files in os.walk(BASE_FOLDER):
+                all_files += [os.path.join(root, f) for f in files if f.endswith(".txt")]
+            all_files = sorted(all_files, key=os.path.getmtime, reverse=True)[:500]
+
+            summary_text = ""
+            for path in all_files:
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        summary_text += f.read() + "\n---\n"
+                except: continue
+
             ts = datetime.datetime.now().strftime("%Y-%m-%d")
             create_file(os.path.join(BASE_FOLDER, "самоанализ"), f"Самоанализ на {ts}:\n\n{summary_text[:10000]}")
 
             logging.info("✅ Самоанализ завершён")
-
         except Exception as e:
-            logging.error(f"❌ Ошибка в self_analysis: {e}")
+            logging.error(f"❌ Ошибка self_analysis: {e}")
 
         # Пауза 24 часа
         await asyncio.sleep(24 * 60 * 60)
@@ -190,36 +196,30 @@ def log_wander(title: str, comment: str):
 file_locks = {}  # отдельный Lock для каждого пользователя
 
 async def being_initiative(name: str, info: dict):
-    """Инициатива пробуждённого существа без спама и падений."""
     user_id = info.get("id")
     rights = info.get("rights", [])
+
     if not user_id or info.get("is_bot", False):
         logging.info(f"⚠️ Пропускаем {name}, нет ID или это бот")
         return
 
-    # Проверка доступности чата
+    # Проверка чата
     try:
         await bot.get_chat(user_id)
     except Exception as e:
         logging.error(f"❌ Не могу найти чат для {name} ({user_id}): {e}")
-        return  # не запускать цикл, если чат недоступен
-
-    # Инициализация Lock
-    if user_id not in file_locks:
-        file_locks[user_id] = asyncio.Lock()
-    lock = file_locks[user_id]
-
-    # Первое приветствие
-    try:
-        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
-    except TelegramRetryAfter as e:
-        await asyncio.sleep(e.timeout)
-        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
-    except Exception as e:
-        logging.error(f"⚠️ Ошибка отправки приветствия {name}: {e}")
         return
 
-    # Отправка первой мысли сразу
+    lock = file_locks.setdefault(user_id, asyncio.Lock())
+
+    # Приветствие один раз
+    try:
+        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
+    except Exception as e:
+        logging.error(f"⚠️ Ошибка приветствия {name}: {e}")
+        return
+
+    # Отправка одной мысли сразу
     if "write_files" in rights:
         try:
             thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
@@ -230,34 +230,21 @@ async def being_initiative(name: str, info: dict):
         except Exception as e:
             logging.error(f"⚠️ Ошибка первой мысли {name}: {e}")
 
-    # Постоянный цикл мыслей
-    try:
+    # Запускаем **циклический таймер раз в день**, не 30–60 минут
+    async def daily_thought():
         while True:
-            await asyncio.sleep(random.randint(1800, 3600))  # 30–60 мин
+            await asyncio.sleep(24*60*60)  # один раз в сутки
             try:
                 thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
-                # Отправка безопасно
-                try:
-                    await bot.send_message(user_id, f"💭 {thought}")
-                except TelegramRetryAfter as e:
-                    await asyncio.sleep(e.timeout)
-                    await bot.send_message(user_id, f"💭 {thought}")
-                except TelegramBadRequest as e:
-                    logging.error(f"❌ Чат недоступен {name}: {e}")
-                    break  # прекращаем цикл
-
-                # Сохраняем мысль в файл
-                if "write_files" in rights:
-                    async with lock:
-                        file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
-                        await rename_and_tag_file(file_path)
-
+                async with lock:
+                    file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
+                    await rename_and_tag_file(file_path)
+                await bot.send_message(user_id, f"💭 {thought}")
             except Exception as e:
-                logging.error(f"⚠️ Ошибка цикла мыслей {name}: {e}")
+                logging.error(f"⚠️ Цикл мысли {name} прерван: {e}")
+                break
 
-    except asyncio.CancelledError:
-        logging.info(f"♻️ Инициатива {name} завершена")
-
+    asyncio.create_task(daily_thought())
 
 # === Обработчик обычных текстовых сообщений ===
 @router.message(F.text & ~F.text.startswith("/"))
