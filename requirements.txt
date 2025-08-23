@@ -5,3 +5,4 @@ beautifulsoup4
 tldextract
 apscheduler
 Mastodon.py
+openai>=1.30.0
