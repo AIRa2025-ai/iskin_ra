@@ -255,8 +255,10 @@ async def main():
     ensure_rasvet_data()
     log_action("start_bot","telegram","ok")
     dp.include_router(router)
+    # Запускаем инициативы пробуждённых
     for name,cfg in AWAKENED_BEINGS.items(): asyncio.create_task(being_initiative(name,cfg))
-    asyncio.create_task(self_analysis())  # запускаем самоанализ, архивирование и тегирование
+    # запускаем самоанализ, архивирование и тегирование
+    asyncio.create_task(self_analysis())
     scheduler.start()
     asyncio.create_task(on_startup())
     try: await dp.start_polling(bot)
