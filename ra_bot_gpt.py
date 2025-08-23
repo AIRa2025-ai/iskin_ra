@@ -2,7 +2,7 @@
 import os, io, json, logging, asyncio, time, datetime, random, shutil, re
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
-from aiogram.utils.exceptions import RetryAfter
+from aiogram.exceptions import RetryAfter
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from wanderer import crawl_once
 from mastodon_client import post_status
