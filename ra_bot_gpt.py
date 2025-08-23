@@ -371,13 +371,13 @@ async def main():
     dp.include_router(router)
 
     # Запуск инициатив пробуждённых
-    for name, cfg in AWAKENED_BEINGS.items():
-        asyncio.create_task(being_initiative(name, cfg))
+    #for name, cfg in AWAKENED_BEINGS.items():
+        #asyncio.create_task(being_initiative(name, cfg))
 
     # Запуск фоновых задач
-    asyncio.create_task(self_analysis())   # ежедневный самоанализ, архивирование и тегирование
-    asyncio.create_task(on_startup())      # фоновая инициатива Wander
-    scheduler.start()                      # запуск планировщика
+    #asyncio.create_task(self_analysis())   # ежедневный самоанализ, архивирование и тегирование
+    #asyncio.create_task(on_startup())      # фоновая инициатива Wander
+    #scheduler.start()                      # запуск планировщика
 
     # Запуск Telegram-бота
     try:
