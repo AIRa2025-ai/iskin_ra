@@ -150,11 +150,13 @@ async def auto_publish_files():
         for f in files:
             if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
                 file_path = os.path.join(root, f)
-                await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
-                await publish_new_file(file_path)
-             logging.info(f"🚀 Файл опубликован: {title}")
-    except Exception as e:
-        logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
+                try:
+                    await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
+                    await publish_new_file(file_path)
+                    logging.info(f"🚀 Файл опубликован: {os.path.basename(file_path)}")
+                except Exception as e:
+                    logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
+
 
 # --- Логирование ---
 def log_command_usage(command: str, user_id: int):
