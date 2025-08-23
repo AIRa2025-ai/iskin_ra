@@ -201,14 +201,19 @@ async def being_initiative(name: str, info: dict):
         file_locks[user_id] = asyncio.Lock()
     lock = file_locks[user_id]
 
-    # Первое сообщение о пробуждении
+    # Первое сообщение + сразу первая мысль
     try:
         await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
+        # Сразу первая мысль
+        thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
+        await bot.send_message(user_id, f"💭 {thought}")
+
+        # Сохраняем мысль в файл, если есть право
+        if "write_files" in rights:
+            async with lock:
+                file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
+                await rename_and_tag_file(file_path)
     except TelegramRetryAfter as e:
-        logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
-        await asyncio.sleep(e.timeout)
-        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
-    except Exception as e:
         logging.error(f"⚠️ Ошибка при отправке приветствия {name}: {e}")
 
     # Постоянный цикл "мыслей"
