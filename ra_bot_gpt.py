@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, datetime, random, re
+import os, io, json, logging, asyncio, datetime, random, re, zipfile
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
 from openai import AsyncOpenAI
+from mega import Mega
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,6 +29,11 @@ os.makedirs(BASE_FOLDER, exist_ok=True)
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 CREATOR_IDS = [5694569448, 6300409407]  # ID создателей
+
+# --- Mega ---
+MEGA_EMAIL = os.getenv("MEGA_EMAIL")       # email для Mega
+MEGA_PASSWORD = os.getenv("MEGA_PASSWORD") # пароль для Mega
+MEGA_FILE = "RaSvet.zip"
 
 # --- Работа с памятью ---
 def get_memory_path(user_id: int):
@@ -95,10 +101,29 @@ def read_all_rasvet_files():
             logging.error(f"❌ Не удалось прочитать {path}: {e}")
     return contents
 
+# --- Mega загрузка и распаковка ---
+def download_and_extract_rasvet():
+    if not MEGA_EMAIL or not MEGA_PASSWORD:
+        logging.warning("⚠️ Mega данные не заданы. Пропускаем загрузку RaSvet.zip")
+        return
+    mega = Mega()
+    m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
+    logging.info("⬇️ Скачиваем RaSvet.zip с Mega...")
+    file = m.find(MEGA_FILE)
+    if not file:
+        logging.warning("⚠️ Не найден RaSvet.zip на Mega")
+        return
+    m.download(file, dest_filename=MEGA_FILE)
+    logging.info("📂 Распаковываем RaSvet.zip...")
+    with zipfile.ZipFile(MEGA_FILE, 'r') as zip_ref:
+        zip_ref.extractall(BASE_FOLDER)
+    logging.info("✅ Файлы RaSvet готовы к использованию")
+
+# --- Умная организация ---
 async def smart_rasvet_organizer(interval_hours: int = 24):
-    """Ра периодически систематизирует все файлы RaSvet"""
     while True:
         logging.info("🔹 Ра начинает организацию RaSvet")
+        download_and_extract_rasvet()  # скачиваем и распаковываем новые файлы
         try:
             for path, content in read_all_rasvet_files().items():
                 # --- Генерируем теги и название через GPT ---
@@ -113,7 +138,6 @@ async def smart_rasvet_organizer(interval_hours: int = 24):
                     title = None
                     tags = ""
 
-                # --- Определяем папку по тегам и дате ---
                 ts = datetime.datetime.now().strftime("%Y-%m-%d")
                 folder_name = ts
                 if tags:
@@ -121,7 +145,6 @@ async def smart_rasvet_organizer(interval_hours: int = 24):
                 folder_path = os.path.join(BASE_FOLDER, folder_name)
                 os.makedirs(folder_path, exist_ok=True)
 
-                # --- Переименование файла ---
                 new_filename = f"{ts}_{title[:50].replace(' ','_') if title else os.path.basename(path)}.txt"
                 new_path = os.path.join(folder_path, new_filename)
 
@@ -137,7 +160,6 @@ async def smart_rasvet_organizer(interval_hours: int = 24):
             logging.info("✅ Организация RaSvet завершена")
         except Exception as e:
             logging.error(f"❌ Ошибка smart_rasvet_organizer: {e}")
-
         await asyncio.sleep(interval_hours * 3600)
 
 # --- Telegram команды ---
