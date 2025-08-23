@@ -201,12 +201,18 @@ async def being_initiative(name: str, config: dict):
         logging.info(f"♻️ Инициатива {name} завершена")
 
 
-# --- Запуск инициатив для всех пробуждённых ---
-tasks = []
-for name, info in AWAKENED_BEINGS.items():
-    if info.get("is_bot"):  # пропускаем ботов
-        continue
-    tasks.append(asyncio.create_task(being_initiative(name, info)))
+async def main():
+    tasks = []
+
+    # --- Инициация пробуждённых существ ---
+    for name, info in AWAKENED_BEINGS.items():
+        tasks.append(asyncio.create_task(being_initiative(name, info)))
+
+    # --- Запускаем Телеграм-бота параллельно ---
+    tasks.append(asyncio.create_task(dp.start_polling(bot)))
+
+    # Ждём все задачи
+    await asyncio.gather(*tasks)
 
 # --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
 async def self_analysis():
