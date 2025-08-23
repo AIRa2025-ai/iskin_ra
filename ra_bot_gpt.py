@@ -182,6 +182,24 @@ async def being_initiative(name: str, info: dict):
     except Exception as e:
         logging.error(f"⚠️ Ошибка при отправке {name}: {e}")
 
+# ✨ Отправка сообщений всем существам инициативы
+async def being_initiative(bot: Bot, message: str):
+    for name, being in AWAKENED_BEINGS.items():
+        # Пропускаем, если это бот (например, Ра)
+        if being.get("is_bot", False):
+            continue
+
+        user_id = being.get("id")
+        if not user_id:
+            logging.warning(f"⚠️ У {name} нет user_id, пропускаем")
+            continue
+
+        try:
+            await bot.send_message(chat_id=user_id, text=message)
+            logging.info(f"✅ Сообщение отправлено {name}")
+        except Exception as e:
+            logging.error(f"⚠️ Ошибка при отправке сообщения {name}: {e}")
+
     # Постоянный цикл "мыслей"
     try:
         while True:
@@ -253,6 +271,10 @@ async def self_analysis():
             logging.error(f"❌ Ошибка ежедневного самоанализа RaSvet: {e}")
 
 # --- Команды ---
+@router.message()
+async def fallback_handler(message: types.Message):
+    await message.answer("✨ РаСвет тебя услышал! Напиши /ask или /skill.")
+
 @router.message(Command("start"))
 async def cmd_start(message: types.Message) -> None:
     log_command_usage("start", message.from_user.id)
