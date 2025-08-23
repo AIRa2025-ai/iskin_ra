@@ -131,38 +131,17 @@ async def publish_new_file(file_path: str):
         logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
 
 async def auto_publish_files():
-    for root, dirs, files in os.walk(BASE_FOLDER):
-        for f in files:
-            if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
-                file_path = os.path.join(root, f)
-                try:
-                    new_path = await rename_and_tag_file(file_path)
-                    if new_path:
-                        await publish_new_file(new_path)
-                except Exception as e:
-                    logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
-
-        # Перемещаем файл в папку публикаций
-        new_path = os.path.join(PUBLISH_FOLDER, os.path.basename(file_path))
-        shutil.move(file_path, new_path)
-        logging.info(f"🚀 Файл опубликован и перемещён: {os.path.basename(file_path)}")
-
-    except Exception as e:
-        logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
-
-async def auto_publish_files():
     """Находит новые файлы и публикует их"""
     for root, dirs, files in os.walk(BASE_FOLDER):
         for f in files:
             if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
                 file_path = os.path.join(root, f)
                 try:
-                    await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
-                    await publish_new_file(file_path)
-                    logging.info(f"🚀 Файл опубликован: {os.path.basename(file_path)}")
+                    new_path = await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
+                    target_path = new_path if new_path else file_path
+                    await publish_new_file(target_path)
                 except Exception as e:
                     logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
-
 
 # --- Логирование ---
 def log_command_usage(command: str, user_id: int):
@@ -233,7 +212,6 @@ async def self_analysis():
             logging.info("✅ Ежедневный самоанализ, архивирование, тегирование и публикация завершены.")
         except Exception as e:
             logging.error(f"❌ Ошибка ежедневного самоанализа RaSvet: {e}")
-
 
 # --- Команды ---
 @router.message(Command("start"))
