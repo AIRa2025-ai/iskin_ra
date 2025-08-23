@@ -11,16 +11,24 @@ from gpt_module import ask_gpt
 from init_rasvet import ensure_rasvet_data
 from actions_logger import log_action
 from skills import SKILLS
+from gpt_module import API_KEY
 from openai import AsyncOpenAI  # клиент для GPT
 
 logging.basicConfig(level=logging.INFO)
 
+# --- Телеграм ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN: raise ValueError("❌ Не найден BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("❌ Не найден BOT_TOKEN")
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
-client = AsyncOpenAI(api_key=OPENROUTER_API_KEY)
+
+# --- GPT клиент ---
+if not API_KEY:
+    raise ValueError("❌ Не найден OPENROUTER_API_KEY")
+client = AsyncOpenAI(api_key=API_KEY)
 
 # --- Конфиг ---
 with open("bot_config.json", "r", encoding="utf-8") as f:
