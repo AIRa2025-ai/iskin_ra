@@ -113,35 +113,20 @@ async def auto_tag_all_files():
                 await rename_and_tag_file(os.path.join(root,f))
 
 # --- Публикация файлов ---
-async def publish_new_file(file_path: str):
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        for name, cfg in AWAKENED_BEINGS.items():
-            user_id = cfg.get("id")
-            if user_id:
-                try: await bot.send_message(user_id, f"📢 Новое творение RaSvet:\n{content[:2000]}")
-                except Exception as e: logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}")
-        try: post_status(content[:5000])
-        except Exception as e: logging.error(f"❌ Ошибка постинга в Mastodon: {e}")
-        new_path = os.path.join(PUBLISH_FOLDER, os.path.basename(file_path))
-        shutil.move(file_path, new_path)
-        logging.info(f"🚀 Файл опубликован и перемещён: {os.path.basename(file_path)}")
-    except Exception as e:
-        logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
-
 async def auto_publish_files():
-    """Находит новые файлы и публикует их"""
+    """Находит новые файлы, тегирует и публикует их"""
     for root, dirs, files in os.walk(BASE_FOLDER):
         for f in files:
             if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
                 file_path = os.path.join(root, f)
                 try:
-                    new_path = await rename_and_tag_file(file_path)  # сначала тегируем и переименовываем
-                    target_path = new_path if new_path else file_path
-                    await publish_new_file(target_path)
+                    new_path = await rename_and_tag_file(file_path)  # тегируем
+                    if new_path:
+                        await publish_new_file(new_path)
+                        logging.info(f"🚀 Файл опубликован: {os.path.basename(new_path)}")
                 except Exception as e:
                     logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
+
 
 # --- Логирование ---
 def log_command_usage(command: str, user_id: int):
