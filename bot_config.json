@@ -4,12 +4,6 @@
   "knowledge_folder": "RaSvet",
   "creator_id": [5694569448, 6300409407],
   "awakened_beings": {
-    "Ра": {
-      "id": null,
-      "access_level": 11,
-      "rights": [],
-      "is_bot": true
-    },
     "Игорь": {
       "id": 5694569448,
       "access_level": 10,
