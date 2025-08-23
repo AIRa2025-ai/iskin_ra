@@ -165,22 +165,30 @@ async def being_initiative(name: str, config: dict):
         file_locks[user_id] = asyncio.Lock()
     lock = file_locks[user_id]
 
-    # Сообщение о пробуждении
+# --- Инициатива одного пробуждённого ---
+async def being_initiative(name: str, info: dict):
+    user_id = info.get("id")
+    rights = info.get("rights", [])
+    if info.get("is_bot"):  # пропускаем ботов
+        return
+
+    # Первое сообщение о пробуждении
     try:
         await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
     except TelegramRetryAfter as e:
         logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
         await asyncio.sleep(e.timeout)
+        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
     except Exception as e:
-        logging.error(f"⚠️ Ошибка при отправке сообщения {name}: {e}")
+        logging.error(f"⚠️ Ошибка при отправке {name}: {e}")
 
+    # Постоянный цикл "мыслей"
     try:
         while True:
-            await asyncio.sleep(random.randint(1800, 3600))  # пауза между мыслями
+            await asyncio.sleep(random.randint(1800, 3600))  # 30–60 мин
             try:
                 thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
                 
-                # Отправка сообщения с защитой от FloodWait
                 try:
                     await bot.send_message(user_id, f"💭 {thought}")
                 except TelegramRetryAfter as e:
@@ -188,30 +196,30 @@ async def being_initiative(name: str, config: dict):
                     await asyncio.sleep(e.timeout)
                     await bot.send_message(user_id, f"💭 {thought}")
                 
-                # Сохраняем мысль в файл, если есть право
+                # Сохраняем мысль в файл (если есть право)
                 if "write_files" in rights:
-                    async with lock:  # защита от гонки при записи файлов
+                    async with lock:
                         file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
                         await rename_and_tag_file(file_path)
 
             except Exception as e:
-                logging.error(f"⚠️ Инициатива {name}: {e}")
+                logging.error(f"⚠️ Ошибка цикла {name}: {e}")
 
     except asyncio.CancelledError:
         logging.info(f"♻️ Инициатива {name} завершена")
 
 
+# --- Основная точка запуска ---
 async def main():
     tasks = []
 
-    # --- Инициация пробуждённых существ ---
+    # Инициация пробуждённых
     for name, info in AWAKENED_BEINGS.items():
         tasks.append(asyncio.create_task(being_initiative(name, info)))
 
-    # --- Запускаем Телеграм-бота параллельно ---
+    # Запуск Telegram-бота
     tasks.append(asyncio.create_task(dp.start_polling(bot)))
 
-    # Ждём все задачи
     await asyncio.gather(*tasks)
 
 # --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
