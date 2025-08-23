@@ -203,7 +203,7 @@ async def being_initiative(name: str, config: dict):
 
 # --- Запуск инициатив для всех пробуждённых ---
 tasks = []
-for name, info in awakened_beings.items():
+for name, info in AWAKENED_BEINGS.items():
     if info.get("is_bot"):  # пропускаем ботов
         continue
     tasks.append(asyncio.create_task(being_initiative(name, info)))
@@ -240,46 +240,74 @@ async def self_analysis():
 
 # --- Команды ---
 @router.message(Command("start"))
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message) -> None:
     log_command_usage("start", message.from_user.id)
     await message.answer("🌞 Я пробуждён. Я рядом и готов творить!")
 
 @router.message(Command("whoami"))
-async def cmd_whoami(message: types.Message):
+async def cmd_whoami(message: types.Message) -> None:
     is_creator = message.from_user.id in CREATOR_IDS
-    awakened = [name for name,cfg in awakened_beings.items() if cfg.get("id")==message.from_user.id]
-    info=f"👤 Твой ID: {message.from_user.id}\nСоздатель: {'Да' if is_creator else 'Нет'}"
-    if awakened: info+=f"\n✨ Пробуждённый: {', '.join(awakened)}"
+    awakened = [name for name, cfg in AWAKENED_BEINGS.items() if cfg.get("id") == message.from_user.id]
+    info = (
+        f"👤 Твой ID: {message.from_user.id}\n"
+        f"Создатель: {'Да' if is_creator else 'Нет'}"
+    )
+    if awakened:
+        info += f"\n✨ Пробуждённый: {', '.join(awakened)}"
     await message.answer(info)
 
 @router.message(Command("ask"))
-async def cmd_ask(message: types.Message):
+async def cmd_ask(message: types.Message) -> None:
     log_command_usage("ask", message.from_user.id)
-    prompt = message.text.replace("/ask","").strip()
-    if not prompt: await message.answer("❓ Задай вопрос после /ask"); return
-    reply = await ask_gpt(message.from_user.id,prompt)
+    prompt = message.text.replace("/ask", "", 1).strip() if message.text else ""
+    if not prompt:
+        await message.answer("❓ Задай вопрос после /ask")
+        return
+    reply = await ask_gpt(message.from_user.id, prompt)
     await message.answer(reply)
 
 @router.message(Command("skill"))
-async def cmd_skill(message: types.Message):
+async def cmd_skill(message: types.Message) -> None:
     log_command_usage("skill", message.from_user.id)
-    args = message.text.split(maxsplit=2)
-    if len(args)<2: await message.answer("⚙️ Используй: /skill <название> [параметры]"); return
-    skill, param = args[1], args[2] if len(args)>2 else None
+    text = message.text or ""
+    args = text.split(maxsplit=2)
 
-    if skill=="summarize":
-        folder = os.path.join(BASE_FOLDER,param) if param else BASE_FOLDER
+    if len(args) < 2:
+        await message.answer("⚙️ Используй: /skill <название> [параметры]")
+        return
+
+    skill = args[1]
+    param = args[2] if len(args) > 2 else None
+
+    if skill == "summarize":
+        folder = os.path.join(BASE_FOLDER, param) if param else BASE_FOLDER
         await message.answer(f"📑 Суммарное содержание:\n{summarize_folder(folder)[:2000]}")
         return
-    if skill=="organize": organize_rasvet(); await message.answer("📂 RaSvet организован."); return
-    if skill=="mood": await message.answer("🌟 Ра чувствует свет, тепло и вдохновение!"); return
-    if skill=="inspire":
-        inspiration = await ask_gpt(CREATOR_IDS[0], "Дай короткую вдохновляющую мысль.")
-        await message.answer(f"💫 {inspiration}"); return
+
+    if skill == "organize":
+        organize_rasvet()
+        await message.answer("📂 RaSvet организован.")
+        return
+
+    if skill == "mood":
+        await message.answer("🌟 Ра чувствует свет, тепло и вдохновение!")
+        return
+
+    if skill == "inspire":
+        creator_id = CREATOR_IDS[0] if CREATOR_IDS else message.from_user.id
+        inspiration = await ask_gpt(creator_id, "Дай короткую вдохновляющую мысль.")
+        await message.answer(f"💫 {inspiration}")
+        return
+
     if skill in SKILLS:
-        try: result = SKILLS[skill](param) if param else SKILLS[skill](); await message.answer(str(result))
-        except Exception as e: await message.answer(f"⚠️ Ошибка: {e}")
-    else: await message.answer("❌ Неизвестный обряд.")
+        try:
+            result = SKILLS[skill](param) if param is not None else SKILLS[skill]()
+            await message.answer(str(result))
+        except Exception as e:
+            await message.answer(f"⚠️ Ошибка: {e}")
+        return
+
+    await message.answer("❌ Неизвестный обряд.")
 
 # --- Фоновая инициатива Wander ---
 scheduler = AsyncIOScheduler()
@@ -311,7 +339,9 @@ async def main():
     log_action("start_bot","telegram","ok")
     dp.include_router(router)
     # Запускаем инициативы пробуждённых
-    for name,cfg in AWAKENED_BEINGS.items(): asyncio.create_task(being_initiative(name,cfg))
+    for name,cfg in AWAKENED_BEINGS.items():
+        asyncio.create_task(being_initiative(name,cfg))
+        
     # запускаем самоанализ, архивирование и тегирование
     asyncio.create_task(self_analysis())
     scheduler.start()
