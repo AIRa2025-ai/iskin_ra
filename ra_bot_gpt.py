@@ -165,7 +165,7 @@ def log_wander(title: str, comment: str):
 
 file_locks = {}  # отдельный Lock для каждого пользователя
 
-async def being_initiative(name: str, config: dict):
+async def being_initiative_1(name: str, config: dict):
     rights = config.get("rights", [])
     user_id = config.get("id")
     if not user_id or "speak_first" not in rights:
@@ -177,7 +177,7 @@ async def being_initiative(name: str, config: dict):
     lock = file_locks[user_id]
 
 # --- Инициатива одного пробуждённого ---
-async def being_initiative(name: str, info: dict):
+async def being_initiative_2(name: str, info: dict):
     user_id = info.get("id")
     rights = info.get("rights", [])
     if info.get("is_bot"):  # пропускаем ботов
@@ -194,7 +194,7 @@ async def being_initiative(name: str, info: dict):
         logging.error(f"⚠️ Ошибка при отправке {name}: {e}")
 
 # ✨ Отправка сообщений всем существам инициативы
-async def being_initiative(bot: Bot, message: str):
+async def being_initiative_3(bot: Bot, message: str):
     for name, being in AWAKENED_BEINGS.items():
         # Пропускаем, если это бот (например, Ра)
         if being.get("is_bot", False):
