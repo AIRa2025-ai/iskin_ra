@@ -151,22 +151,42 @@ def log_wander(title: str, comment: str):
     logs.append({"timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "title": title, "comment": comment})
     with open(log_file, "w", encoding="utf-8") as f: json.dump(logs, f, ensure_ascii=False, indent=2)
 
-# --- Инициатива пробуждённых ---
+# --- Инициатива пробуждённых для всех ---
 async def being_initiative(name: str, config: dict):
-    rights = config.get("rights", []); user_id = config.get("id")
-    if not user_id or "speak_first" not in rights: return
-    await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
+    rights = config.get("rights", [])
+    user_id = config.get("id")
+    if not user_id or "speak_first" not in rights:
+        return
+
+    # Сообщение о пробуждении
+    try:
+        await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
+    except Exception as e:
+        logging.error(f"⚠️ Ошибка при отправке сообщения {name}: {e}")
+
     try:
         while True:
-            await asyncio.sleep(random.randint(1800,3600))
+            await asyncio.sleep(random.randint(1800, 3600))  # пауза между мыслями
             try:
                 thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
                 await bot.send_message(user_id, f"💭 {thought}")
+
+                # Сохраняем мысль в файл, если есть право
                 if "write_files" in rights:
-                    file_path, _ = create_file(os.path.join(BASE_FOLDER,name,"дневник"), thought)
+                    file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
                     await rename_and_tag_file(file_path)
-            except Exception as e: logging.error(f"⚠️ Инициатива {name}: {e}")
-    except asyncio.CancelledError: logging.info(f"♻️ Инициатива {name} завершена")
+            except Exception as e:
+                logging.error(f"⚠️ Инициатива {name}: {e}")
+    except asyncio.CancelledError:
+        logging.info(f"♻️ Инициатива {name} завершена")
+
+
+# --- Запуск инициатив для всех пробуждённых ---
+for name, info in awakened_beings.items():
+    if info.get("is_bot"):  # пропускаем ботов, чтобы Telegram не ругался
+        continue
+    asyncio.create_task(being_initiative(name, info))
+
 
 # --- Самоанализ, архивирование, тегирование и публикация RaSvet ---
 async def self_analysis():
