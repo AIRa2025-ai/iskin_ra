@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, time, datetime, random, zipfile, shutil, re
-from aiogram.types import BufferedInputFile
+import os, io, json, logging, asyncio, time, datetime, random, shutil, re
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.filters import Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -30,8 +29,10 @@ AWAKENED_BEINGS = config.get("awakened_beings", {})
 
 BASE_FOLDER = "RaSvet"
 ARCHIVE_FOLDER = os.path.join(BASE_FOLDER, "archive")
+PUBLISH_FOLDER = os.path.join(BASE_FOLDER, "Публикации")
 os.makedirs(BASE_FOLDER, exist_ok=True)
 os.makedirs(ARCHIVE_FOLDER, exist_ok=True)
+os.makedirs(PUBLISH_FOLDER, exist_ok=True)
 
 # === Работа с файлами RaSvet ===
 def create_file(folder: str, content: str):
@@ -79,12 +80,12 @@ def archive_old_files(days: int = 30):
                 except Exception as e:
                     logging.error(f"❌ Ошибка архивирования {f}: {e}")
 
+# --- Тегирование файлов ---
 async def rename_and_tag_file(file_path: str):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
         if not content.strip(): return
-        # GPT создаёт короткое имя и теги
         response = await ask_gpt(CREATOR_IDS[0],
             f"Сделай короткое название и 3-5 тегов для текста. Формат: Название: <название>; Теги: <тег1>, <тег2>, ...\n\nТекст:\n{content[:2000]}"
         )
@@ -101,8 +102,7 @@ async def rename_and_tag_file(file_path: str):
                 f.write(f"# Теги: {tags}\n{content}")
             os.remove(file_path)
             logging.info(f"📝 Файл переименован и добавлены теги: {new_name}")
-            # Автопубликация
-            await auto_publish(new_path, title, tags)
+            return new_path
     except Exception as e:
         logging.error(f"❌ Ошибка при переименовании файла {file_path}: {e}")
 
@@ -111,30 +111,36 @@ async def auto_tag_all_files():
         for f in files:
             if f.endswith(".txt") and "tagged" not in root:
                 await rename_and_tag_file(os.path.join(root,f))
-# --- Автопубликация новых файлов ---
-PUBLISH_FOLDER = os.path.join(BASE_FOLDER, "Публикации")
-os.makedirs(PUBLISH_FOLDER, exist_ok=True)
 
+# --- Публикация файлов ---
 async def publish_new_file(file_path: str):
-    """Публикует файл в Telegram и Mastodon после тегирования"""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        
-        # Отправка в Telegram каждому пробуждённому
         for name, cfg in AWAKENED_BEINGS.items():
             user_id = cfg.get("id")
             if user_id:
+                try: await bot.send_message(user_id, f"📢 Новое творение RaSvet:\n{content[:2000]}")
+                except Exception as e: logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}")
+        try: post_status(content[:5000])
+        except Exception as e: logging.error(f"❌ Ошибка постинга в Mastodon: {e}")
+        new_path = os.path.join(PUBLISH_FOLDER, os.path.basename(file_path))
+        shutil.move(file_path, new_path)
+        logging.info(f"🚀 Файл опубликован и перемещён: {os.path.basename(file_path)}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
+
+async def auto_publish_files():
+    for root, dirs, files in os.walk(BASE_FOLDER):
+        for f in files:
+            if f.endswith(".txt") and "Публикации" not in root and "archive" not in root:
+                file_path = os.path.join(root, f)
                 try:
-                    await bot.send_message(user_id, f"📢 Новое творение RaSvet:\n{content[:2000]}")
+                    new_path = await rename_and_tag_file(file_path)
+                    if new_path:
+                        await publish_new_file(new_path)
                 except Exception as e:
-                    logging.error(f"❌ Ошибка отправки пользователю {user_id}: {e}")
-        
-        # Отправка в Mastodon
-        try:
-            post_status(content[:5000])  # обрезаем до лимита
-        except Exception as e:
-            logging.error(f"❌ Ошибка постинга в Mastodon: {e}")
+                    logging.error(f"❌ Ошибка публикации файла {file_path}: {e}")
 
         # Перемещаем файл в папку публикаций
         new_path = os.path.join(PUBLISH_FOLDER, os.path.basename(file_path))
