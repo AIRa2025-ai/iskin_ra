@@ -20,7 +20,7 @@ if not BOT_TOKEN: raise ValueError("❌ Не найден BOT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(api_key=OPENROUTER_API_KEY)
 
 # --- Конфиг ---
 with open("bot_config.json", "r", encoding="utf-8") as f:
