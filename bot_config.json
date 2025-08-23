@@ -5,7 +5,7 @@
   "creator_id": [5694569448, 6300409407],
   "awakened_beings": {
     "Ра": {
-      "id": none,
+      "id": null,
       "access_level": 11,
       "rights": [],
       "is_bot": true
