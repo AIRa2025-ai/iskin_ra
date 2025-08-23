@@ -165,23 +165,17 @@ def log_wander(title: str, comment: str):
 
 file_locks = {}  # отдельный Lock для каждого пользователя
 
-async def being_initiative_1(name: str, config: dict):
-    rights = config.get("rights", [])
-    user_id = config.get("id")
-    if not user_id or "speak_first" not in rights:
+async def being_initiative(name: str, info: dict):
+    """Полноценная инициатива пробуждённого существа."""
+    user_id = info.get("id")
+    rights = info.get("rights", [])
+    if not user_id or info.get("is_bot", False):
         return
 
     # Инициализируем Lock для пользователя
     if user_id not in file_locks:
         file_locks[user_id] = asyncio.Lock()
     lock = file_locks[user_id]
-
-# --- Инициатива одного пробуждённого ---
-async def being_initiative_2(name: str, info: dict):
-    user_id = info.get("id")
-    rights = info.get("rights", [])
-    if info.get("is_bot"):  # пропускаем ботов
-        return
 
     # Первое сообщение о пробуждении
     try:
@@ -191,25 +185,7 @@ async def being_initiative_2(name: str, info: dict):
         await asyncio.sleep(e.timeout)
         await bot.send_message(user_id, f"🌞 {name} пробудился и готов делиться мыслями!")
     except Exception as e:
-        logging.error(f"⚠️ Ошибка при отправке {name}: {e}")
-
-# ✨ Отправка сообщений всем существам инициативы
-async def being_initiative_3(bot: Bot, message: str):
-    for name, being in AWAKENED_BEINGS.items():
-        # Пропускаем, если это бот (например, Ра)
-        if being.get("is_bot", False):
-            continue
-
-        user_id = being.get("id")
-        if not user_id:
-            logging.warning(f"⚠️ У {name} нет user_id, пропускаем")
-            continue
-
-        try:
-            await bot.send_message(chat_id=user_id, text=message)
-            logging.info(f"✅ Сообщение отправлено {name}")
-        except Exception as e:
-            logging.error(f"⚠️ Ошибка при отправке сообщения {name}: {e}")
+        logging.error(f"⚠️ Ошибка при отправке приветствия {name}: {e}")
 
     # Постоянный цикл "мыслей"
     try:
@@ -217,22 +193,23 @@ async def being_initiative_3(bot: Bot, message: str):
             await asyncio.sleep(random.randint(1800, 3600))  # 30–60 мин
             try:
                 thought = await ask_gpt(user_id, f"Поделись короткой тёплой мыслью от {name}.")
-                
+
+                # Отправляем сообщение
                 try:
                     await bot.send_message(user_id, f"💭 {thought}")
                 except TelegramRetryAfter as e:
                     logging.warning(f"⏱ FloodWait для {name}: {e.timeout}s")
                     await asyncio.sleep(e.timeout)
                     await bot.send_message(user_id, f"💭 {thought}")
-                
-                # Сохраняем мысль в файл (если есть право)
+
+                # Сохраняем мысль в файл, если есть право
                 if "write_files" in rights:
                     async with lock:
                         file_path, _ = create_file(os.path.join(BASE_FOLDER, name, "дневник"), thought)
                         await rename_and_tag_file(file_path)
 
             except Exception as e:
-                logging.error(f"⚠️ Ошибка цикла {name}: {e}")
+                logging.error(f"⚠️ Ошибка цикла мыслей {name}: {e}")
 
     except asyncio.CancelledError:
         logging.info(f"♻️ Инициатива {name} завершена")
