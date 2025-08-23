@@ -395,6 +395,7 @@ async def main():
     ensure_rasvet_data()
     log_action("start_bot","telegram","ok")
     dp.include_router(router)
+    await dp.start_polling(bot)
     # Запускаем инициативы пробуждённых
     for name,cfg in AWAKENED_BEINGS.items():
         asyncio.create_task(being_initiative(name,cfg))
