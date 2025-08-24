@@ -101,21 +101,34 @@ def read_all_rasvet_files():
             logging.error(f"❌ Не удалось прочитать {path}: {e}")
     return contents
 
-# --- Mega загрузка и распаковка ---
+# --- Mega (через requests) ---
 def ensure_rasvet():
     if os.path.exists(RA_FOLDER):
         logging.info(f"📂 Папка {RA_FOLDER} уже есть, скачивание пропущено.")
         return
     
-    logging.info("⬇️ Скачивание RaSvet с Mega...")
-    mega = Mega()
-    m = mega.login()  # без логина/пароля работает для публичных ссылок
-    file = m.download_url(MEGA_URL, dest_filename=RA_ZIP)
-    logging.info("📦 Распаковка RaSvet.zip...")
-    with zipfile.ZipFile(RA_ZIP, 'r') as zip_ref:
-        zip_ref.extractall(RA_FOLDER)
-    os.remove(RA_ZIP)
-    logging.info(f"✅ Папка {RA_FOLDER} готова.")
+    logging.info("⬇️ Скачивание RaSvet с Mega через прямой URL...")
+    # Скачиваем zip
+    try:
+        response = requests.get(MEGA_URL, stream=True)
+        response.raise_for_status()
+        with open(RA_ZIP, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+    except Exception as e:
+        logging.error(f"❌ Ошибка скачивания RaSvet: {e}")
+        return
+    
+    # Распаковываем zip
+    try:
+        logging.info("📦 Распаковка RaSvet.zip...")
+        with zipfile.ZipFile(RA_ZIP, 'r') as zip_ref:
+            zip_ref.extractall(RA_FOLDER)
+        os.remove(RA_ZIP)
+        logging.info(f"✅ Папка {RA_FOLDER} готова.")
+    except Exception as e:
+        logging.error(f"❌ Ошибка распаковки RaSvet.zip: {e}")
+
     
 # --- Умная организация ---
 async def smart_rasvet_organizer(interval_hours: int = 24):
