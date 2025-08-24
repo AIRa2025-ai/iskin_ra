@@ -4,7 +4,6 @@ from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
 from openai import AsyncOpenAI
-from mega import Mega
 
 logging.basicConfig(level=logging.INFO)
 
