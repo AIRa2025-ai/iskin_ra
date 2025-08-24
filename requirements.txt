@@ -6,3 +6,4 @@ tldextract
 apscheduler
 Mastodon.py
 openai>=1.30.0
+mega.py
