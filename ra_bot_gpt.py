@@ -106,28 +106,24 @@ def ensure_rasvet():
     if os.path.exists(RA_FOLDER):
         logging.info(f"📂 Папка {RA_FOLDER} уже есть, скачивание пропущено.")
         return
-    
-    logging.info("⬇️ Скачивание RaSvet с Mega через прямой URL...")
-    # Скачиваем zip
+
+    logging.info("⬇️ Скачивание RaSvet с Mega через requests...")
+    zip_url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
+    # Прямое скачивание файла
+    RA_ZIP_LOCAL = RA_ZIP
     try:
-        response = requests.get(MEGA_URL, stream=True)
-        response.raise_for_status()
-        with open(RA_ZIP, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
+        r = requests.get(zip_url, stream=True)
+        r.raise_for_status()
+        with open(RA_ZIP_LOCAL, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
-    except Exception as e:
-        logging.error(f"❌ Ошибка скачивания RaSvet: {e}")
-        return
-    
-    # Распаковываем zip
-    try:
         logging.info("📦 Распаковка RaSvet.zip...")
-        with zipfile.ZipFile(RA_ZIP, 'r') as zip_ref:
+        with zipfile.ZipFile(RA_ZIP_LOCAL, 'r') as zip_ref:
             zip_ref.extractall(RA_FOLDER)
-        os.remove(RA_ZIP)
+        os.remove(RA_ZIP_LOCAL)
         logging.info(f"✅ Папка {RA_FOLDER} готова.")
     except Exception as e:
-        logging.error(f"❌ Ошибка распаковки RaSvet.zip: {e}")
+        logging.error(f"❌ Ошибка скачивания или распаковки RaSvet: {e}")
 
     
 # --- Умная организация ---
