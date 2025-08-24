@@ -32,7 +32,8 @@ CREATOR_IDS = [5694569448, 6300409407]  # ID создателей
 
 # --- Mega ---
 MEGA_URL = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
-MEGA_ZIP = "RaSvet.zip"
+RA_FOLDER = "RaSvet"
+RA_ZIP = "RaSvet.zip"
 
 # --- Работа с памятью ---
 def get_memory_path(user_id: int):
@@ -101,38 +102,26 @@ def read_all_rasvet_files():
     return contents
 
 # --- Mega загрузка и распаковка ---
-def download_and_extract_rasvet():
-    if not MEGA_URL:
-        logging.warning("⚠️ Ссылка Mega не задана. Пропускаем загрузку RaSvet.zip")
+def ensure_rasvet():
+    if os.path.exists(RA_FOLDER):
+        logging.info(f"📂 Папка {RA_FOLDER} уже есть, скачивание пропущено.")
         return
-
-    # Скачиваем файл
-    try:
-        logging.info("⬇️ Скачиваем RaSvet.zip с Mega...")
-        response = requests.get(MEGA_URL, stream=True)
-        response.raise_for_status()
-        with open(MEGA_ZIP, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        logging.info("📂 RaSvet.zip скачан")
-    except Exception as e:
-        logging.error(f"❌ Ошибка скачивания RaSvet.zip: {e}")
-        return
-
-    # Распаковываем
-    try:
-        logging.info("📂 Распаковываем RaSvet.zip...")
-        with zipfile.ZipFile(MEGA_ZIP, 'r') as zip_ref:
-            zip_ref.extractall(BASE_FOLDER)
-        logging.info("✅ Файлы RaSvet готовы к использованию")
-    except Exception as e:
-        logging.error(f"❌ Ошибка распаковки RaSvet.zip: {e}")
-
+    
+    logging.info("⬇️ Скачивание RaSvet с Mega...")
+    mega = Mega()
+    m = mega.login()  # без логина/пароля работает для публичных ссылок
+    file = m.download_url(MEGA_URL, dest_filename=RA_ZIP)
+    logging.info("📦 Распаковка RaSvet.zip...")
+    with zipfile.ZipFile(RA_ZIP, 'r') as zip_ref:
+        zip_ref.extractall(RA_FOLDER)
+    os.remove(RA_ZIP)
+    logging.info(f"✅ Папка {RA_FOLDER} готова.")
+    
 # --- Умная организация ---
 async def smart_rasvet_organizer(interval_hours: int = 24):
     while True:
         logging.info("🔹 Ра начинает организацию RaSvet")
-        download_and_extract_rasvet()  # скачиваем и распаковываем новые файлы
+        ensure_rasvet()  # скачиваем и распаковываем новые файлы
         try:
             for path, content in read_all_rasvet_files().items():
                 # --- Генерируем теги и название через GPT ---
