@@ -19,6 +19,9 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+# Копируем конфиг бота
+COPY bot_config.json ./
+
 # Копируем весь проект и config
 COPY . .
 
