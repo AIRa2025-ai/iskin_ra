@@ -15,14 +15,9 @@ WORKDIR /app
 # Копируем зависимости
 COPY requirements.txt .
 
-# Тест запускв
-RUN python -m pip show fastapi
-RUN python ra_bot_gpt.py --help
-
-# Устанавливаем зависимости
-RUN python -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip list
+# Обновляем pip и устанавливаем зависимости
+RUN python -m pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Копируем весь проект
 COPY . .
@@ -30,5 +25,8 @@ COPY . .
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1
 
-# Запуск FastAPI через Uvicorn
+# Проверка, что FastAPI установлен (не критично для сборки)
+RUN python -m pip show fastapi
+
+# Запуск приложения через Uvicorn
 CMD ["uvicorn", "ra_bot_gpt:app", "--host", "0.0.0.0", "--port", "8080"]
