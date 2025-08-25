@@ -1,3 +1,11 @@
+# Установка зависимостей
+COPY requirements.txt .
+RUN python -m pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Проверка
+RUN python -m pip list
+
 # Базовый образ Python
 FROM python:3.11-slim
 
