@@ -17,6 +17,7 @@ primary_region = "ams"
 [[services]]
   internal_port = 8080
   protocol = "tcp"
+  processes = ["web"]   # <- важно добавить!
 
   [services.concurrency]
     type = "connections"
