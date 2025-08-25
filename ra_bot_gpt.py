@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, datetime, random, re, requests
+import os, io, json, logging, asyncio, datetime, re
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
@@ -37,17 +37,22 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def on_startup():
-    webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
-    # ❗ Перед установкой нового вебхука — удаляем старый
-    await bot.delete_webhook(drop_pending_updates=True)
-    await bot.set_webhook(webhook_url)
     dp.include_router(router)
-    asyncio.create_task(smart_memory_maintenance(interval_hours=6))
-    asyncio.create_task(smart_rasvet_organizer(interval_hours=24))
-    logging.info(f"🌍 Webhook установлен: {webhook_url}")
+    # ❗ Перед установкой нового вебхука удаляем старый
+    webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await bot.set_webhook(webhook_url)
+        logging.info(f"🌍 Webhook установлен: {webhook_url}")
+    except Exception as e:
+        logging.error(f"❌ Не удалось установить webhook: {e}")
+
+    # Запуск фоновых задач
+    asyncio.create_task(smart_memory_maintenance())
+    asyncio.create_task(smart_rasvet_organizer())
 
 @app.post("/webhook")
-async def webhook(request: Request):
+async def telegram_webhook(request: Request):
     try:
         data = await request.json()
         update = Update(**data)
@@ -72,8 +77,7 @@ def load_memory(user_id: int, user_name: str = None):
     return {"user_id": user_id, "name": user_name or "Аноним", "messages": [], "facts": [], "tags": []}
 
 def save_memory(user_id: int, data: dict):
-    path = get_memory_path(user_id)
-    with open(path, "w", encoding="utf-8") as f:
+    with open(get_memory_path(user_id), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 async def update_user_facts(user_id: int):
@@ -108,7 +112,7 @@ def ensure_rasvet():
     if os.path.exists(BASE_FOLDER):
         logging.info(f"📂 Папка {BASE_FOLDER} уже есть, скачивание пропущено.")
         return
-    logging.info("⬇️ Скачивание RaSvet (пока заглушка, Mega требует API)")
+    logging.info("⬇️ Скачивание RaSvet (заглушка, Mega требует API)")
 
 async def smart_rasvet_organizer(interval_hours: int = 24):
     while True:
