@@ -13,8 +13,6 @@ primary_region = "ams"
 
 [processes]
   app = "python ra_bot_gpt.py"
-
-[processes]
   web = "python3 ra_bot_gpt.py"
 
 [[services]]
