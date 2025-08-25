@@ -113,15 +113,29 @@ async def smart_memory_maintenance(interval_hours: int = 6):
 
 # --- RaSvet ---
 def ensure_rasvet():
-    if os.path.exists(BASE_FOLDER):
-        logging.info(f"📂 Папка {BASE_FOLDER} уже есть, скачивание пропущено.")
-        return
-    logging.info("⬇️ Скачивание RaSvet (заглушка, Mega требует API)")
+    try:
+        if os.path.exists(BASE_FOLDER):
+            logging.info(f"📂 Папка {BASE_FOLDER} уже есть, скачивание пропущено.")
+            return
+        
+        logging.info("⬇️ Скачивание RaSvet (заглушка, Mega требует API)")
+        
+        # Здесь можно добавить код скачивания через Mega API
+        # Например:
+        # mega = Mega()  # из mega.py
+        # m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
+        # m.download_url("ссылка_на_папку", dest=BASE_FOLDER)
+
+    except Exception as e:
+        logging.error(f"❌ Ошибка в ensure_rasvet: {e}")
 
 async def smart_rasvet_organizer(interval_hours: int = 24):
     while True:
-        logging.info("🔹 Ра начинает организацию RaSvet")
-        ensure_rasvet()
+        try:
+            logging.info("🔹 Ра начинает организацию RaSvet")
+            ensure_rasvet()
+        except Exception as e:
+            logging.error(f"❌ Ошибка smart_rasvet_organizer: {e}")
         await asyncio.sleep(interval_hours * 3600)
 
 # --- Telegram команды ---
