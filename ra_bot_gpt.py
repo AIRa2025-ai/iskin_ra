@@ -105,6 +105,8 @@ async def smart_memory_maintenance(interval_hours: int = 6):
             logging.info("✅ Память обновлена")
         except Exception as e:
             logging.error(f"❌ Ошибка smart_memory_maintenance: {e}")
+        
+        # Асинхронный сон, чтобы не блокировать event loop
         await asyncio.sleep(interval_hours * 3600)
 
 # --- RaSvet ---
