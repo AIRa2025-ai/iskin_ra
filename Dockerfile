@@ -15,6 +15,10 @@ WORKDIR /app
 # Копируем зависимости
 COPY requirements.txt .
 
+# Тест запускв
+RUN python -m pip show fastapi
+RUN python ra_bot_gpt.py --help
+
 # Устанавливаем зависимости
 RUN python -m pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
