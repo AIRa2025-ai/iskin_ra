@@ -1,7 +1,7 @@
 # Базовый образ Python
 FROM python:3.11-slim
 
-# Обновляем пакеты и ставим нужные утилиты
+# Устанавливаем нужные утилиты
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
@@ -13,20 +13,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Копируем зависимости
-COPY requirements.txt .
+COPY requirements.txt ./
 
-# Обновляем pip и устанавливаем зависимости
+# Устанавливаем зависимости
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Копируем весь проект
+# Копируем весь проект и config
 COPY . .
 
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1
 
-# Проверка, что FastAPI установлен (не критично для сборки)
+# Проверка, что FastAPI установлен (не критично)
 RUN python -m pip show fastapi
 
-# Запуск приложения через Uvicorn
-CMD ["uvicorn", "ra_bot_gpt:app", "--host", "0.0.0.0", "--port", "8080"]
+# Запуск твоего бота напрямую через Python (не uvicorn, если это не FastAPI)
+CMD ["python3", "ra_bot_gpt.py"]
