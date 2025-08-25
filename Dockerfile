@@ -1,11 +1,3 @@
-# Установка зависимостей
-COPY requirements.txt .
-RUN python -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Проверка
-RUN python -m pip list
-
 # Базовый образ Python
 FROM python:3.11-slim
 
@@ -20,15 +12,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Рабочая директория
 WORKDIR /app
 
-# Скопировать requirements.txt и установить зависимости
+# Копируем зависимости
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
 
-# Скопировать весь проект
+# Устанавливаем зависимости
+RUN python -m pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip list
+
+# Копируем весь проект
 COPY . .
 
-# Переменные окружения (чтобы Python не кешировал pyc и писал логи сразу)
+# Переменные окружения
 ENV PYTHONUNBUFFERED=1
 
 # Запуск FastAPI через Uvicorn
