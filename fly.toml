@@ -12,4 +12,22 @@ primary_region = "ams"
   auto_rollback = true
 
 [processes]
-app = "python ra_bot_gpt.py"
+  app = "python ra_bot_gpt.py"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "1m"
+    restart_limit = 0
