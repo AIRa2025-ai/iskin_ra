@@ -12,7 +12,6 @@ primary_region = "ams"
   auto_rollback = true
 
 [processes]
-  app = "python ra_bot_gpt.py"
   web = "python3 ra_bot_gpt.py"
 
 [[services]]
