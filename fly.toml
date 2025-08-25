@@ -2,7 +2,7 @@ app = "iskin-ra"
 primary_region = "ams"
 
 [build]
-  dockerfile = "Dockerfile"
+  include = ["Dockerfile", "bot_config.json", "ra_bot_gpt.py", "gpt_module.py", "rasvet_context.py"]
 
 [env]
   PYTHONUNBUFFERED = "1"
