@@ -7,5 +7,6 @@ apscheduler
 Mastodon.py
 openai>=1.30.0
 mega.py
-fastapi
-uvicorn[standard]
+fastapi==0.112.0
+uvicorn[standard]==0.23.2
+
