@@ -9,6 +9,8 @@ from aiogram.types import Update
 import uvicorn
 
 logging.basicConfig(level=logging.INFO)
+if not os.getenv("FLY_APP_NAME"):
+    logging.warning("⚠️ FLY_APP_NAME не установлен, вебхук может не работать")
 
 # --- Telegram ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
