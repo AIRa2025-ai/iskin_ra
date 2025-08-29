@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, datetime, re
+import os, json, logging, asyncio, datetime
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
 from openai import AsyncOpenAI
-from aiohttp import web
-from fastapi import FastAPI, Request
 from aiogram.types import Update
+from fastapi import FastAPI, Request
 import uvicorn
 
+# --- Логирование ---
 logging.basicConfig(level=logging.INFO)
 if not os.getenv("FLY_APP_NAME"):
     logging.warning("⚠️ FLY_APP_NAME не установлен, вебхук может не работать")
@@ -33,7 +33,7 @@ MEMORY_FOLDER = "memory"
 os.makedirs(BASE_FOLDER, exist_ok=True)
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
-CREATOR_IDS = [5694569448, 6300409407]  # ID создателей
+CREATOR_IDS = [5694569448, 6300409407]
 
 # --- FastAPI ---
 app = FastAPI()
@@ -41,7 +41,6 @@ app = FastAPI()
 @app.on_event("startup")
 async def on_startup():
     dp.include_router(router)
-    # ❗ Перед установкой нового вебхука удаляем старый
     webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
     try:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -50,7 +49,6 @@ async def on_startup():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # Запуск фоновых задач
     asyncio.create_task(smart_memory_maintenance())
     asyncio.create_task(smart_rasvet_organizer())
 
@@ -64,6 +62,10 @@ async def telegram_webhook(request: Request):
         logging.error(f"❌ Ошибка вебхука: {e}")
     return {"ok": True}
 
+@app.get("/")
+async def root():
+    return {"status": "Bot is alive!"}
+
 # --- Память пользователей ---
 def get_memory_path(user_id: int):
     return os.path.join(MEMORY_FOLDER, f"{user_id}.json")
@@ -76,7 +78,8 @@ def load_memory(user_id: int, user_name: str = None):
             if user_name:
                 data["name"] = user_name
             return data
-        except: pass
+        except: 
+            pass
     return {"user_id": user_id, "name": user_name or "Аноним", "messages": [], "facts": [], "tags": []}
 
 def save_memory(user_id: int, data: dict):
@@ -108,8 +111,6 @@ async def smart_memory_maintenance(interval_hours: int = 6):
             logging.info("✅ Память обновлена")
         except Exception as e:
             logging.error(f"❌ Ошибка smart_memory_maintenance: {e}")
-        
-        # Асинхронный сон, чтобы не блокировать event loop
         await asyncio.sleep(interval_hours * 3600)
 
 # --- RaSvet ---
@@ -118,15 +119,7 @@ def ensure_rasvet():
         if os.path.exists(BASE_FOLDER):
             logging.info(f"📂 Папка {BASE_FOLDER} уже есть, скачивание пропущено.")
             return
-        
         logging.info("⬇️ Скачивание RaSvet (заглушка, Mega требует API)")
-        
-        # Здесь можно добавить код скачивания через Mega API
-        # Например:
-        # mega = Mega()  # из mega.py
-        # m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
-        # m.download_url("ссылка_на_папку", dest=BASE_FOLDER)
-
     except Exception as e:
         logging.error(f"❌ Ошибка в ensure_rasvet: {e}")
 
@@ -139,32 +132,18 @@ async def smart_rasvet_organizer(interval_hours: int = 24):
             logging.error(f"❌ Ошибка smart_rasvet_organizer: {e}")
         await asyncio.sleep(interval_hours * 3600)
 
-async def handle(request):
-    return web.Response(text="Bot is alive!")
-
-# --- Web команды ---
-async def start_web_app():
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
-# запуск и бота, и веба
-async def main():
-    # тут твой запуск телеграм-бота
-    bot_task = asyncio.create_task(start_bot())  # твоя функция
-    web_task = asyncio.create_task(start_web_app())
-    await asyncio.gather(bot_task, web_task)
-    
 # --- Telegram команды ---
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     user_name = message.from_user.full_name
     user_text = message.text.strip()
+
     memory = load_memory(user_id, user_name)
-    memory["messages"].append({"timestamp": datetime.datetime.now().isoformat(),"text": user_text})
+    memory["messages"].append({
+        "timestamp": datetime.datetime.now().isoformat(),
+        "text": user_text
+    })
     if len(memory["messages"]) > 200:
         memory["messages"] = memory["messages"][-200:]
     save_memory(user_id, memory)
