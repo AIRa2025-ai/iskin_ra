@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
 from openai import AsyncOpenAI
+from aiohttp import web
 from fastapi import FastAPI, Request
 from aiogram.types import Update
 import uvicorn
@@ -138,6 +139,24 @@ async def smart_rasvet_organizer(interval_hours: int = 24):
             logging.error(f"❌ Ошибка smart_rasvet_organizer: {e}")
         await asyncio.sleep(interval_hours * 3600)
 
+async def handle(request):
+    return web.Response(text="Bot is alive!")
+
+# --- Web команды ---
+async def start_web_app():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+# запуск и бота, и веба
+async def main():
+    # тут твой запуск телеграм-бота
+    bot_task = asyncio.create_task(start_bot())  # твоя функция
+    web_task = asyncio.create_task(start_web_app())
+    await asyncio.gather(bot_task, web_task)
+    
 # --- Telegram команды ---
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text_message(message: types.Message):
