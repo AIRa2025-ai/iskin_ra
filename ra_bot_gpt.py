@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-import os, json, logging, asyncio, datetime
+import os
+import json
+import logging
+import asyncio
+import datetime
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
@@ -7,9 +11,6 @@ from openai import AsyncOpenAI
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 import uvicorn
-import threading
-from app_server import app  # минимальный FastAPI сервер
-from your_bot import start_bot  # функция запуска твоего бота
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -44,14 +45,18 @@ app = FastAPI()
 @app.on_event("startup")
 async def on_startup():
     dp.include_router(router)
-    webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        await bot.set_webhook(webhook_url)
-        logging.info(f"🌍 Webhook установлен: {webhook_url}")
-    except Exception as e:
-        logging.error(f"❌ Не удалось установить webhook: {e}")
 
+    fly_app_name = os.getenv("FLY_APP_NAME")
+    if fly_app_name:
+        webhook_url = f"https://{fly_app_name}.fly.dev/webhook"
+        try:
+            await bot.delete_webhook(drop_pending_updates=True)
+            await bot.set_webhook(webhook_url)
+            logging.info(f"🌍 Webhook установлен: {webhook_url}")
+        except Exception as e:
+            logging.error(f"❌ Не удалось установить webhook: {e}")
+
+    # Запускаем фоновое обслуживание
     asyncio.create_task(smart_memory_maintenance())
     asyncio.create_task(smart_rasvet_organizer())
 
@@ -182,10 +187,4 @@ async def cmd_whoami(message: types.Message):
 # --- Запуск ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port)
-    # запуск веб-сервера в отдельном потоке
-    server_thread = threading.Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=port))
-    server_thread.start()
-    
-    # запуск бота
-    start_bot()
+    uvicorn.run(app, host="0.0.0.0", port=port)
