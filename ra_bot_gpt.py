@@ -7,6 +7,9 @@ from openai import AsyncOpenAI
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 import uvicorn
+import threading
+from app_server import app  # минимальный FastAPI сервер
+from your_bot import start_bot  # функция запуска твоего бота
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -180,3 +183,9 @@ async def cmd_whoami(message: types.Message):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port)
+    # запуск веб-сервера в отдельном потоке
+    server_thread = threading.Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=port))
+    server_thread.start()
+    
+    # запуск бота
+    start_bot()
