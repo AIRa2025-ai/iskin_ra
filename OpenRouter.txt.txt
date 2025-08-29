@@ -1,0 +1,58 @@
+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
+
+вход в проет:
+ cd "C:\Users\User\Documents\iskin_ra"
+ fly logs -a iskin-ra
+Посмотреть логи конкретной машины:
+fly logs -i 6832e50f719118 -a iskin-ra
+
+сайт Mastodon.social
+ID приложения	n7yolRwHf9rNkyI4wM9OZcRHL8UkHCXCSjVwXCwq-G8
+Секретный ключ	s7SZoU3Fa9kpZMBPIIh87I9m30hh7aD_ieiyHlkhvTk
+Токен доступа	QZjcYCvaaTikQIH_8V22Cu0dF7VbexQTErxrI1MBT-8
+
+token_fly.io
+FlyV1 fm2_lJPECAAAAAAACY/+xBDj2wSmYPEQ5BEDO0h2vEFfwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOABJhRB8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDxspcWGmV2t2F10gd56z0DKALReIq9V2vg54Dyj3ZqMYsLpjp5Pv+lMHazYjnNOkIiGjy2Tt/vgOQngfJrETr8XzfH6TPO/EGBP5NIiCwzPd5L8Q+jRTofV+/3CVU85SK7VAnaVoZ8KvBx5l2duzS7HHvL3J5y960VGRWw86+SmDGLdCkse48Jksv14ZcQgwAHsXCcUAuGXgGreXMcl9q/QEUcT2OvvskWtzcDQz/w=,fm2_lJPETr8XzfH6TPO/EGBP5NIiCwzPd5L8Q+jRTofV+/3CVU85SK7VAnaVoZ8KvBx5l2duzS7HHvL3J5y960VGRWw86+SmDGLdCkse48Jksv14ZcQQJ2swHHg8WsfPmgxRj9aahsO5aHR0cHM6Ly9hcGkuZmx5LmlvL2FhYS92MZgEks5oh6apzwAAAAEkf8THF84AEaptCpHOABGqbQzEEGskpP5HJXQYNokKQxUuhQ/EIFESraklGiuiIF11wR0P7w7U4tmdRkI3iFqlOQZOgv2x
+
+FlyV1 fm2_lJPECAAAAAAACY/+xBD6GYhUsN/Vt2jcjInUHSEXwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOABJhRB8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDwSmXTuyULpMS0szMqWC9LlEnLlW2+Fo4khCg0RW03oltMr0N87XN1rHdLeA3D25pYZUtseja4GBaBXmYfETjd9sfD+pz4StjiPq70TCX0WWz9M+w3w2yjmhGmuyzZWA8dgPJq2nRzLRdk+5NOs94oKA0vxkQL2m9GUAcrLMNo6jrfPtb7sU+pFwWGnbsQgaDU6Yk2IDByXyd9FN6gUMEI6Nm91epvoiiFYlOEumIA=,fm2_lJPETjd9sfD+pz4StjiPq70TCX0WWz9M+w3w2yjmhGmuyzZWA8dgPJq2nRzLRdk+5NOs94oKA0vxkQL2m9GUAcrLMNo6jrfPtb7sU+pFwWGnbsQQaMrg8hKVn7J38TcEt8df3sO5aHR0cHM6Ly9hcGkuZmx5LmlvL2FhYS92MZgEks5oh6rgzwAAAAEkf8j+F84AEaptCpHOABGqbQzEEHo+KgRpmaJP+QyyQ4lHdUbEIJm5TbQach7xQniWgXqBqp1OrYbw3c7G7LdsGOYzoOFH
+
+
+
+1. Смотреть поток логов в реальном времени
+bash
+Копировать код
+fly logs
+2. Посмотреть последние N строк (например 100)
+bash
+Копировать код
+fly logs --max=100
+3. Отфильтровать по времени (например, за последние 30 минут)
+bash
+Копировать код
+fly logs --since 30m
+4. С ключевым словом (например, только ошибки)
+bash
+Копировать код
+fly logs | grep ERROR
+
+Чтобы видеть новые логи в реальном времени, используй:
+
+powershell
+Копировать код
+fly logs --tail
+
+Логи в реальном времени
+fly logs -a iskin-ra
+
+Если хочешь смотреть только логи конкретной машины, смотри ID через fly machines list и делай:
+
+powershell
+Копировать код
+fly logs -a iskin-ra --machine <machine-id>
+
+История за время:
+
+powershell
+Копировать код
+fly logs -a iskin-ra --since 1h
+— покажет только за последний час.
