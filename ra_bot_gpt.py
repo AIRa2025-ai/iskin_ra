@@ -10,7 +10,6 @@ from gpt_module import ask_openrouter  # убедись, что gpt_module.py р
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
-logging.info(f"DEBUG: OPENROUTER_API_KEY = {api_key}")
 
 # --- Переменные окружения ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
