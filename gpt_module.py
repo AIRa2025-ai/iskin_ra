@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import logging
 
+
 async def ask_openrouter(
     user_id,
     user_input,
@@ -43,14 +44,15 @@ async def ask_openrouter(
 
                     reply = _parse_openrouter_response(data) if data else None
                     if not reply:
-                        err = (data.get("error") or {}).get("message") if isinstance(data, dict) else None
-                        if err:
-                            logging.warning(f"Пустой ответ, но есть ошибка: {err}")
+                        err_msg = None
+                        if isinstance(data, dict):
+                            err_msg = (data.get("error") or {}).get("message")
+                        if err_msg:
+                            logging.warning(f"Пустой ответ, но есть ошибка: {err_msg}")
                         else:
                             logging.warning("Пустой ответ от OpenRouter без ошибки.")
                         reply = "⚠️ Источник молчит."
 
-                    # Сохраняем в память
                     append_user_memory(user_id, user_input, reply)
                     logging.info(f"✅ Ответ получен для пользователя {user_id}")
                     return reply
