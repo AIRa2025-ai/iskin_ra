@@ -1,31 +1,33 @@
-# Базовый образ Python
+# === Базовый образ Python 3.11 slim ===
 FROM python:3.11-slim
 
-# Устанавливаем утилиты (если реально нужны)
+# Устанавливаем необходимые утилиты
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
     wget \
-    megatools \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Рабочая директория
 WORKDIR /app
 
-# Копируем зависимости отдельно (чтобы кэшировалось)
-COPY requirements.txt ./
+# Копируем зависимости отдельно, чтобы использовать кэширование
+COPY requirements.txt ./ 
 
-# Устанавливаем зависимости
+# Устанавливаем зависимости Python
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Копируем конфиг и проект
+# Копируем конфиг и весь проект
 COPY bot_config.json ./
 COPY . .
 
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1
 
-# Запуск бота (aiogram polling)
-CMD ["uvicorn", "ra_bot_gpt:app", "--host", "0.0.0.0", "--port", "8080"]
+# Указываем порт для Fly.io
+EXPOSE 8080
 
+# Запуск FastAPI через uvicorn
+CMD ["uvicorn", "ra_bot_gpt:app", "--host", "0.0.0.0", "--port", "8080"]
