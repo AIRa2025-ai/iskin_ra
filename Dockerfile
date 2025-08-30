@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     wget \
     git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Рабочая директория
@@ -19,12 +20,12 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Копируем конфиг и весь проект
-COPY bot_config.json ./
+# Копируем весь проект
 COPY . .
 
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 
 # Указываем порт для Fly.io
 EXPOSE 8080
