@@ -2,7 +2,7 @@
 import os, io, json, logging, asyncio, datetime
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
-from gpt_module import ask_gpt, API_KEY
+from gpt_module import ask_openrouter as ask_gpt, API_KEY
 from openai import AsyncOpenAI
 from fastapi import FastAPI, Request
 from aiogram.types import Update
