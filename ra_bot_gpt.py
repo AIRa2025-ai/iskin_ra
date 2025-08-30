@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 # --- Переменные окружения ---
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+logging.info(f"DEBUG: OPENROUTER_API_KEY = {OPENROUTER_API_KEY}")
 if not BOT_TOKEN:
     raise ValueError("❌ Не найден BOT_TOKEN")
 if not OPENROUTER_API_KEY:
