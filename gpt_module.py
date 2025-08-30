@@ -2,6 +2,7 @@ import os
 import asyncio
 import aiohttp
 import logging
+import httpx
 
 # === 🔑 Настройки API ===
 API_KEY = os.getenv("OPENROUTER_API_KEY")  # ключ берём из переменной окружения
