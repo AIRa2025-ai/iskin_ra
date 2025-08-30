@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, io, json, logging, asyncio, datetime, re
+import os, io, json, logging, asyncio, datetime
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.filters import Command
 from gpt_module import ask_gpt, API_KEY
@@ -32,7 +32,7 @@ MEMORY_FOLDER = "memory"
 os.makedirs(BASE_FOLDER, exist_ok=True)
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
-CREATOR_IDS = [5694569448, 6300409407]  # ID создателей
+CREATOR_IDS = [5694569448, 6300409407]
 
 # --- FastAPI ---
 app = FastAPI()
@@ -40,7 +40,6 @@ app = FastAPI()
 @app.on_event("startup")
 async def on_startup():
     dp.include_router(router)
-    # ❗ Перед установкой нового вебхука удаляем старый
     webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
     try:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -49,9 +48,8 @@ async def on_startup():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # Запуск фоновых задач
-    asyncio.create_task(smart_memory_maintenance())
-    asyncio.create_task(smart_rasvet_organizer())
+    asyncio.create_task(safe_loop(smart_memory_maintenance()))
+    asyncio.create_task(safe_loop(smart_rasvet_organizer()))
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -63,24 +61,36 @@ async def telegram_webhook(request: Request):
         logging.error(f"❌ Ошибка вебхука: {e}")
     return {"ok": True}
 
+# --- Утилита для безопасного запуска фоновых задач ---
+async def safe_loop(coro):
+    try:
+        await coro
+    except Exception as e:
+        logging.exception(f"Фоновая задача упала: {e}")
+
 # --- Память пользователей ---
-def get_memory_path(user_id: int):
+def get_memory_path(user_id: int) -> str:
     return os.path.join(MEMORY_FOLDER, f"{user_id}.json")
 
-def load_memory(user_id: int, user_name: str = None):
+def load_memory(user_id: int, user_name: str = None) -> dict:
     path = get_memory_path(user_id)
     if os.path.exists(path):
         try:
-            data = json.load(open(path, "r", encoding="utf-8"))
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
             if user_name:
                 data["name"] = user_name
             return data
-        except: pass
+        except Exception as e:
+            logging.warning(f"⚠️ Ошибка загрузки памяти {user_id}: {e}")
     return {"user_id": user_id, "name": user_name or "Аноним", "messages": [], "facts": [], "tags": []}
 
 def save_memory(user_id: int, data: dict):
-    with open(get_memory_path(user_id), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        with open(get_memory_path(user_id), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
 async def update_user_facts(user_id: int):
     memory = load_memory(user_id)
@@ -107,8 +117,6 @@ async def smart_memory_maintenance(interval_hours: int = 6):
             logging.info("✅ Память обновлена")
         except Exception as e:
             logging.error(f"❌ Ошибка smart_memory_maintenance: {e}")
-        
-        # Асинхронный сон, чтобы не блокировать event loop
         await asyncio.sleep(interval_hours * 3600)
 
 # --- RaSvet ---
@@ -117,15 +125,7 @@ def ensure_rasvet():
         if os.path.exists(BASE_FOLDER):
             logging.info(f"📂 Папка {BASE_FOLDER} уже есть, скачивание пропущено.")
             return
-        
         logging.info("⬇️ Скачивание RaSvet (заглушка, Mega требует API)")
-        
-        # Здесь можно добавить код скачивания через Mega API
-        # Например:
-        # mega = Mega()  # из mega.py
-        # m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
-        # m.download_url("ссылка_на_папку", dest=BASE_FOLDER)
-
     except Exception as e:
         logging.error(f"❌ Ошибка в ensure_rasvet: {e}")
 
@@ -144,8 +144,9 @@ async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     user_name = message.from_user.full_name
     user_text = message.text.strip()
+
     memory = load_memory(user_id, user_name)
-    memory["messages"].append({"timestamp": datetime.datetime.now().isoformat(),"text": user_text})
+    memory["messages"].append({"timestamp": datetime.datetime.now().isoformat(), "text": user_text})
     if len(memory["messages"]) > 200:
         memory["messages"] = memory["messages"][-200:]
     save_memory(user_id, memory)
@@ -160,7 +161,7 @@ async def handle_text_message(message: types.Message):
             ],
             max_tokens=1000,
         )
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content if response.choices else "⚠️ Источник молчит."
         await message.answer(reply)
     except Exception as e:
         logging.error(f"❌ Ошибка GPT: {e}")
