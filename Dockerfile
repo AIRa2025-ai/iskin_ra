@@ -1,7 +1,7 @@
 # Базовый образ Python
 FROM python:3.11-slim
 
-# Устанавливаем нужные утилиты
+# Устанавливаем утилиты (если реально нужны)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
@@ -12,24 +12,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Рабочая директория
 WORKDIR /app
 
-# Копируем зависимости
+# Копируем зависимости отдельно (чтобы кэшировалось)
 COPY requirements.txt ./
 
 # Устанавливаем зависимости
 RUN python -m pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Копируем конфиг бота
+# Копируем конфиг и проект
 COPY bot_config.json ./
-
-# Копируем весь проект и config
 COPY . .
 
 # Переменные окружения
 ENV PYTHONUNBUFFERED=1
 
-# Проверка, что FastAPI установлен (не критично)
-RUN python -m pip show fastapi
+# Запуск бота (aiogram polling)
+CMD ["uvicorn", "ra_bot_gpt:app", "--host", "0.0.0.0", "--port", "8080"]
 
-# Запуск твоего бота напрямую через Python (не uvicorn, если это не FastAPI)
-CMD ["python3", "ra_bot_gpt.py"]
