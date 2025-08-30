@@ -2,6 +2,7 @@ import os
 import asyncio
 import aiohttp
 import logging
+import httpx
 
 BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
