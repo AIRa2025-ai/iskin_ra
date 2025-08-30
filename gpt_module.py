@@ -1,14 +1,25 @@
+import os
 import asyncio
 import aiohttp
 import logging
 
+# === 🔑 Настройки API ===
+API_KEY = os.getenv("OPENROUTER_API_KEY")  # ключ берём из переменной окружения
+BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+COMMON_HEADERS = {
+    "Authorization": f"Bearer {API_KEY}" if API_KEY else "",
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://iskin-ra.fly.dev",  # укажи свой домен на fly.io
+    "X-Title": "Ra Bot"
+}
+
+
+# === 🌐 Запрос к OpenRouter ===
 async def ask_openrouter(
     user_id,
     user_input,
     MODEL,
-    BASE_URL,
-    COMMON_HEADERS,
     append_user_memory,
     _parse_openrouter_response
 ):
