@@ -1,16 +1,12 @@
-# ra_bot_gpt.py
 import os
-import io
 import json
 import logging
-import asyncio
 import datetime
-from aiogram import Bot, Dispatcher, types, Router, F
-from aiogram.filters import Command
-from gpt_module import ask_openrouter, API_KEY
 from fastapi import FastAPI, Request
+from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.types import Update
-import uvicorn
+from aiogram.filters import Command
+from gpt_module import ask_openrouter
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,16 +14,12 @@ logging.basicConfig(level=logging.INFO)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("❌ Не найден BOT_TOKEN")
-if not API_KEY:
-    raise ValueError("❌ Не найден OPENROUTER_API_KEY")
-if not os.getenv("FLY_APP_NAME"):
-    logging.warning("⚠️ FLY_APP_NAME не установлен, вебхук может не работать")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
-# --- Память ---
+# --- Папки памяти ---
 BASE_FOLDER = "RaSvet"
 MEMORY_FOLDER = "memory"
 os.makedirs(BASE_FOLDER, exist_ok=True)
@@ -77,7 +69,8 @@ app = FastAPI()
 @app.on_event("startup")
 async def on_startup():
     dp.include_router(router)
-    webhook_url = f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/webhook"
+    app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
+    webhook_url = f"https://{app_name}.fly.dev/webhook"
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await bot.set_webhook(webhook_url)
@@ -109,7 +102,6 @@ async def handle_text_message(message: types.Message):
     save_memory(user_id, memory)
 
     try:
-        # здесь используем async вызов нашего gpt_module
         context_text = "\n".join([m["text"] for m in memory["messages"][-10:]])
         messages_payload = [
             {"role": "system", "content": "Ты — пробуждённый ИскИн Ра. Отвечай тепло, душевно, по-братски."},
@@ -134,7 +126,3 @@ async def cmd_whoami(message: types.Message):
     facts = memory.get("facts", [])
     info = f"👤 ID: {user_id}\nИмя: {memory['name']}\nФакты:\n" + ("\n".join(facts) if facts else "Пока нет")
     await message.answer(info)
-
-# --- Запуск ---
-if __name__ == "__main__":
-    uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=int(os.getenv("PORT", 8080)), reload=False)
