@@ -1,41 +1,50 @@
 import os
-import asyncio
 import aiohttp
 import logging
-import httpx
 
-BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-async def ask_openrouter(user_id, user_input, MODEL, append_user_memory, _parse_openrouter_response):
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    headers = {
-        "Authorization": f"Bearer {api_key}" if api_key else "",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://iskin-ra.fly.dev",
-        "X-Title": "Ra Bot"
+async def ask_openrouter(user_id: int, messages, MODEL="openai/gpt-4o-mini",
+                         append_user_memory=None, _parse_openrouter_response=None):
+    """
+    Запрос к OpenRouter API.
+    """
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    payload = {
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 0.7
     }
-    payload = {"model": MODEL, "messages": user_input, "max_tokens": 4000}
-    retries = 5
-    delay = 3
-    timeout = aiohttp.ClientTimeout(total=60)
 
-    for attempt in range(1, retries + 1):
-        try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(BASE_URL, json=payload, headers=headers) as resp:
-                    if resp.status == 401:
-                        logging.error("❌ Unauthorized — проверь OPENROUTER_API_KEY")
-                        return "⚠️ Ошибка авторизации, ключ некорректен."
-                    resp.raise_for_status()
-                    data = await resp.json(content_type=None)
-                    reply = _parse_openrouter_response(data) if data else None
-                    if not reply:
-                        reply = "⚠️ Источник молчит."
-                    append_user_memory(user_id, user_input, reply)
-                    logging.info(f"✅ Ответ получен для пользователя {user_id}")
-                    return reply
-        except Exception as e:
-            logging.warning(f"[{attempt}/{retries}] Ошибка: {e}")
-            await asyncio.sleep(delay)
-            delay *= 2
-    return "⚠️ Ра устал, попробуй позже."
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "HTTP-Referer": "https://iskin-ra.fly.dev",
+        "X-Title": "iskin-ra",
+    }
+
+    logging.info(f"DEBUG: Отправляем запрос в OpenRouter: {payload}")
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logging.error(f"❌ Ошибка API {resp.status}: {text}")
+                    return f"⚠️ Ошибка API ({resp.status}): {text}"
+
+                data = await resp.json()
+                answer = None
+                if _parse_openrouter_response:
+                    answer = _parse_openrouter_response(data)
+                if not answer:
+                    answer = data["choices"][0]["message"]["content"]
+
+                if append_user_memory:
+                    append_user_memory(user_id, messages[-1]["content"], answer)
+
+                return answer.strip()
+
+    except Exception as e:
+        logging.exception("❌ Ошибка при запросе в OpenRouter")
+        return f"⚠️ Ошибка: {e}"
