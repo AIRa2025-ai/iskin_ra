@@ -4,7 +4,7 @@ import logging
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-async def ask_openrouter(user_id: int, messages, MODEL="openai/gpt-4o-mini",
+async def ask_openrouter(user_id: int, messages, MODEL="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
     Запрос к OpenRouter API.
