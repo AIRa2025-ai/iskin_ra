@@ -6,12 +6,13 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
-    "dolphin/dolphin-3.0-mistral-24b:free",
-    "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "qwen/qwen-3-14b:free",
-    "mistral/mistral-small-3.2-24b:free",
-    "mistral/mistral-nemo:free",
-    "google/gemini-2.0-flash-experimental:free"
+    "deepseek/deepseek-chat-v3.1:free",
+    "deepseek/deepseek-r1-0528-qwen3-8b:free",
+    "tngtech/deepseek-r1t2-chimera:free",
+    "mistralai/mistral-small-3.2-24b-instruct:free",
+    "cognitivecomputations/dolphin3.0-r1-mistral-24b:free",
+    "qwen/qwen3-14b:free",
+    "mistralai/mistral-nemo:free"
 ]
 
 async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
