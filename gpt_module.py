@@ -4,30 +4,24 @@ import logging
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
+# Список моделей для перебора при 429
 MODELS = [
     "deepseek/deepseek-r1:free",
     "deepseek/deepseek-chat-v3-0324:free",
     "meta-llama/llama-4-maverick:free"
 ]
 
-async def safe_ask_openrouter(user_id, messages_payload):
-    for model in MODELS:
-        try:
-            return await ask_openrouter(user_id, messages_payload, MODEL=model)
-        except Exception as e:
-            if "429" in str(e):
-                logging.warning(f"⚠️ Лимит для {model}, пробую следующую...")
-                continue
-            raise
-    return "⚠️ Все модели сейчас перегружены, попробуй чуть позже 🙏"
-
+async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1:free",
+                         append_user_memory=None, _parse_openrouter_response=None):
     """
-    Запрос к OpenRouter API.
+    Делает запрос к OpenRouter API. Можно передать функции:
+    - append_user_memory(user_id, user_input, reply)
+    - _parse_openrouter_response(data)
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     payload = {
-        "model": MODEL,
+        "model": model,
         "messages": messages,
         "temperature": 0.7
     }
@@ -49,12 +43,17 @@ async def safe_ask_openrouter(user_id, messages_payload):
                     return f"⚠️ Ошибка API ({resp.status}): {text}"
 
                 data = await resp.json()
+
+                # Разбор ответа через переданную функцию
                 answer = None
                 if _parse_openrouter_response:
                     answer = _parse_openrouter_response(data)
-                if not answer:
-                    answer = data["choices"][0]["message"]["content"]
 
+                # Если функция не вернула ответ — берём стандартно
+                if not answer:
+                    answer = data.get("choices", [{}])[0].get("message", {}).get("content", "⚠️ Пустой ответ")
+
+                # Сохраняем память, если передана функция
                 if append_user_memory:
                     append_user_memory(user_id, messages[-1]["content"], answer)
 
@@ -63,3 +62,25 @@ async def safe_ask_openrouter(user_id, messages_payload):
     except Exception as e:
         logging.exception("❌ Ошибка при запросе в OpenRouter")
         return f"⚠️ Ошибка: {e}"
+
+
+async def safe_ask_openrouter(user_id, messages_payload,
+                              append_user_memory=None, _parse_openrouter_response=None):
+    """
+    Перебирает модели, если возник лимит 429, и возвращает первый успешный ответ
+    """
+    for model in MODELS:
+        try:
+            return await ask_openrouter(
+                user_id, messages_payload, model=model,
+                append_user_memory=append_user_memory,
+                _parse_openrouter_response=_parse_openrouter_response
+            )
+        except Exception as e:
+            if "429" in str(e):
+                logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
+                continue
+            logging.exception(f"❌ Ошибка при запросе к модели {model}")
+            return f"⚠️ Ошибка: {e}"
+
+    return "⚠️ Все модели сейчас перегружены, попробуй чуть позже 🙏"
