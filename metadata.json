@@ -1,0 +1,9 @@
+{
+  "name": "Глиф Ра #1",
+  "description": "Живой магический артефакт",
+  "image": "ipfs://Qm123...xyz",
+  "attributes": [
+    {"trait_type": "Свет", "value": 100},
+    {"trait_type": "Сила", "value": 50}
+  ]
+}
