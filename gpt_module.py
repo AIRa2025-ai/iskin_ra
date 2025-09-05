@@ -15,7 +15,7 @@ MODELS = [
     "google/gemini-2.0-flash-experimental:free"
 ]
 
-async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1:free",
+async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
     Делает запрос к OpenRouter API. Можно передать функции:
