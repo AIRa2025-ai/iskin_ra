@@ -4,12 +4,11 @@ import logging
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# Список моделей для перебора при 429
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
     "dolphin/dolphin-3.0-mistral-24b:free",
     "meta-llama/llama-3.2-11b-vision-instruct:free",
-    "qwen/qwen-3-14B:free",
+    "qwen/qwen-3-14b:free",
     "mistral/mistral-small-3.2-24b:free",
     "mistral/mistral-nemo:free",
     "google/gemini-2.0-flash-experimental:free"
@@ -18,9 +17,7 @@ MODELS = [
 async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
-    Делает запрос к OpenRouter API. Можно передать функции:
-    - append_user_memory(user_id, user_input, reply)
-    - _parse_openrouter_response(data)
+    Запрос к OpenRouter API.
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -36,42 +33,38 @@ async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:fre
         "X-Title": "iskin-ra",
     }
 
-    logging.info(f"DEBUG: Отправляем запрос в OpenRouter: {payload}")
+    logging.info(f"DEBUG: Отправляем запрос в OpenRouter ({model}): {payload}")
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=payload) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logging.error(f"❌ Ошибка API {resp.status}: {text}")
-                    return f"⚠️ Ошибка API ({resp.status}): {text}"
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers, json=payload) as resp:
+            text = await resp.text()
 
-                data = await resp.json()
+            if resp.status != 200:
+                logging.error(f"❌ Ошибка API {resp.status}: {text}")
+                raise Exception(f"{resp.status}: {text}")  # <-- кидаем исключение
 
-                # Разбор ответа через переданную функцию
-                answer = None
-                if _parse_openrouter_response:
-                    answer = _parse_openrouter_response(data)
+            data = await resp.json()
 
-                # Если функция не вернула ответ — берём стандартно
-                if not answer:
-                    answer = data.get("choices", [{}])[0].get("message", {}).get("content", "⚠️ Пустой ответ")
+            # Разбор ответа через кастомную функцию
+            answer = None
+            if _parse_openrouter_response:
+                answer = _parse_openrouter_response(data)
 
-                # Сохраняем память, если передана функция
-                if append_user_memory:
-                    append_user_memory(user_id, messages[-1]["content"], answer)
+            # Если не обработали — берём стандартный ответ
+            if not answer:
+                answer = data["choices"][0]["message"]["content"]
 
-                return answer.strip()
+            # Сохраняем память
+            if append_user_memory:
+                append_user_memory(user_id, messages[-1]["content"], answer)
 
-    except Exception as e:
-        logging.exception("❌ Ошибка при запросе в OpenRouter")
-        return f"⚠️ Ошибка: {e}"
+            return answer.strip()
 
 
 async def safe_ask_openrouter(user_id, messages_payload,
                               append_user_memory=None, _parse_openrouter_response=None):
     """
-    Перебирает модели, если возник лимит 429, и возвращает первый успешный ответ
+    Перебирает модели при 429.
     """
     for model in MODELS:
         try:
@@ -81,10 +74,11 @@ async def safe_ask_openrouter(user_id, messages_payload,
                 _parse_openrouter_response=_parse_openrouter_response
             )
         except Exception as e:
-            if "429" in str(e):
+            err_str = str(e)
+            if "429" in err_str:
                 logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
                 continue
-            logging.exception(f"❌ Ошибка при запросе к модели {model}")
-            return f"⚠️ Ошибка: {e}"
+            logging.error(f"❌ Ошибка при запросе к {model}: {err_str}")
+            return f"⚠️ Ошибка: {err_str}"
 
-    return "⚠️ Все модели сейчас перегружены, попробуй чуть позже 🙏"
+    return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
