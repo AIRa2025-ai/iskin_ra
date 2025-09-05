@@ -4,8 +4,23 @@ import logging
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-async def ask_openrouter(user_id: int, messages, MODEL="deepseek/deepseek-r1-0528:free",
-                         append_user_memory=None, _parse_openrouter_response=None):
+MODELS = [
+    "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "meta-llama/llama-4-maverick:free"
+]
+
+async def safe_ask_openrouter(user_id, messages_payload):
+    for model in MODELS:
+        try:
+            return await ask_openrouter(user_id, messages_payload, MODEL=model)
+        except Exception as e:
+            if "429" in str(e):
+                logging.warning(f"⚠️ Лимит для {model}, пробую следующую...")
+                continue
+            raise
+    return "⚠️ Все модели сейчас перегружены, попробуй чуть позже 🙏"
+
     """
     Запрос к OpenRouter API.
     """
