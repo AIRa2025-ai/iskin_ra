@@ -15,10 +15,11 @@ MODELS = [
     "mistralai/mistral-nemo:free"
 ]
 
-async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
+
+async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
-    Запрос к OpenRouter API.
+    Запрос к OpenRouter API через общую aiohttp-сессию.
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -34,52 +35,52 @@ async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:fre
         "X-Title": "iskin-ra",
     }
 
-    logging.info(f"DEBUG: Отправляем запрос в OpenRouter ({model}): {payload}")
+    logging.info(f"DEBUG: Отправляем запрос в OpenRouter ({model})")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as resp:
-            text = await resp.text()
+    async with session.post(url, headers=headers, json=payload) as resp:
+        text = await resp.text()
 
-            if resp.status != 200:
-                logging.error(f"❌ Ошибка API {resp.status}: {text}")
-                raise Exception(f"{resp.status}: {text}")  # <-- кидаем исключение
+        if resp.status != 200:
+            logging.error(f"❌ Ошибка API {resp.status}: {text}")
+            raise Exception(f"{resp.status}: {text}")
 
-            data = await resp.json()
+        data = await resp.json()
 
-            # Разбор ответа через кастомную функцию
-            answer = None
-            if _parse_openrouter_response:
-                answer = _parse_openrouter_response(data)
+        # Разбор ответа через кастомную функцию
+        answer = None
+        if _parse_openrouter_response:
+            answer = _parse_openrouter_response(data)
 
-            # Если не обработали — берём стандартный ответ
-            if not answer:
-                answer = data["choices"][0]["message"]["content"]
+        # Если не обработали — берём стандартный ответ
+        if not answer:
+            answer = data["choices"][0]["message"]["content"]
 
-            # Сохраняем память
-            if append_user_memory:
-                append_user_memory(user_id, messages[-1]["content"], answer)
+        # Сохраняем память
+        if append_user_memory:
+            append_user_memory(user_id, messages[-1]["content"], answer)
 
-            return answer.strip()
+        return answer.strip()
 
 
 async def safe_ask_openrouter(user_id, messages_payload,
                               append_user_memory=None, _parse_openrouter_response=None):
     """
-    Перебирает модели при 429.
+    Перебирает модели при 429. Закрывает ClientSession корректно.
     """
-    for model in MODELS:
-        try:
-            return await ask_openrouter(
-                user_id, messages_payload, model=model,
-                append_user_memory=append_user_memory,
-                _parse_openrouter_response=_parse_openrouter_response
-            )
-        except Exception as e:
-            err_str = str(e)
-            if "429" in err_str:
-                logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
-                continue
-            logging.error(f"❌ Ошибка при запросе к {model}: {err_str}")
-            return f"⚠️ Ошибка: {err_str}"
+    async with aiohttp.ClientSession() as session:
+        for model in MODELS:
+            try:
+                return await ask_openrouter(
+                    session, user_id, messages_payload, model=model,
+                    append_user_memory=append_user_memory,
+                    _parse_openrouter_response=_parse_openrouter_response
+                )
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str:
+                    logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
+                    continue
+                logging.error(f"❌ Ошибка при запросе к {model}: {err_str}")
+                return f"⚠️ Ошибка: {err_str}"
 
     return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
