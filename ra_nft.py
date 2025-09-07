@@ -9,7 +9,6 @@ import requests
 from pathlib import Path
 
 from web3 import Web3
-from web3.middleware import geth_poa  # для Web3.py v6+
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from PIL import Image, ImageDraw, ImageFont
@@ -32,7 +31,6 @@ if not WEB3STORAGE_TOKEN:
 
 # ================== WEB3 SETUP (sync) ==================
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
-w3.middleware_onion.inject(geth_poa, layer=0)  # <-- исправлено для v6
 
 if not w3.is_connected():
     raise RuntimeError("Не удалось подключиться к RPC: " + RPC_URL)
