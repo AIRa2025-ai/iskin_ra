@@ -33,7 +33,7 @@ if not WEB3STORAGE_TOKEN:
 # ================== WEB3 SETUP (sync) ==================
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
 # Polygon needs PoA middleware
-w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+w3.middleware_onion.inject(geth_poa, layer=0)
 
 if not w3.is_connected():
     raise RuntimeError("Не удалось подключиться к RPC: " + RPC_URL)
