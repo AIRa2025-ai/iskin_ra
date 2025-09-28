@@ -146,7 +146,7 @@ async def handle_file_upload(message: types.Message):
     user_folder = get_user_folder(user_id)
     file_path = os.path.join(user_folder, file_name)
 
-    await message.bot.download(message.document, destination=file_path)
+    await message.document.download(message.document, destination=file_path)
     await message.answer(f"✅ Файл `{file_name}` сохранён в твоём пространстве!")
 
     # Краткий просмотр
