@@ -138,23 +138,15 @@ def get_user_folder(user_id: int) -> str:
     folder = os.path.join(USER_DATA_FOLDER, str(user_id))
     os.makedirs(folder, exist_ok=True)
     return folder
-
+    
 @router.message(F.document)
 async def handle_file_upload(message: types.Message):
     user_id = message.from_user.id
     file_name = message.document.file_name
     user_folder = get_user_folder(user_id)
     file_path = os.path.join(user_folder, file_name)
-    
-        # Сохраняем файл в память пользователя
-    memory = load_memory(user_id, message.from_user.full_name)
-    memory.setdefault("files", {})
-    memory["files"][file_name] = preview  # или file_content[:2000]
-    save_memory(user_id, memory)
-
 
     await message.bot.download(message.document, destination=file_path)
-    await message.answer(f"✅ Файл `{file_name}` сохранён в твоём пространстве!")
 
     # Краткий просмотр
     preview = ""
@@ -165,10 +157,17 @@ async def handle_file_upload(message: types.Message):
             preview = str(data)[:500]
         except Exception as e:
             preview = f"Ошибка чтения JSON: {e}"
-    elif file_name.endswith(".txt") or file_name.endswith(".md"):
+    elif file_name.endswith((".txt", ".md")):
         with open(file_path, "r", encoding="utf-8") as f:
             preview = f.read(300)
 
+    # Сохраняем файл в память пользователя
+    memory = load_memory(user_id, message.from_user.full_name)
+    memory.setdefault("files", {})
+    memory["files"][file_name] = preview
+    save_memory(user_id, memory)
+
+    await message.answer(f"✅ Файл `{file_name}` сохранён в твоём пространстве!")
     if preview:
         await message.answer(f"📖 Первые строки из `{file_name}`:\n{preview}")
 
@@ -253,16 +252,16 @@ async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     user_name = message.from_user.full_name
     user_text = message.text.strip()
-    
+
+    # --- Загружаем память пользователя ---
+    memory = load_memory(user_id, user_name)
+    memory["messages"].append({"timestamp": datetime.datetime.now().isoformat(), "text": user_text})
+
     # --- Добавляем файлы в контекст ---
     user_files_context = ""
     if "files" in memory and memory["files"]:
         for fname, fcontent in memory["files"].items():
             user_files_context += f"\n\n📂 Файл {fname}:\n{fcontent[:1000]}"
-
-    # --- Загружаем память пользователя ---
-    memory = load_memory(user_id, user_name)
-    memory["messages"].append({"timestamp": datetime.datetime.now().isoformat(), "text": user_text})
 
     # Ограничиваем общее количество сообщений
     if len(memory["messages"]) > 200:
