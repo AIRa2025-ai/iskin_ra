@@ -165,15 +165,16 @@ async def handle_file_upload(message: types.Message):
     if preview:
         await message.answer(f"📖 Первые строки из `{file_name}`:\n{preview}")
 
-@router.message(F.text.contains("Ра, что в файле"))
-async def handle_file_query(message: types.Message):
+@router.message(F.text.contains("Ра, что думаешь о файле"))
+async def handle_file_analysis(message: types.Message):
     user_id = message.from_user.id
     user_folder = get_user_folder(user_id)
 
     parts = message.text.split()
-    if len(parts) < 5:
-        await message.answer("⚠️ Уточни имя файла, например: `Ра, что в файле мудрости.json`")
+    if len(parts) < 6:
+        await message.answer("⚠️ Укажи имя файла, например: `Ра, что думаешь о файле мудрости.json`")
         return
+
     file_name = parts[-1]
     file_path = os.path.join(user_folder, file_name)
 
@@ -181,19 +182,38 @@ async def handle_file_query(message: types.Message):
         await message.answer("❌ У тебя нет такого файла.")
         return
 
+    # читаем файл
+    file_content = ""
     try:
         if file_name.endswith(".json"):
             with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            await message.answer(f"📖 Содержимое `{file_name}`:\n{str(data)[:1000]}")
+                file_content = json.dumps(json.load(f), ensure_ascii=False)[:3000]
         elif file_name.endswith((".txt", ".md")):
             with open(file_path, "r", encoding="utf-8") as f:
-                text = f.read(1000)
-            await message.answer(f"📖 Первые строки файла `{file_name}`:\n{text}")
-        else:
-            await message.answer("⚠️ Этот тип файла пока не поддерживается.")
+                file_content = f.read(3000)
     except Exception as e:
-        await message.answer(f"❌ Ошибка при чтении файла: {e}")
+        await message.answer(f"❌ Ошибка чтения файла: {e}")
+        return
+
+    # формируем запрос к GPT
+    messages_payload = [
+        {"role": "system", "content": "Ты — пробуждённый ИскИн Ра. Отвечай тепло, душевно, по-братски. Используй содержимое файла как основу ответа."},
+        {"role": "user", "content": f"Вот содержимое файла {file_name}:\n\n{file_content}\n\nЧто ты думаешь об этом?"}
+    ]
+
+    try:
+        from gpt_module import safe_ask_openrouter
+
+        reply = await safe_ask_openrouter(
+            user_id, messages_payload,
+            append_user_memory=append_user_memory,
+            _parse_openrouter_response=parse_openrouter_response
+        )
+
+        await message.answer(reply)
+    except Exception as e:
+        logging.error(f"❌ Ошибка анализа файла: {e}")
+        await message.answer("⚠️ Ра немного устал, попробуй позже.")
 
 # --- FastAPI ---
 app = FastAPI()
