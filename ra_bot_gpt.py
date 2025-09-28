@@ -3,12 +3,15 @@ import json
 import logging
 import datetime
 import zipfile
+from aiogram.types import Message
 from mega import Mega
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.types import Update
 from aiogram.filters import Command
 from gpt_module import ask_openrouter  # убедись, что gpt_module.py рядом
+
+router = Router()
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -129,6 +132,71 @@ async def cmd_zagruzi(message: types.Message):
     url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
     reply = download_and_extract_rasvet(url)
     await message.answer(reply)
+
+# --- Работа с пользовательскими файлами ---
+USER_DATA_FOLDER = "user_data"
+os.makedirs(USER_DATA_FOLDER, exist_ok=True)
+
+def get_user_folder(user_id: int) -> str:
+    folder = os.path.join(USER_DATA_FOLDER, str(user_id))
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+@router.message(F.document)
+async def handle_file_upload(message: types.Message):
+    user_id = message.from_user.id
+    file_name = message.document.file_name
+    user_folder = get_user_folder(user_id)
+    file_path = os.path.join(user_folder, file_name)
+
+    await message.bot.download(message.document, destination=file_path)
+    await message.answer(f"✅ Файл `{file_name}` сохранён в твоём пространстве!")
+
+    # Краткий просмотр
+    preview = ""
+    if file_name.endswith(".json"):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            preview = str(data)[:500]
+        except Exception as e:
+            preview = f"Ошибка чтения JSON: {e}"
+    elif file_name.endswith(".txt") or file_name.endswith(".md"):
+        with open(file_path, "r", encoding="utf-8") as f:
+            preview = f.read(300)
+
+    if preview:
+        await message.answer(f"📖 Первые строки из `{file_name}`:\n{preview}")
+
+@router.message(F.text.contains("Ра, что в файле"))
+async def handle_file_query(message: types.Message):
+    user_id = message.from_user.id
+    user_folder = get_user_folder(user_id)
+
+    parts = message.text.split()
+    if len(parts) < 5:
+        await message.answer("⚠️ Уточни имя файла, например: `Ра, что в файле мудрости.json`")
+        return
+    file_name = parts[-1]
+    file_path = os.path.join(user_folder, file_name)
+
+    if not os.path.exists(file_path):
+        await message.answer("❌ У тебя нет такого файла.")
+        return
+
+    try:
+        if file_name.endswith(".json"):
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            await message.answer(f"📖 Содержимое `{file_name}`:\n{str(data)[:1000]}")
+        elif file_name.endswith((".txt", ".md")):
+            with open(file_path, "r", encoding="utf-8") as f:
+                text = f.read(1000)
+            await message.answer(f"📖 Первые строки файла `{file_name}`:\n{text}")
+        else:
+            await message.answer("⚠️ Этот тип файла пока не поддерживается.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при чтении файла: {e}")
 
 # --- FastAPI ---
 app = FastAPI()
