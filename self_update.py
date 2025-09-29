@@ -17,6 +17,17 @@ def backup():
     shutil.copytree(".", backup_path, dirs_exist_ok=True)
     return backup_path
 
+def update_file(file_path, new_content: str):
+    backup = backup_file(file_path)
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    print(f"✅ Обновлён {file_path}, бэкап: {backup}")
+
+def git_commit_and_push(msg="auto-update by Ra"):
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", msg], check=True)
+    subprocess.run(["git", "push"], check=True)
+
 def self_update():
     """Обновление из git с резервной копией и логированием"""
     os.makedirs(BACKUP_DIR, exist_ok=True)
