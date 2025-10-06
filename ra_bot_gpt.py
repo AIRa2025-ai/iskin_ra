@@ -4,6 +4,7 @@ import logging
 import datetime
 import zipfile
 import asyncio
+import aiohttp
 from datetime import timedelta
 from mega import Mega
 from fastapi import FastAPI, Request
