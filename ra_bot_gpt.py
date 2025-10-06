@@ -37,7 +37,7 @@ dp = Dispatcher()
 router = Router()
 
 # --- aiohttp-сессия для OpenRouter ---
-session: aiohttp.ClientSession | None = None
+session: aiohttp.ClientSession | None
 
 async def get_session():
     global session
@@ -281,7 +281,6 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     logging.info("🛑 Закрываем бота и aiohttp сессии...")
-    await bot.session.close()
     global session
     if session and not session.closed:
         await session.close()
@@ -414,4 +413,5 @@ async def cmd_whoami(message: types.Message):
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=int(os.getenv("PORT", 8080)), log_level="info")
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port, log_level="info")
