@@ -1,6 +1,11 @@
 import os
 import json
+import asyncio
+import subprocess
+import logging
 import datetime
+from cloud_memory import upload_memory_to_mega
+from memory_sync import sync_memory
 from gpt_module import ask_openrouter
 from self_update import update_file, git_commit_and_push
 
@@ -62,6 +67,28 @@ async def self_reflect_and_update():
             "error": str(e)
         })
         print(f"❌ Ошибка самоанализа: {e}")
+
+    try:
+        logging.info("🧠 Ра запускает процесс саморефлексии...")
+
+        # 1. Выгрузка памяти в Mega
+        upload_memory_to_mega()
+
+        # 2. Сохранение памяти в GitHub
+        sync_memory()
+
+        # 3. Обновление кода из GitHub
+        logging.info("🔁 Обновление кода из GitHub...")
+        subprocess.run(["git", "pull", "origin", "main"], check=False)
+
+        # 4. Автодеплой на Fly.io
+        logging.info("🚀 Автодеплой Ра на Fly.io...")
+        subprocess.run(["flyctl", "deploy", "--remote-only"], check=False)
+
+        logging.info(f"✨ Саморефлексия завершена в {datetime.datetime.now().isoformat()}")
+
+    except Exception as e:
+        logging.error(f"❌ Ошибка в self_reflect_and_update: {e}")
 
 if __name__ == "__main__":
     import asyncio
