@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.types import Update
 from aiogram.filters import Command
-from gpt_module import ask_openrouter  # убедись, что gpt_module.py рядом
+from gpt_module import safe_ask_openrouter  # убедись, что gpt_module.py рядом
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
