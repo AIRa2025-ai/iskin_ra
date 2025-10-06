@@ -12,7 +12,7 @@ MODELS = [
     "mistralai/mistral-small-3.2-24b-instruct:free",
     "deepseek/deepseek-r1:free",
     "anthropic/claude-3.5-sonnet:free",
-    "meta-llama/llama-3.1-8b-instruct:free"
+    "meta-llama/llama-3.1-8b-instruct:free",
     "qwen/qwen3-14b:free",
     "mistralai/mistral-nemo:free"
 ]
