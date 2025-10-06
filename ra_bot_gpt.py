@@ -4,7 +4,7 @@ import logging
 import datetime
 import zipfile
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from mega import Mega
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
@@ -34,6 +34,13 @@ HEADERS = {
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
+
+# --- Импорт функции саморефлексии, если она есть ---
+try:
+    from self_reflection import self_reflect_and_update
+except Exception:
+    self_reflect_and_update = None
+    logging.warning("⚠️ self_reflect_and_update не найден — саморефлексия отключена")
 
 # --- Папки памяти ---
 BASE_FOLDER = "RaSvet"
@@ -122,13 +129,24 @@ def download_and_extract_rasvet(url: str, extract_to="RaSvet") -> str:
         logging.error(f"❌ Ошибка при загрузке RaSvet: {e}")
         return f"⚠️ Ошибка: {e}"
 
+# --- Фоновый процесс саморефлексии ---
 async def auto_reflect_loop():
     while True:
-        now = datetime.now()
-        if now.hour == 3:  # например, в 3 ночи
-            await self_reflect_and_update()
-        await asyncio.sleep(3600)  # проверка раз в час
-
+        try:
+            now = datetime.datetime.now()
+            if now.hour == 3 and self_reflect_and_update:
+                try:
+                    logging.info("🌀 Ра запускает ночную саморефлексию...")
+                    await self_reflect_and_update()
+                    logging.info("✨ Саморефлексия завершена успешно")
+                except Exception as e:
+                    logging.error(f"❌ Ошибка в self_reflect_and_update: {e}")
+            await asyncio.sleep(3600)
+        except Exception as e:
+            logging.error(f"❌ Ошибка в auto_reflect_loop: {e}")
+            await asyncio.sleep(60)
+            
+# --- Команда: /загрузи РаСвет ---            
 @router.message(Command("загрузи"))
 async def cmd_zagruzi(message: types.Message):
     if "РаСвет" not in message.text:
@@ -245,6 +263,11 @@ async def on_startup():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
+    # Запуск фонового цикла саморефлексии
+    if self_reflect_and_update:
+        logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
+        asyncio.create_task(auto_reflect_loop())
+        
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
