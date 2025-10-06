@@ -23,11 +23,12 @@ async def get_session():
     if session is None or session.closed:
         session = aiohttp.ClientSession()
     return session
-    
-async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
+
+
+async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
-    Запрос к OpenRouter API через общую aiohttp-сессию.
+    Запрос к OpenRouter API через переданную aiohttp-сессию.
     """
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -79,7 +80,10 @@ async def safe_ask_openrouter(user_id, messages_payload,
         for model in MODELS:
             try:
                 return await ask_openrouter(
-                    session, user_id, messages_payload, model=model,
+                    session=session,
+                    user_id=user_id,
+                    messages=messages_payload,
+                    model=model,
                     append_user_memory=append_user_memory,
                     _parse_openrouter_response=_parse_openrouter_response
                 )
