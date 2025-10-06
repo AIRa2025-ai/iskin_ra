@@ -35,6 +35,15 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 router = Router()
 
+# --- aiohttp-сессия для OpenRouter ---
+session: aiohttp.ClientSession | None = None
+
+async def get_session():
+    global session
+    if session is None or session.closed:
+        session = aiohttp.ClientSession()
+    return session
+    
 # --- Импорт функции саморефлексии, если она есть ---
 try:
     from self_reflection import self_reflect_and_update
@@ -267,7 +276,16 @@ async def on_startup():
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         asyncio.create_task(auto_reflect_loop())
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logging.info("🛑 Закрываем бота и aiohttp сессии...")
+    await bot.session.close()
+    global session
+    if session and not session.closed:
+        await session.close()
         
+# --- Telegram webhook ---        
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     try:
