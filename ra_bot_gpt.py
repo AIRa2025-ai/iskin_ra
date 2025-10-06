@@ -281,9 +281,12 @@ async def on_startup():
 @app.on_event("shutdown")
 async def on_shutdown():
     logging.info("🛑 Закрываем бота и aiohttp сессии...")
-    global session
-    if session and not session.closed:
-        await session.close()
+    try:
+        if 'session' in globals() and session and not session.closed:
+            await session.close()
+    except Exception as e:
+        logging.warning(f"⚠️ Ошибка при закрытии сессии: {e}")
+
         
 # --- Telegram webhook ---        
 @app.post("/webhook")
@@ -409,6 +412,10 @@ async def cmd_whoami(message: types.Message):
     facts = memory.get("facts", [])
     info = f"👤 ID: {user_id}\nИмя: {memory['name']}\nФакты:\n" + ("\n".join(facts) if facts else "Пока нет")
     await message.answer(info)
+
+@app.get("/")
+async def home():
+    return {"message": "Привет! Это ИскИн Ра 🌞 работает на Fly.io"}
 
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
