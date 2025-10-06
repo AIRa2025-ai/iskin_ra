@@ -7,6 +7,10 @@ primary_region = "ams"
 [env]
   PYTHONUNBUFFERED = "1"
 
+[mounts]
+  source = "ra_memory"
+  destination = "/mnt/ra_memory"
+    
 [experimental]
   allowed_public_ports = []
   auto_rollback = true
@@ -31,3 +35,6 @@ primary_region = "ams"
   [[services.ports]]
     port = 443
     handlers = ["tls", "http"]
+
+  
+  
