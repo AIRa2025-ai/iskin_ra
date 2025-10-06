@@ -10,7 +10,9 @@ MODELS = [
     "deepseek/deepseek-r1-0528-qwen3-8b:free",
     "tngtech/deepseek-r1t2-chimera:free",
     "mistralai/mistral-small-3.2-24b-instruct:free",
-    "cognitivecomputations/dolphin3.0-r1-mistral-24b:free",
+    "deepseek/deepseek-r1:free",
+    "anthropic/claude-3.5-sonnet:free",
+    "meta-llama/llama-3.1-8b-instruct:free"
     "qwen/qwen3-14b:free",
     "mistralai/mistral-nemo:free"
 ]
