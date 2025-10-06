@@ -3,6 +3,8 @@ import json
 import logging
 import datetime
 import zipfile
+import asyncio
+from datetime import datetime, timedelta
 from mega import Mega
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
@@ -119,6 +121,13 @@ def download_and_extract_rasvet(url: str, extract_to="RaSvet") -> str:
     except Exception as e:
         logging.error(f"❌ Ошибка при загрузке RaSvet: {e}")
         return f"⚠️ Ошибка: {e}"
+
+async def auto_reflect_loop():
+    while True:
+        now = datetime.now()
+        if now.hour == 3:  # например, в 3 ночи
+            await self_reflect_and_update()
+        await asyncio.sleep(3600)  # проверка раз в час
 
 @router.message(Command("загрузи"))
 async def cmd_zagruzi(message: types.Message):
