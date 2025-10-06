@@ -43,8 +43,8 @@ except Exception:
     logging.warning("⚠️ self_reflect_and_update не найден — саморефлексия отключена")
 
 # --- Папки памяти ---
-BASE_FOLDER = "RaSvet"
-MEMORY_FOLDER = os.path.join(BASE_FOLDER, "memory")
+BASE_FOLDER = "/data/RaSvet"
+MEMORY_FOLDER = os.path.join(BASE_FOLDER, "/mnt/ra_memory/memory")
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 CREATOR_IDS = [5694569448, 6300409407]
