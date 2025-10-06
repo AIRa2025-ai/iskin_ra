@@ -15,8 +15,16 @@ MODELS = [
     "mistralai/mistral-nemo:free"
 ]
 
+# --- Глобальная сессия ---
+session: aiohttp.ClientSession | None = None
 
-async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1-0528:free",
+async def get_session():
+    global session
+    if session is None or session.closed:
+        session = aiohttp.ClientSession()
+    return session
+    
+async def ask_openrouter(user_id, messages, model="deepseek/deepseek-r1-0528:free",
                          append_user_memory=None, _parse_openrouter_response=None):
     """
     Запрос к OpenRouter API через общую aiohttp-сессию.
