@@ -53,7 +53,7 @@ except Exception:
 
 # --- Папки памяти ---
 BASE_FOLDER = "/data/RaSvet"
-MEMORY_FOLDER = os.path.join(BASE_FOLDER, "/mnt/ra_memory/memory")
+MEMORY_FOLDER = os.path.join(BASE_FOLDER, "mnt/ra_memory/memory")
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 CREATOR_IDS = [5694569448, 6300409407]
