@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+    
+RUN pip install --no-cache-dir aiohttp
 
 # Рабочая директория
 WORKDIR /app
