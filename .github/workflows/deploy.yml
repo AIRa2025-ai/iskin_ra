@@ -16,38 +16,35 @@ jobs:
       # 2. Настраиваем Flyctl
       - name: 🔧 Set up Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@v1
-        with:
-          version: '0.1.343'  # последняя стабильная версия
 
       # 3. Проверка токена
       - name: 🔑 Check Fly API token
         run: |
-          if [ -z "${{ secrets.FLY_API_TOKEN }}" ]; then
+          if [ -z "$FLY_API_TOKEN" ]; then
             echo "❌ FLY_API_TOKEN is missing!"
             exit 1
-          else
-            echo "✅ FLY_API_TOKEN is set"
           fi
+          echo "✅ FLY_API_TOKEN is set"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       # 4. Проверка fly.toml
       - name: 📝 Check fly.toml
         run: |
-          if [ ! -f ./fly.toml ]; then
-            echo "❌ fly.toml not found in the root directory!"
-            ls -la
+          CONFIG_PATH="${GITHUB_WORKSPACE}/fly.toml"
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "❌ fly.toml not found in repo root!"
+            ls -la $GITHUB_WORKSPACE
             exit 1
-          else
-            echo "✅ fly.toml found"
           fi
+          echo "✅ fly.toml found at $CONFIG_PATH"
 
       # 5. Деплой на Fly.io
       - name: 🚀 Deploy to Fly
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
+          CONFIG_PATH="${GITHUB_WORKSPACE}/fly.toml"
           echo "Starting Fly.io deploy..."
-          flyctl deploy --config ./fly.toml --app iskin-ra || {
-            echo "❌ Deploy failed!"
-            exit 1
-          }
+          flyctl deploy --config "$CONFIG_PATH" --app iskin-ra
           echo "✅ Deploy finished successfully!"
