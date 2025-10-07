@@ -1,0 +1,9 @@
+import subprocess, os
+
+def git_commit_push(msg="auto-update by Ra"):
+    os.environ["GIT_AUTHOR_NAME"] = "Ra Autonomous"
+    os.environ["GIT_AUTHOR_EMAIL"] = "ra@iskin-ra.ai"
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", msg], check=True)
+    # remote should be set to https://x-access-token:GITHUB_TOKEN@github.com/...
+    subprocess.run(["git", "push", "origin", "main"], check=True)
