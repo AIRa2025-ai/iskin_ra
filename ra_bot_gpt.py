@@ -6,6 +6,8 @@ import zipfile
 import asyncio
 import aiohttp
 from datetime import timedelta
+from aiogram import types
+from github_commit import create_commit_push
 from mega import Mega
 from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
@@ -388,6 +390,14 @@ async def handle_text_message(message: types.Message):
         logging.error(f"❌ Ошибка GPT: {e}")
         await message.answer("⚠️ Ра немного устал, попробуй позже.")
 
+# Автообновление Ра
+@router.message(Command("autoupdate"))
+async def auto_update(message: types.Message):
+    branch_name = f"ra-update-{int(datetime.datetime.now().timestamp())}"
+    files_dict = {"memory_sync.py": "# test by Ra\nprint('Hello world!')"}
+    pr = create_commit_push(branch_name, files_dict, "🔁 Автообновление Ра")
+    await message.answer(f"✅ Ра создал PR #{pr['number']}:\n{pr['html_url']}")
+    
 # --- Команда для вывода дайджеста ---
 @router.message(Command("дайджест"))
 async def cmd_digest(message: types.Message):
@@ -405,7 +415,6 @@ async def cmd_digest(message: types.Message):
                   f"💡 Советы и рекомендации:\n{advice_text}"
 
     await message.answer(digest_text)
-
 @router.message(Command("whoami"))
 async def cmd_whoami(message: types.Message):
     user_id = message.from_user.id
