@@ -2,22 +2,20 @@ name: 🚀 Deploy RaBot to Fly.io
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
-    name: ⚙️ Fly Deploy
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🔽 Checkout кода
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: 🔑 Настройка Fly.io CLI
+      - name: 🔧 Set up Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@1.5
 
-      - name: 🚀 Деплой на Fly.io
-        run: flyctl deploy --remote-only --app iskin-ra
+      - name: 🚀 Deploy to Fly
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl deploy --config ./fly.toml --app iskin-ra --remote-only
