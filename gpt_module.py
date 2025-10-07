@@ -74,16 +74,24 @@ async def main():
     answer = await ask_openrouter_with_fallback(user_id, messages_payload)
     logging.info(f"💬 Ответ от Ra: {answer}")
 
-    # Создаём автоматический PR
-    branch_name = "auto-update-" + str(os.getpid())
-    files_dict = {
-        "memory_sync.py": """# test
+    import asyncio
+
+# --- Создаём автоматический PR ---
+branch_name = "auto-update-" + str(os.getpid())
+files_dict = {
+    "memory_sync.py": """# test
 change
 print('Ra updated!')"""
-    }
+}
 
-    pr = create_commit_push(branch_name, files_dict, "обновление от Ра")
-    logging.info(f"✅ Создан PR: {pr['html_url']}")
+# Безопасный вызов синхронной функции из async
+pr = await asyncio.to_thread(
+    create_commit_push,
+    branch_name,
+    files_dict,
+    "обновление от Ра"
+)
+logging.info(f"✅ Создан PR: {pr['html_url']}")
 
 # --- Запуск ---
 if __name__ == "__main__":
