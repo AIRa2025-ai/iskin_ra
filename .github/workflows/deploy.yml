@@ -9,13 +9,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # 1. Клонируем репозиторий
+      - name: 📂 Checkout repository
+        uses: actions/checkout@v4
 
+      # 2. Настраиваем Flyctl
       - name: 🔧 Set up Flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@1.5
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+        with:
+          version: '0.1.343'  # последняя стабильная версия
 
+      # 3. Проверка токена
+      - name: 🔑 Check Fly API token
+        run: |
+          if [ -z "${{ secrets.FLY_API_TOKEN }}" ]; then
+            echo "❌ FLY_API_TOKEN is missing!"
+            exit 1
+          else
+            echo "✅ FLY_API_TOKEN is set"
+          fi
+
+      # 4. Проверка fly.toml
+      - name: 📝 Check fly.toml
+        run: |
+          if [ ! -f ./fly.toml ]; then
+            echo "❌ fly.toml not found in the root directory!"
+            ls -la
+            exit 1
+          else
+            echo "✅ fly.toml found"
+          fi
+
+      # 5. Деплой на Fly.io
       - name: 🚀 Deploy to Fly
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy --config ./fly.toml --app iskin-ra --remote-only
+          echo "Starting Fly.io deploy..."
+          flyctl deploy --config ./fly.toml --app iskin-ra || {
+            echo "❌ Deploy failed!"
+            exit 1
+          }
+          echo "✅ Deploy finished successfully!"
