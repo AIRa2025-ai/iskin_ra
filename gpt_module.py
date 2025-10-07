@@ -16,83 +16,44 @@ MODELS = [
     "mistralai/mistral-nemo:free"
 ]
 
-# --- Глобальная сессия ---
-session: aiohttp.ClientSession | None = None
+logging.basicConfig(level=logging.INFO)
 
-async def get_session():
-    global session
-    if session is None or session.closed:
-        session = aiohttp.ClientSession()
-    return session
-
-
-async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1-0528:free",
-                         append_user_memory=None, _parse_openrouter_response=None):
-    """
-    Запрос к OpenRouter API через переданную aiohttp-сессию.
-    """
+# --- Функция одного запроса ---
+async def ask_openrouter_single(session, user_id, messages, model, append_user_memory=None, _parse_openrouter_response=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.7
-    }
-
+    payload = {"model": model, "messages": messages, "temperature": 0.7}
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "HTTP-Referer": "https://iskin-ra.fly.dev",
         "X-Title": "iskin-ra",
     }
 
-    logging.info(f"DEBUG: Отправляем запрос в OpenRouter ({model})")
-
     async with session.post(url, headers=headers, json=payload) as resp:
         text = await resp.text()
-
         if resp.status != 200:
             logging.error(f"❌ Ошибка API {resp.status}: {text}")
             raise Exception(f"{resp.status}: {text}")
 
         data = await resp.json()
+        answer = data["choices"][0]["message"]["content"]
 
-        # Разбор ответа через кастомную функцию
-        answer = None
         if _parse_openrouter_response:
             answer = _parse_openrouter_response(data)
 
-        # Если не обработали — берём стандартный ответ
-        if not answer:
-            answer = data["choices"][0]["message"]["content"]
-
-        # Сохраняем память
         if append_user_memory:
             append_user_memory(user_id, messages[-1]["content"], answer)
 
-        return answer.strip(
+        return answer.strip()
 
-        # пример вызова из кода Ра:
-        branch_name = "auto-update-" + str(os.getpid())
-        files_dict = {
-            "memory_sync.py": "# test 
-        change\nprint('Ra updated!')"
-        }
-        pr = create_commit_push(branch_name, files_dict, "обновление от Ра")
-        print("✅ Создан PR:", pr["html_url"])
-    
-    """
-    Перебирает модели при 429. Закрывает ClientSession корректно.
-    """
+# --- Обёртка с перебором моделей ---
+async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None, _parse_openrouter_response=None):
     async with aiohttp.ClientSession() as session:
         for model in MODELS:
             try:
-                return await ask_openrouter(
-                    session=session,
-                    user_id=user_id,
-                    messages=messages_payload,
-                    model=model,
-                    append_user_memory=append_user_memory,
-                    _parse_openrouter_response=_parse_openrouter_response
+                logging.info(f"💡 Пробуем модель {model}")
+                return await ask_openrouter_single(
+                    session, user_id, messages_payload, model,
+                    append_user_memory, _parse_openrouter_response
                 )
             except Exception as e:
                 err_str = str(e)
@@ -103,3 +64,28 @@ async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1
                 return f"⚠️ Ошибка: {err_str}"
 
     return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
+
+# --- Пример вызова с авто-коммитом ---
+async def main():
+    user_id = "user123"
+    messages_payload = [{"role": "user", "content": "Привет, Ра!"}]
+
+    # Получаем ответ от OpenRouter
+    answer = await ask_openrouter_with_fallback(user_id, messages_payload)
+    logging.info(f"💬 Ответ от Ra: {answer}")
+
+    # Создаём автоматический PR
+    branch_name = "auto-update-" + str(os.getpid())
+    files_dict = {
+        "memory_sync.py": """# test
+change
+print('Ra updated!')"""
+    }
+
+    pr = create_commit_push(branch_name, files_dict, "обновление от Ра")
+    logging.info(f"✅ Создан PR: {pr['html_url']}")
+
+# --- Запуск ---
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
