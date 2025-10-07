@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import logging
+from github_commit import create_commit_push
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
@@ -68,11 +69,17 @@ async def ask_openrouter(session, user_id, messages, model="deepseek/deepseek-r1
         if append_user_memory:
             append_user_memory(user_id, messages[-1]["content"], answer)
 
-        return answer.strip()
+        return answer.strip(
 
-
-async def safe_ask_openrouter(user_id, messages_payload,
-                              append_user_memory=None, _parse_openrouter_response=None):
+        # пример вызова из кода Ра:
+        branch_name = "auto-update-" + str(os.getpid())
+        files_dict = {
+            "memory_sync.py": "# test 
+        change\nprint('Ra updated!')"
+        }
+        pr = create_commit_push(branch_name, files_dict, "обновление от Ра")
+        print("✅ Создан PR:", pr["html_url"])
+    
     """
     Перебирает модели при 429. Закрывает ClientSession корректно.
     """
