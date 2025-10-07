@@ -4,6 +4,8 @@ import logging
 from github_commit import create_commit_push
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("❌ Не задан OPENROUTER_API_KEY")
 
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
@@ -18,7 +20,7 @@ MODELS = [
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Функция одного запроса ---
+# --- Функция одного запроса к OpenRouter ---
 async def ask_openrouter_single(session, user_id, messages, model, append_user_memory=None, _parse_openrouter_response=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.7}
@@ -45,9 +47,11 @@ async def ask_openrouter_single(session, user_id, messages, model, append_user_m
 
         return answer.strip()
 
+
 # --- Обёртка с перебором моделей ---
 async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None, _parse_openrouter_response=None):
     async with aiohttp.ClientSession() as session:
+        errors = []
         for model in MODELS:
             try:
                 logging.info(f"💡 Пробуем модель {model}")
@@ -59,13 +63,16 @@ async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_me
                 err_str = str(e)
                 if "429" in err_str:
                     logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
+                    errors.append(f"{model}: {err_str}")
                     continue
                 logging.error(f"❌ Ошибка при запросе к {model}: {err_str}")
                 return f"⚠️ Ошибка: {err_str}"
 
+    logging.error("⚠️ Все модели сейчас перегружены:\n" + "\n".join(errors))
     return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
 
-# --- Пример вызова с авто-коммитом ---
+
+# --- Главная функция ---
 async def main():
     user_id = "user123"
     messages_payload = [{"role": "user", "content": "Привет, Ра!"}]
@@ -74,24 +81,23 @@ async def main():
     answer = await ask_openrouter_with_fallback(user_id, messages_payload)
     logging.info(f"💬 Ответ от Ra: {answer}")
 
-    import asyncio
-
-# --- Создаём автоматический PR ---
-branch_name = "auto-update-" + str(os.getpid())
-files_dict = {
-    "memory_sync.py": """# test
+    # --- Создаём автоматический PR ---
+    branch_name = f"auto-update-{os.getpid()}"
+    files_dict = {
+        "memory_sync.py": """# test
 change
 print('Ra updated!')"""
-}
+    }
 
-# Безопасный вызов синхронной функции из async
-pr = await asyncio.to_thread(
-    create_commit_push,
-    branch_name,
-    files_dict,
-    "обновление от Ра"
-)
-logging.info(f"✅ Создан PR: {pr['html_url']}")
+    # Безопасный вызов синхронной функции внутри async
+    pr = await asyncio.to_thread(
+        create_commit_push,
+        branch_name,
+        files_dict,
+        "обновление от Ра"
+    )
+    logging.info(f"✅ Создан PR: {pr['html_url']}")
+
 
 # --- Запуск ---
 if __name__ == "__main__":
