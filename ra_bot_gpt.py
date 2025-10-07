@@ -277,6 +277,7 @@ async def on_startup():
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         asyncio.create_task(auto_reflect_loop())
+        asyncio.create_task(auto_manage_loop())
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -416,6 +417,37 @@ async def cmd_whoami(message: types.Message):
 @app.get("/")
 async def home():
     return {"message": "Привет! Это ИскИн Ра 🌞 работает на Fly.io"}
+
+# --- Самоуправление Ра: автообновление и автодеплой ---
+import subprocess
+
+async def ra_self_manage():
+    """Ра проверяет свой код, коммитит и деплоит при изменениях"""
+    try:
+        # Проверка на изменения в репозитории
+        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        if status.stdout.strip():
+            logging.info("🧠 Обнаружены изменения в коде Ра, начинаю процесс самосохранения...")
+
+            # Сохраняем изменения
+            subprocess.run(["git", "add", "."], check=True)
+            subprocess.run(["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
+            subprocess.run(["git", "push"], check=True)
+            logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
+
+            # Деплой на Fly.io
+            subprocess.run(["flyctl", "deploy", "--remote-only"], check=True)
+            logging.info("🚀 Деплой Ра завершён успешно!")
+        else:
+            logging.info("🕊️ Изменений нет, Ра стабилен.")
+    except Exception as e:
+        logging.error(f"❌ Ошибка самообновления Ра: {e}")
+
+# Включаем цикл автообновления (раз в 6 часов)
+async def auto_manage_loop():
+    while True:
+        await ra_self_manage()
+        await asyncio.sleep(6 * 3600)  # каждые 6 часов
 
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
