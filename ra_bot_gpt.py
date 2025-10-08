@@ -458,6 +458,12 @@ async def auto_manage_loop():
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
     import uvicorn
+    import threading
+
+    def run_auto_manage():
+        asyncio.run(auto_manage_loop())
+
+    threading.Thread(target=run_auto_manage, daemon=True).start()
+
     port = int(os.getenv("PORT", 8080))
     uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port, log_level="info")
-    asyncio.create_task(auto_manage_loop())
