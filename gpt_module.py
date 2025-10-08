@@ -71,7 +71,8 @@ async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_me
 
     logging.error("⚠️ Все модели сейчас перегружены:\n" + "\n".join(errors))
     return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
-
+# --- Совместимость со старыми вызовами ---
+safe_ask_openrouter = ask_openrouter_with_fallback
 
 # --- Главная функция ---
 async def main():
