@@ -7,7 +7,6 @@ import asyncio
 import aiohttp
 import subprocess
 from datetime import timedelta
-from aiogram import types
 from github_commit import create_commit_push
 from mega import Mega
 from fastapi import FastAPI, Request
@@ -278,7 +277,6 @@ async def on_startup():
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         asyncio.create_task(auto_reflect_loop())
-        asyncio.create_task(auto_manage_loop())
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -427,8 +425,6 @@ async def home():
     return {"message": "Привет! Это ИскИн Ра 🌞 работает на Fly.io"}
 
 # --- Самоуправление Ра: автообновление и автодеплой ---
-import subprocess
-
 async def ra_self_manage():
     """Ра проверяет свой код, коммитит и деплоит при изменениях"""
     try:
@@ -438,10 +434,12 @@ async def ra_self_manage():
             logging.info("🧠 Обнаружены изменения в коде Ра, начинаю процесс самосохранения...")
 
             # Сохраняем изменения
-            subprocess.run(["git", "add", "."], check=True)
-            subprocess.run(["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
-            subprocess.run(["git", "push"], check=True)
-            logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
+            if os.getenv("FLY_APP_NAME") is None:
+                subprocess.run(["git", "add", "."], check=True)
+                subprocess.run(["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
+                subprocess.run(["git", "push"], check=True)
+            else:
+                logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
 
             # Деплой на Fly.io
             subprocess.run(["flyctl", "deploy", "--remote-only"], check=True)
@@ -462,3 +460,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8080))
     uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port, log_level="info")
+    asyncio.create_task(auto_manage_loop())
