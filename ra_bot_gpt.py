@@ -5,6 +5,7 @@ import datetime
 import zipfile
 import asyncio
 import aiohttp
+import subprocess
 from datetime import timedelta
 from aiogram import types
 from github_commit import create_commit_push
@@ -39,7 +40,7 @@ dp = Dispatcher()
 router = Router()
 
 # --- aiohttp-сессия для OpenRouter ---
-session: aiohttp.ClientSession | None
+session: aiohttp.ClientSession | None = None
 
 async def get_session():
     global session
@@ -164,7 +165,6 @@ async def cmd_zagruzi(message: types.Message):
     if "РаСвет" not in message.text:
         await message.answer("⚠️ Используй: `/загрузи РаСвет`", parse_mode="Markdown")
         return
-    
     url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
     reply = download_and_extract_rasvet(url)
     await message.answer(reply)
@@ -184,7 +184,6 @@ async def handle_file_upload(message: types.Message):
     file_name = message.document.file_name
     user_folder = get_user_folder(user_id)
     file_path = os.path.join(user_folder, file_name)
-
     await message.bot.download(message.document, destination=file_path)
 
     # Краткий просмотр
