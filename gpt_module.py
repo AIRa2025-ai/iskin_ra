@@ -1,6 +1,7 @@
 import os
 import aiohttp
 import logging
+import asyncio
 from github_commit import create_commit_push
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -81,25 +82,27 @@ async def main():
     answer = await ask_openrouter_with_fallback(user_id, messages_payload)
     logging.info(f"💬 Ответ от Ra: {answer}")
 
-    # --- Создаём автоматический PR ---
-    branch_name = f"auto-update-{os.getpid()}"
-    files_dict = {
-        "memory_sync.py": """# test
+    # --- Создаём автоматический PR (только вне Fly.io) ---
+    if os.getenv("FLY_APP_NAME") is None:
+        logging.info("🌍 Работаем локально — можно делать коммит и пуш")
+        branch_name = f"auto-update-{os.getpid()}"
+        files_dict = {
+            "memory_sync.py": """# test
 change
 print('Ra updated!')"""
-    }
+        }
 
-    # Безопасный вызов синхронной функции внутри async
-    pr = await asyncio.to_thread(
-        create_commit_push,
-        branch_name,
-        files_dict,
-        "обновление от Ра"
-    )
-    logging.info(f"✅ Создан PR: {pr['html_url']}")
+        pr = await asyncio.to_thread(
+            create_commit_push,
+            branch_name,
+            files_dict,
+            "обновление от Ра"
+        )
+        logging.info(f"✅ Создан PR: {pr['html_url']}")
+    else:
+        logging.info("🚀 Работаем на Fly.io — git-коммиты пропускаем")
 
 
 # --- Запуск ---
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
