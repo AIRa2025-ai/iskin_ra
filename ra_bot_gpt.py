@@ -1,4 +1,4 @@
-# ra_bot_gpt.py — улучшённая, стабильная версия
+# ra_bot_gpt.py — улучшённая, стабильная версия)
 import os
 import json
 import logging
