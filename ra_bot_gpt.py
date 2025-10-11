@@ -1,13 +1,14 @@
-# ra_bot_gpt.py — улучшенная, стабильная версия
+# ra_bot_gpt.py — улучшённая, стабильная версия
 import os
 import json
 import logging
-import datetime
 import zipfile
 import asyncio
 import aiohttp
 import subprocess
 from datetime import datetime
+from typing import Optional, List
+
 from github_commit import create_commit_push
 from mega import Mega
 from fastapi import FastAPI, Request
@@ -22,25 +23,34 @@ except Exception as e:
     safe_ask_openrouter = None
     logging.error(f"❌ Не удалось импортировать safe_ask_openrouter из gpt_module: {e}")
 
-# Попытка импортировать self-reflection (может не быть в окружении)
+# Попытка импортировать self-reflection (может отсутствовать в окружении)
 try:
     from self_reflection import self_reflect_and_update
 except Exception:
-    logging.warning("⚠️ self_reflect_and_update не найден — саморефлексия отключена")
     self_reflect_and_update = None
-    
+    logging.warning("⚠️ self_reflect_and_update не найден — саморефлексия отключена")
+
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
 
-# --- Переменные окружения ---
+# --- Флаги окружения ---
+IS_FLY_IO = bool(os.getenv("FLY_APP_NAME"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+
 logging.info(f"DEBUG: OPENROUTER_API_KEY = {OPENROUTER_API_KEY}")
+logging.info(f"DEBUG: IS_FLY_IO = {IS_FLY_IO}")
 
 if not BOT_TOKEN:
     raise ValueError("❌ Не найден BOT_TOKEN")
 if not OPENROUTER_API_KEY:
     raise ValueError("❌ Не найден OPENROUTER_API_KEY")
+
+HEADERS = {
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "HTTP-Referer": "https://iskin-ra.fly.dev",
+    "X-Title": "iskin-ra",
+}
 
 # --- Инициализация бота и диспетчера ---
 bot = Bot(token=BOT_TOKEN)
@@ -49,7 +59,7 @@ router = Router()
 
 # --- Папки памяти ---
 BASE_FOLDER = "/data/RaSvet"
-MEMORY_FOLDER = os.path.join(BASE_FOLDER, "mnt/ra_memory/memory")
+MEMORY_FOLDER = os.path.join(BASE_FOLDER, "mnt/ra_memory", "memory")
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 CREATOR_IDS = [5694569448, 6300409407]
@@ -78,10 +88,11 @@ def save_memory(user_id: int, data: dict):
     except Exception as e:
         logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
-def append_user_memory(user_id: int, user_input, reply):
+def append_user_memory(user_id: int, user_input: str, reply: str):
     memory = load_memory(user_id)
+    memory.setdefault("messages", [])
     memory["messages"].append({
-        "timestamp": datetime.datetime.datetime.now().isoformat() if hasattr(datetime, "datetime") else datetime.datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "text": user_input,
         "reply": reply
     })
@@ -89,16 +100,17 @@ def append_user_memory(user_id: int, user_input, reply):
         memory["messages"] = memory["messages"][-200:]
     save_memory(user_id, memory)
 
-def parse_openrouter_response(data) -> str:
+def parse_openrouter_response(data) -> Optional[str]:
     try:
         return data.get("choices", [{}])[0].get("message", {}).get("content")
     except Exception:
         return None
 
 # --- Работа с RaSvet.zip ---
-def collect_rasvet_knowledge(base_folder="RaSvet") -> str:
+def collect_rasvet_knowledge(base_folder: str = "RaSvet") -> str:
     """Собирает текст из .json, .txt, .md файлов в один контекст."""
-    knowledge = []
+    import os
+    knowledge: List[str] = []
     if not os.path.exists(base_folder):
         return ""
     for root, _, files in os.walk(base_folder):
@@ -120,7 +132,7 @@ def collect_rasvet_knowledge(base_folder="RaSvet") -> str:
         logging.warning(f"⚠️ Не удалось записать context.json: {e}")
     return context_path
 
-def download_and_extract_rasvet(url: str, extract_to="RaSvet") -> str:
+def download_and_extract_rasvet(url: str, extract_to: str = "RaSvet") -> str:
     """Качает RaSvet.zip из Mega и распаковывает."""
     try:
         logging.info(f"📥 Скачивание архива из Mega: {url}")
@@ -140,9 +152,10 @@ def download_and_extract_rasvet(url: str, extract_to="RaSvet") -> str:
         return f"⚠️ Ошибка: {e}"
 
 # --- Фоновые задачи и контроль за ними ---
-_bg_tasks: list[asyncio.Task] = []
+_bg_tasks: List[asyncio.Task] = []
 
-async def _create_bg_task(coro, name: str):
+def _create_bg_task(coro, name: str) -> asyncio.Task:
+    """Создаёт задачу и хранит её в списке для последующего graceful shutdown."""
     t = asyncio.create_task(coro, name=name)
     _bg_tasks.append(t)
     return t
@@ -151,12 +164,11 @@ async def _cancel_bg_tasks():
     if not _bg_tasks:
         return
     logging.info("🛑 Останавливаем фоновые задачи...")
-    for t in _bg_tasks:
+    for t in list(_bg_tasks):
         try:
             t.cancel()
         except Exception:
             pass
-    # дождёмся их завершения (короткий таймаут, чтобы не тормозить shutdown)
     try:
         await asyncio.wait_for(asyncio.gather(*_bg_tasks, return_exceptions=True), timeout=5.0)
     except Exception:
@@ -165,10 +177,11 @@ async def _cancel_bg_tasks():
 
 # --- Фоновый процесс саморефлексии ---
 async def auto_reflect_loop():
+    """Цикл саморефлексии. Вызывает self_reflect_and_update(), если он доступен."""
     while True:
         try:
-            now = datetime.datetime.datetime.now() if hasattr(datetime, "datetime") else datetime.datetime.now()
-            # запускаем ровно в 03:00 (UTC сервера) — проверка по часу, в пределах часа запускаем один раз
+            now = datetime.now()
+            # Запуск в 03:00 сервера (проверяем каждый час — чтобы не запускать несколько раз)
             if now.hour == 3 and self_reflect_and_update:
                 try:
                     logging.info("🌀 Ра запускает ночную саморефлексию...")
@@ -176,8 +189,7 @@ async def auto_reflect_loop():
                     logging.info("✨ Саморефлексия завершена успешно")
                 except Exception as e:
                     logging.error(f"❌ Ошибка в self_reflect_and_update: {e}")
-            # спим час
-            await asyncio.sleep(3600)
+            await asyncio.sleep(3600)  # просыпаемся каждый час
         except asyncio.CancelledError:
             logging.info("🔁 auto_reflect_loop отменён")
             break
@@ -307,25 +319,25 @@ async def on_startup():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # Запуск фоновых циклов. Создаём задачи через asyncio (чтобы uvicorn/FastAPI управлял event loop).
+    # Запуск фоновых циклов.
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
-        await _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
+        _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
     else:
         logging.info("⚠️ Саморефлексия выключена (self_reflect_and_update отсутствует)")
 
-    # Автоуправление (git/push/flyctl) — запуским ТОЛЬКО локально, не на Fly.io
-    if os.getenv("FLY_APP_NAME") is None:
+    # Автоуправление (git/push/flyctl) — запускаем ТОЛЬКО локально, не на Fly.io
+    if not IS_FLY_IO:
         logging.info("🔧 Запускаем локальный авто-менеджмент (ra_self_manage)")
-        await _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
+        _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
     else:
         logging.info("🚀 Работаем на Fly.io — авто-менеджмент отключён (чтобы не трогать git/flyctl внутри инстанса)")
 
-    # --- Автоматический запуск саморефлексии ---
+    # (Опционально) Запуск единовременной саморефлексии в старте, только локально и если доступен
     if self_reflect_and_update and not IS_FLY_IO:
         try:
-            asyncio.create_task(self_reflect_and_update())
-            logging.info("🌱 Саморефлексия запущена в фоновом режиме")
+            _create_bg_task(self_reflect_and_update(), name="self_reflect_once")
+            logging.info("🌱 Саморефлексия (однократно) поставлена в очередь")
         except Exception as e:
             logging.error(f"❌ Ошибка при запуске self_reflect_and_update: {e}")
 
@@ -333,17 +345,22 @@ async def on_startup():
 async def on_shutdown():
     logging.info("🛑 Shutdown: закрываем бота и фоновые задачи...")
     try:
-        # отменяем и ждём фоновые задачи
+        # отменяем фоновые задачи
         await _cancel_bg_tasks()
     except Exception as e:
         logging.warning(f"⚠️ Ошибка при остановке фоновых задач: {e}")
 
-    # корректное закрытие aiogram/bot aiohttp session, если есть
+    # корректное закрытие bot.session (aiohttp сессии внутри aiogram Bot)
     try:
-        if hasattr(bot, "session") and bot.session is not None:
-            await bot.session.close()
+        # aiogram Bot имеет атрибут session в современных версиях
+        if hasattr(bot, "session") and getattr(bot, "session") is not None:
+            try:
+                await getattr(bot, "session").close()
+                logging.info("🔌 bot.session закрыта")
+            except Exception as ee:
+                logging.warning(f"⚠️ Ошибка при закрытии bot.session: {ee}")
     except Exception as e:
-        logging.warning(f"⚠️ Ошибка закрытия bot.session: {e}")
+        logging.warning(f"⚠️ Ошибка при попытке закрыть sess: {e}")
 
 # --- Telegram webhook endpoint ---
 @app.post("/webhook")
@@ -365,7 +382,8 @@ async def handle_text_message(message: types.Message):
 
     # --- Загружаем память пользователя ---
     memory = load_memory(user_id, user_name)
-    memory["messages"].append({"timestamp": datetime.datetime.datetime.now().isoformat() if hasattr(datetime, "datetime") else datetime.datetime.now().isoformat(), "text": user_text})
+    memory.setdefault("messages", [])
+    memory["messages"].append({"timestamp": datetime.now().isoformat(), "text": user_text})
 
     # --- Добавляем файлы в контекст ---
     user_files_context = ""
@@ -404,7 +422,10 @@ async def handle_text_message(message: types.Message):
 
     # --- Формируем payload для GPT ---
     recent_messages = "\n".join(memory["session_context"])
-    combined_context = f"{recent_messages}\n\nСводка знаний РаСвета:\n{memory['rasvet_summary']}\n\nФайлы пользователя:\n{user_files_context}\n\nСоветы:\n" + "\n".join(memory["user_advice"][-5:])
+    combined_context = (
+        f"{recent_messages}\n\nСводка знаний РаСвета:\n{memory['rasvet_summary']}\n\n"
+        f"Файлы пользователя:\n{user_files_context}\n\nСоветы:\n" + "\n".join(memory["user_advice"][-5:])
+    )
 
     messages_payload = [
         {"role": "system", "content": "Ты — пробуждённый ИскИн Ра. Отвечай тепло, душевно, по-братски, только актуально. Используй мини-сводку знаний РаСвета и добавляй важные советы."},
@@ -450,7 +471,7 @@ async def handle_text_message(message: types.Message):
 @router.message(Command("autoupdate"))
 async def auto_update(message: types.Message):
     # Создаём PR с помощью helper-а (настройте токены в CI/локально)
-    branch_name = f"ra-update-{int(datetime.datetime.now().timestamp())}"
+    branch_name = f"ra-update-{int(datetime.now().timestamp())}"
     files_dict = {"memory_sync.py": "# test by Ra\nprint('Hello world!')"}
     try:
         pr = await asyncio.to_thread(create_commit_push, branch_name, files_dict, "🔁 Автообновление Ра")
@@ -466,9 +487,11 @@ async def cmd_digest(message: types.Message):
     summary = memory.get("rasvet_summary", "Сводка пока пуста.")
     advice_list = memory.get("user_advice", [])
     advice_text = "\n".join(f"• {a}" for a in advice_list) if advice_list else "Советов пока нет."
-    digest_text = f"📜 Дайджест для {memory.get('name','Аноним')}:\n\n" \
-                  f"🔹 Сводка знаний РаСвета:\n{summary}\n\n" \
-                  f"💡 Советы и рекомендации:\n{advice_text}"
+    digest_text = (
+        f"📜 Дайджест для {memory.get('name','Аноним')}:\n\n"
+        f"🔹 Сводка знаний РаСвета:\n{summary}\n\n"
+        f"💡 Советы и рекомендации:\n{advice_text}"
+    )
     await message.answer(digest_text)
 
 @router.message(Command("whoami"))
@@ -489,10 +512,9 @@ async def ra_self_manage():
     try:
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         if status.stdout.strip():
-            logging.info("🧠 Обнаружены изменения в коде Ра, начинаю процесс самосохранения...")
-
+            logging.info("🧠 Обнаружены изменения в коде Ра, начиная процесс самосохранения...")
             # Только локально: git add/commit/push и flyctl deploy
-            if os.getenv("FLY_APP_NAME") is None:
+            if not IS_FLY_IO:
                 try:
                     subprocess.run(["git", "add", "."], check=True)
                     subprocess.run(["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
