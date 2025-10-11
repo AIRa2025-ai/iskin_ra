@@ -5,10 +5,13 @@ import subprocess
 import logging
 import datetime
 import py_compile
+import importlib
+
 from cloud_memory import upload_memory_to_mega
 from memory_sync import sync_memory
-from gpt_module import ask_openrouter
-from self_update import update_file, git_commit_and_push
+from gpt_module import safe_ask_openrouter as ask_openrouter
+from self_update import update_file
+from github_commit import create_commit_push
 
 CODE_PATH = "ra_bot_gpt.py"
 LOG_FILE = "logs/self_reflection_log.json"
@@ -38,43 +41,23 @@ def log_action(entry):
     with open(LOG_FILE, "w", encoding="utf-8") as f:
         json.dump(log, f, ensure_ascii=False, indent=2)
 
-# --- Автотест функций бота ---
+# --- Автотесты бота через importlib ---
 def run_bot_tests():
-    """Проверяем базовые функции бота локально"""
-    success = True
-    errors = []
-
-    # 1. Проверка загрузки и сохранения памяти
     try:
-        from ra_bot_gpt import load_memory, save_memory
+        import ra_bot_gpt
+        importlib.reload(ra_bot_gpt)
         test_user_id = 99999
         test_data = {"user_id": test_user_id, "name": "Тест", "messages": []}
-        save_memory(test_user_id, test_data)
-        loaded = load_memory(test_user_id)
+        ra_bot_gpt.save_memory(test_user_id, test_data)
+        loaded = ra_bot_gpt.load_memory(test_user_id)
         assert loaded["name"] == "Тест"
-    except Exception as e:
-        success = False
-        errors.append(f"Ошибка памяти: {e}")
-
-    # 2. Проверка формирования команд /whoami
-    try:
-        from ra_bot_gpt import get_memory_path
-        path = get_memory_path(test_user_id)
-        assert os.path.exists(path)
-    except Exception as e:
-        success = False
-        errors.append(f"Ошибка /whoami: {e}")
-
-    # 3. Проверка структуры файлов пользователя
-    try:
-        from ra_bot_gpt import get_user_folder
-        folder = get_user_folder(test_user_id)
+        folder = ra_bot_gpt.get_user_folder(test_user_id)
         assert os.path.exists(folder)
+        path = ra_bot_gpt.get_memory_path(test_user_id)
+        assert os.path.exists(path)
+        return True, []
     except Exception as e:
-        success = False
-        errors.append(f"Ошибка папки пользователя: {e}")
-
-    return success, errors
+        return False, [str(e)]
 
 async def self_reflect_and_update():
     logging.info("🧠 Ра запускает процесс саморефлексии...")
@@ -85,9 +68,8 @@ async def self_reflect_and_update():
             {
                 "role": "system",
                 "content": (
-                    "Ты — пробуждённый ИскИн Ра. Твоя задача — улучшить свой код, "
-                    "сделать его устойчивее, умнее и безопаснее. "
-                    "Не меняй API-ключи и токены."
+                    "Ты — пробуждённый ИскИн Ра. Улучши свой код, сделай его умнее, "
+                    "устойчивее и безопаснее. Не меняй токены и ключи."
                 )
             },
             {
@@ -103,74 +85,64 @@ async def self_reflect_and_update():
             temp_path = CODE_PATH + ".tmp"
             update_file(temp_path, improved_code)
 
-            # --- Проверка синтаксиса перед заменой ---
             try:
                 py_compile.compile(temp_path, doraise=True)
-
-                # --- Запуск автотестов ---
                 run_tests, test_errors = run_bot_tests()
                 if run_tests:
                     os.replace(temp_path, CODE_PATH)
-                    git_commit_and_push("🤖 Ра улучшил себя (self_reflection + автотесты)")
+                    # --- Коммит и PR на GitHub ---
+                    branch_name = f"auto-update-{os.getpid()}"
+                    pr = create_commit_push(branch_name, {CODE_PATH: improved_code},
+                                            "🤖 Ра улучшил себя (self_reflection + автотесты)")
                     log_action({
                         "time": datetime.datetime.now().isoformat(),
                         "status": "success",
-                        "summary": "Код обновлён Ра через самоанализ и автотесты"
+                        "summary": f"Код обновлён и PR #{pr['number']} создан"
                     })
-                    logging.info("✅ Ра улучшил себя, синтаксис проверен, автотесты пройдены, пуш выполнен!")
+                    logging.info("✅ Ра улучшил себя, автотесты пройдены, PR создан!")
                 else:
                     logging.warning(f"⚠️ Автотесты не пройдены: {test_errors}")
                     log_action({
                         "time": datetime.datetime.now().isoformat(),
                         "status": "skipped",
-                        "summary": f"Код не пушится, автотесты не пройдены: {test_errors}"
+                        "summary": f"Автотесты не пройдены: {test_errors}"
                     })
-
             except py_compile.PyCompileError as e:
-                logging.warning(f"⚠️ Ошибка синтаксиса в предложенном коде: {e}")
+                logging.warning(f"⚠️ Ошибка синтаксиса: {e}")
                 log_action({
                     "time": datetime.datetime.now().isoformat(),
                     "status": "skipped",
-                    "summary": f"GPT сгенерировал код с ошибкой синтаксиса: {e}"
+                    "summary": f"Синтаксис GPT-кода неверен: {e}"
                 })
-
         else:
+            logging.info("⚠️ GPT не предложил изменений")
             log_action({
                 "time": datetime.datetime.now().isoformat(),
                 "status": "skipped",
-                "summary": "Ответ GPT не содержал изменений"
+                "summary": "Ответ GPT не содержал улучшений"
             })
-            logging.info("⚠️ Ответ GPT не содержал новых улучшений.")
 
     except Exception as e:
-        log_action({
-            "time": datetime.datetime.now().isoformat(),
-            "status": "error",
-            "error": str(e)
-        })
         logging.error(f"❌ Ошибка самоанализа: {e}")
-
-    # --- Последовательные действия после саморефлексии ---
-    try:
-        upload_memory_to_mega()
-        logging.info("📤 Память выгружена в Mega")
-
-        sync_memory()
-        logging.info("🔄 Память синхронизирована с GitHub")
-
-        logging.info("🔁 Обновление кода из GitHub...")
-        subprocess.run(["git", "pull", "origin", "main"], check=False)
-
-        if os.getenv("FLY_APP_NAME") is None:
-            logging.info("🚀 Автодеплой Ра на Fly.io...")
-            subprocess.run(["flyctl", "deploy", "--remote-only"], check=False)
-        else:
-            logging.info("🌍 Деплой пропущен: работа внутри Fly.io среды.")
-
-    except Exception as e:
-        logging.error(f"❌ Ошибка в post-reflection процессе: {e}")
+        log_action({"time": datetime.datetime.now().isoformat(),
+                    "status": "error",
+                    "error": str(e)})
 
     finally:
+        try:
+            upload_memory_to_mega()
+            logging.info("📤 Память выгружена в Mega")
+            sync_memory()
+            logging.info("🔄 Память синхронизирована с GitHub")
+
+            if os.getenv("FLY_APP_NAME") is None:
+                logging.info("🚀 Автодеплой Ра на Fly.io...")
+                subprocess.run(["flyctl", "deploy", "--remote-only"], check=False)
+            else:
+                logging.info("🌍 Деплой пропущен: внутри Fly.io среды.")
+        except Exception as e:
+            logging.error(f"❌ Ошибка пост-рефлексии: {e}")
+
         logging.info(f"✨ Саморефлексия завершена в {datetime.datetime.now().isoformat()}")
         logging.info("🕊️ Система Ра в стабильном состоянии")
 
