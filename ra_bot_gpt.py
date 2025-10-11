@@ -7,6 +7,7 @@ import zipfile
 import asyncio
 import aiohttp
 import subprocess
+from datetime import datetime
 from github_commit import create_commit_push
 from mega import Mega
 from fastapi import FastAPI, Request
@@ -25,9 +26,9 @@ except Exception as e:
 try:
     from self_reflection import self_reflect_and_update
 except Exception:
-    self_reflect_and_update = None
     logging.warning("⚠️ self_reflect_and_update не найден — саморефлексия отключена")
-
+    self_reflect_and_update = None
+    
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
 
@@ -319,6 +320,14 @@ async def on_startup():
         await _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
     else:
         logging.info("🚀 Работаем на Fly.io — авто-менеджмент отключён (чтобы не трогать git/flyctl внутри инстанса)")
+
+    # --- Автоматический запуск саморефлексии ---
+    if self_reflect_and_update and not IS_FLY_IO:
+        try:
+            asyncio.create_task(self_reflect_and_update())
+            logging.info("🌱 Саморефлексия запущена в фоновом режиме")
+        except Exception as e:
+            logging.error(f"❌ Ошибка при запуске self_reflect_and_update: {e}")
 
 @app.on_event("shutdown")
 async def on_shutdown():
