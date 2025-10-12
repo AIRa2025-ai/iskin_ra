@@ -197,6 +197,19 @@ async def auto_reflect_loop():
             logging.error(f"❌ Ошибка в auto_reflect_loop: {e}")
             await asyncio.sleep(60)
 
+# --- Auto-ping webhook-а, чтобы Fly.io не засыпал ---
+async def keep_alive_loop():
+    while True:
+        try:
+            async with aiohttp.ClientSession() as s:
+                await s.get(f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/")
+            await asyncio.sleep(300)
+        except Exception as e:
+            logging.warning(f"⚠️ keep_alive_loop ошибка: {e}")
+            await asyncio.sleep(60)
+        _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
+
+
 # --- Команда: /загрузи РаСвет ---
 @router.message(Command("загрузи"))
 async def cmd_zagruzi(message: types.Message):
