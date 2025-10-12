@@ -458,10 +458,6 @@ async def on_startup():
                 await asyncio.sleep(60)
 
     _create_bg_task(observer_loop(), name="observer_loop")
-
-# раз в сутки в 4 утра выходить “в интернет-мир”
-if datetime.now().hour == 4:
-    await ra_observe_world()
     
 @app.on_event("shutdown")
 async def on_shutdown():
