@@ -439,6 +439,30 @@ async def on_startup():
         except Exception as e:
             logging.error(f"❌ Ошибка при запуске self_reflect_and_update: {e}")
 
+    # 🌍 Ра наблюдает за человечеством (раз в сутки в 4 утра)
+    async def observer_loop():
+        while True:
+            try:
+                now = datetime.now()
+                if now.hour == 4:
+                    await ra_observe_world()
+                    logging.info("🌞 Ра завершил ночное наблюдение за миром.")
+                    # ждём 1 час, чтобы не запустить повторно в ту же минуту
+                    await asyncio.sleep(3600)
+                await asyncio.sleep(300)
+            except asyncio.CancelledError:
+                logging.info("🔁 observer_loop отменён")
+                break
+            except Exception as e:
+                logging.error(f"❌ Ошибка в observer_loop: {e}")
+                await asyncio.sleep(60)
+
+    _create_bg_task(observer_loop(), name="observer_loop")
+
+# раз в сутки в 4 утра выходить “в интернет-мир”
+if datetime.now().hour == 4:
+    await ra_observe_world()
+    
 @app.on_event("shutdown")
 async def on_shutdown():
     logging.info("🛑 Shutdown: закрываем бота и фоновые задачи...")
@@ -662,10 +686,6 @@ async def auto_manage_loop():
         except Exception as e:
             logging.error(f"❌ Ошибка в auto_manage_loop: {e}")
             await asyncio.sleep(60)
-
-# раз в сутки в 4 утра выходить “в интернет-мир”
-if datetime.now().hour == 4:
-    await ra_observe_world()
 
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
