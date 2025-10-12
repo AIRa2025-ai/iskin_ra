@@ -6,6 +6,7 @@ import zipfile
 import asyncio
 import aiohttp
 import subprocess
+from ra_memory import load_memory, save_memory, append_user_memory
 from datetime import datetime
 from typing import Optional, List, Any
 from ra_world_observer import ra_observe_world
