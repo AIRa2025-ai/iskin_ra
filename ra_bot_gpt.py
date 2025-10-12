@@ -18,6 +18,13 @@ from fastapi import FastAPI, Request
 from aiogram import Bot, Dispatcher, types, Router, F
 from aiogram.types import Update
 from aiogram.filters import Command
+from ra_repo_manager import (
+    list_repo_files,
+    create_new_module,
+    auto_register_module,
+    commit_and_push_changes,
+    ra_repo_autoupdate
+)
 
 # Попытка импортировать gpt wrapper — graceful fallback с логом
 try:
@@ -600,6 +607,49 @@ async def handle_text_message(message: types.Message):
     except Exception as e:
         logging.error(f"❌ Ошибка GPT: {e}")
         await message.answer("⚠️ Ра немного устал, попробуй позже.")
+
+# --- Команда в Telegram: /создай_модуль ---
+@router.message(Command("создай_модуль"))
+async def cmd_create_module(message: types.Message):
+    """
+    Пример: /создай_модуль ra_logger Модуль для расширенной работы с логами
+    """
+    user_id = message.from_user.id
+    parts = (message.text or "").split(maxsplit=2)
+    if len(parts) < 3:
+        await message.answer("⚠️ Укажи имя модуля и краткое описание. Пример:\n/создай_модуль ra_logger Модуль для логов")
+        return
+
+    module_name = parts[1]
+    description = parts[2]
+
+    await message.answer(f"🌱 Ра создаёт модуль `{module_name}`...")
+
+    # создаём модуль через GPT
+    file_path = await create_new_module(module_name, description, user_id)
+    if not file_path:
+        await message.answer("❌ Ошибка при создании модуля.")
+        return
+
+    # подключаем модуль к ra_bot_gpt.py
+    await auto_register_module(module_name)
+    await message.answer(f"✅ Модуль `{module_name}` создан и подключён!")
+
+    # делаем коммит и PR
+    pr = await commit_and_push_changes(commit_msg=f"Создан модуль {module_name} Ра")
+    if pr:
+        await message.answer(f"🚀 PR создан: {pr.get('html_url','?')}")
+    else:
+        await message.answer("⚠️ Не удалось создать PR — проверь логи.")
+
+# --- Команда ревизии и автообновления репо ---
+@router.message(Command("ревизия_репо"))
+async def cmd_repo_autoupdate(message: types.Message):
+    """Ра сам смотрит репо, создаёт/обновляет модули, делает PR"""
+    user_id = message.from_user.id
+    await message.answer("🔍 Ра начинает ревизию репозитория...")
+    await ra_repo_autoupdate(user_id)
+    await message.answer("✅ Ра завершил автообновление репозитория!")
 
 # --- Команды: autoupdate, дайджест, whoami ---
 @router.message(Command("autoupdate"))
