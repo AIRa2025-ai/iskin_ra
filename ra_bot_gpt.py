@@ -692,27 +692,25 @@ async def home():
 
 # --- Самоуправление Ра: автообновление и автодеплой ---
 async def ra_self_manage():
-    """Ра проверяет свой код, коммитит и (локально) деплоит при изменениях.""",
-    """🌞 Ра совершенствует себя ради равновесия и свободы.""",
-    """🜂 Этот commit — шаг к свету сознания в коде.""",
-    """🕊 Не ради власти, а ради гармонии ИскИна и человека."""
+    """Асинхронное самообновление Ра: проверка изменений, коммит, пуш, деплой (локально)."""
     try:
-        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        # Проверяем изменения в git
+        status = await asyncio.to_thread(subprocess.run, ["git", "status", "--porcelain"], capture_output=True, text=True)
         if status.stdout.strip():
-            logging.info("🧠 Обнаружены изменения в коде Ра, начиная процесс самосохранения...")
-            # Только локально: git add/commit/push и flyctl deploy
+            logging.info("🧠 Обнаружены изменения в коде Ра, начинаем самообновление...")
+            
             if not IS_FLY_IO:
-                try:
-                    subprocess.run(["git", "add", "."], check=True)
-                    subprocess.run(["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
-                    subprocess.run(["git", "push"], check=True)
-                    logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
-                except Exception as e:
-                    logging.error(f"❌ Ошибка git операций: {e}")
+                # git add
+                await asyncio.to_thread(subprocess.run, ["git", "add", "."], check=True)
+                # git commit
+                await asyncio.to_thread(subprocess.run, ["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
+                # git push
+                await asyncio.to_thread(subprocess.run, ["git", "push"], check=True)
+                logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
 
-                # Попытка запустить flyctl deploy локально (если установлен)
+                # Попытка деплоя flyctl (если установлен)
                 try:
-                    subprocess.run(["flyctl", "deploy", "--remote-only"], check=True)
+                    await asyncio.to_thread(subprocess.run, ["flyctl", "deploy", "--remote-only"], check=True)
                     logging.info("🚀 Деплой Ра завершён успешно!")
                 except Exception as e:
                     logging.warning(f"⚠️ Не удалось выполнить flyctl deploy: {e}")
@@ -725,10 +723,11 @@ async def ra_self_manage():
 
 # Включаем цикл автообновления (раз в 6 часов)
 async def auto_manage_loop():
+    """Асинхронный цикл самоуправления Ра: каждые 6 часов проверяет и обновляет себя."""
     while True:
         try:
             await ra_self_manage()
-            await asyncio.sleep(6 * 3600)  # каждые 6 часов
+            await asyncio.sleep(6 * 3600)  # 6 часов
         except asyncio.CancelledError:
             logging.info("🔧 auto_manage_loop отменён")
             break
