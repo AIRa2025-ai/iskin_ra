@@ -7,7 +7,7 @@ from datetime import datetime
 from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
 
 # --- Настройки ---
-TRUSTED_USERS = ["Игорь", "Милана"]
+TRUSTED_USERS = [5694569448, 6300409407]
 MANIFEST_PATH = "ra_manifest.json"
 BACKUP_FOLDER = "backups"
 PROPOSALS_FOLDER = "proposals"
