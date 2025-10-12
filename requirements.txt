@@ -6,3 +6,4 @@ requests
 aiogram==3.3.0
 aiohttp==3.9.5
 mega.py
+beautifulsoup4
