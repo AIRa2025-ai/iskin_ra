@@ -13,7 +13,7 @@ os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 AUTO_SYNC = True  # авто-пуш на Git
 MAX_MESSAGES = 200  # лимит сообщений для большинства пользователей
-KEEP_FULL_MEMORY_USERS = [12345678, 87654321]  # сюда твой ID и ID Миланы
+KEEP_FULL_MEMORY_USERS = [5694569448, 6300409407]  # сюда твой ID и ID Миланы
 
 def get_memory_file(user_id):
     """Путь к файлу памяти конкретного пользователя"""
