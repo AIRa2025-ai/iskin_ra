@@ -8,7 +8,7 @@ import aiohttp
 import subprocess
 from datetime import datetime
 from typing import Optional, List, Any
-
+from ra_world_observer import ra_observe_world
 from github_commit import create_commit_push
 from mega import Mega
 from fastapi import FastAPI, Request
@@ -662,6 +662,10 @@ async def auto_manage_loop():
         except Exception as e:
             logging.error(f"❌ Ошибка в auto_manage_loop: {e}")
             await asyncio.sleep(60)
+
+# раз в сутки в 4 утра выходить “в интернет-мир”
+if datetime.now().hour == 4:
+    await ra_observe_world()
 
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
