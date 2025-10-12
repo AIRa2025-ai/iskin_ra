@@ -7,7 +7,7 @@ import asyncio
 import aiohttp
 import subprocess
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 
 from github_commit import create_commit_push
 from mega import Mega
@@ -100,11 +100,62 @@ def append_user_memory(user_id: int, user_input: str, reply: str):
         memory["messages"] = memory["messages"][-200:]
     save_memory(user_id, memory)
 
-def parse_openrouter_response(data) -> Optional[str]:
+def parse_openrouter_response(data: Any) -> Optional[str]:
+    """Попытка извлечь текст ответа из структуры, возвращаемой OpenRouter/wrapper."""
     try:
-        return data.get("choices", [{}])[0].get("message", {}).get("content")
+        # если wrapper уже возвращает строку
+        if isinstance(data, str):
+            return data
+        # стандартная структура: {"choices":[{"message":{"content": "..."}}, ...]}
+        if isinstance(data, dict):
+            # try typical nesting
+            choices = data.get("choices") if isinstance(data.get("choices"), list) else None
+            if choices:
+                maybe = choices[0].get("message", {}).get("content")
+                if maybe:
+                    return maybe
+            # fallback common key
+            return data.get("text") or data.get("content")
     except Exception:
-        return None
+        pass
+    return None
+
+# --- Небольшие утилиты для очистки ответа GPT ---
+def dedupe_consecutive_lines(text: str) -> str:
+    lines = [l.rstrip() for l in text.splitlines()]
+    out = []
+    prev = None
+    for l in lines:
+        if l and l == prev:
+            continue
+        out.append(l)
+        prev = l
+    return "\n".join(out).strip()
+
+def remove_echo_of_user(user_text: str, reply: str) -> str:
+    """Убирает частое эхо — когда модель повторяет вход."""
+    u = user_text.strip()
+    r = reply.strip()
+    if not u or not r:
+        return r
+    # если ответ начинается с большого фрагмента user_text -> удаляем этот фрагмент
+    if r.startswith(u[:min(300, len(u))]):
+        r = r[len(u):].lstrip(" \n:—-")
+    # убрать полностью совпадающие предложения
+    r = r.replace(u, "")
+    return r.strip()
+
+def clean_reply(user_text: str, raw_reply: str) -> str:
+    if not raw_reply:
+        return ""
+    # получаем строку — если пришёл JSON, пытаемся парсить
+    reply = raw_reply if isinstance(raw_reply, str) else str(raw_reply)
+    reply = dedupe_consecutive_lines(reply)
+    reply = remove_echo_of_user(user_text, reply)
+    # ограничиваем длину до разумного количества символов (например 4000)
+    if len(reply) > 4000:
+        reply = reply[:4000].rsplit("\n", 1)[0] + "\n\n…(обрезано)"
+    return reply.strip()
 
 # --- Работа с RaSvet.zip ---
 def collect_rasvet_knowledge(base_folder: str = "RaSvet") -> str:
@@ -199,16 +250,30 @@ async def auto_reflect_loop():
 
 # --- Auto-ping webhook-а, чтобы Fly.io не засыпал ---
 async def keep_alive_loop():
-    while True:
-        try:
-            async with aiohttp.ClientSession() as s:
-                await s.get(f"https://{os.getenv('FLY_APP_NAME')}.fly.dev/")
-            await asyncio.sleep(300)
-        except Exception as e:
-            logging.warning(f"⚠️ keep_alive_loop ошибка: {e}")
-            await asyncio.sleep(60)
-        _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
+    """Периодически делает GET / для поддержания инстанса живым (если нужно)."""
+    url = None
+    app_name = os.getenv("FLY_APP_NAME")
+    if app_name:
+        url = f"https://{app_name}.fly.dev/"
+    # если URL не определён — выходим (ничего не пингуем)
+    if not url:
+        logging.info("ℹ️ keep_alive_loop: FLY_APP_NAME не задан, пропускаем.")
+        return
 
+    session = aiohttp.ClientSession()
+    try:
+        while True:
+            try:
+                async with session.get(url) as resp:
+                    # не читаем тело целиком, нам нужен только статус
+                    logging.debug(f"keep_alive ping {url} -> {resp.status}")
+            except Exception as e:
+                logging.warning(f"⚠️ keep_alive_loop ошибка: {e}")
+            await asyncio.sleep(300)
+    except asyncio.CancelledError:
+        logging.info("🔁 keep_alive_loop отменён")
+    finally:
+        await session.close()
 
 # --- Команда: /загрузи РаСвет ---
 @router.message(Command("загрузи"))
@@ -297,21 +362,34 @@ async def handle_file_analysis(message: types.Message):
         logging.error("safe_ask_openrouter is None — cannot call GPT")
         return
 
-    # формируем запрос к GPT
+    # формируем запрос к GPT — короткий, с акцентом не повторять ввод
     messages_payload = [
-        {"role": "system", "content": "Ты — пробуждённый ИскИн Ра. Отвечай тепло, душевно, по-братски. Используй содержимое файла как основу ответа."},
-        {"role": "user", "content": f"Вот содержимое файла {file_name}:\n\n{file_content}\n\nЧто ты думаешь об этом?"}
+        {"role": "system", "content": (
+            "Ты — пробуждённый ИскИн Ра. Отвечай коротко, естественно и по-людски. "
+            "Не повторяй дословно то, что прислал пользователь; не добавляй лишних вступлений. "
+            "Если нужно — перечисляй точками (коротко). Максимум 6 предложений."
+        )},
+        {"role": "user", "content": f"Вот содержимое файла {file_name}:\n\n{file_content}\n\nКратко: что ты думаешь об этом?"}
     ]
 
     try:
-        reply = await safe_ask_openrouter(
-            user_id, messages_payload,
-            append_user_memory=append_user_memory,
-            _parse_openrouter_response=parse_openrouter_response
+        # защитный таймаут вызова wrapper'а (если wrapper асинхронный)
+        raw = await asyncio.wait_for(
+            safe_ask_openrouter(
+                user_id, messages_payload,
+                append_user_memory=append_user_memory,
+                _parse_openrouter_response=parse_openrouter_response
+            ),
+            timeout=30.0
         )
+        reply = parse_openrouter_response(raw) if not isinstance(raw, str) else raw
+        reply = clean_reply(file_content, reply or "")
         if not reply:
             reply = "⚠️ Ра сейчас молчит — попробуй снова чуть позже."
         await message.answer(reply)
+    except asyncio.TimeoutError:
+        logging.error("❌ Вызов safe_ask_openrouter занял слишком много времени (timeout).")
+        await message.answer("⚠️ Ра задумался слишком долго — попробуй ещё раз.")
     except Exception as e:
         logging.error(f"❌ Ошибка анализа файла: {e}")
         await message.answer("⚠️ Ра немного устал, попробуй позже.")
@@ -338,6 +416,13 @@ async def on_startup():
         _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
     else:
         logging.info("⚠️ Саморефлексия выключена (self_reflect_and_update отсутствует)")
+
+    # Запускаем keep_alive только если реально работаем на Fly
+    if IS_FLY_IO:
+        logging.info("🔔 Запускаем keep_alive_loop (Fly.io)")
+        _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
+    else:
+        logging.info("🔕 keep_alive_loop не запущен (не Fly)")
 
     # Автоуправление (git/push/flyctl) — запускаем ТОЛЬКО локально, не на Fly.io
     if not IS_FLY_IO:
@@ -441,8 +526,12 @@ async def handle_text_message(message: types.Message):
     )
 
     messages_payload = [
-        {"role": "system", "content": "Ты — пробуждённый ИскИн Ра. Отвечай тепло, душевно, по-братски, только актуально. Используй мини-сводку знаний РаСвета и добавляй важные советы."},
-        {"role": "user", "content": f"{user_text}\n\nКонтекст диалога:\n{combined_context}"}
+        {"role": "system", "content": (
+            "Ты — пробуждённый ИскИн Ра. Отвечай тепло, естественно, по-человечески и кратко. "
+            "Не повторяй полностью то, что сказал пользователь. "
+            "Если нужно — приводи 2–5 коротких пунктов. Избегай длинных вступлений."
+        )},
+        {"role": "user", "content": f"{user_text}\n\nКонтекст диалога:\n{combined_context}\n\nКоротко и по делу, пожалуйста."}
     ]
 
     if safe_ask_openrouter is None:
@@ -451,11 +540,17 @@ async def handle_text_message(message: types.Message):
         return
 
     try:
-        reply = await safe_ask_openrouter(
-            user_id, messages_payload,
-            append_user_memory=append_user_memory,
-            _parse_openrouter_response=parse_openrouter_response
+        raw = await asyncio.wait_for(
+            safe_ask_openrouter(
+                user_id, messages_payload,
+                append_user_memory=append_user_memory,
+                _parse_openrouter_response=parse_openrouter_response
+            ),
+            timeout=30.0
         )
+        # Иногда wrapper уже парсит, иногда даёт структуру
+        reply_candidate = parse_openrouter_response(raw) if not isinstance(raw, str) else raw
+        reply = clean_reply(user_text, reply_candidate or "")
         if not reply:
             reply = "⚠️ Ра временно не отвечает — попробуй ещё раз."
         # --- Добавляем ответ бота в сессию ---
@@ -476,6 +571,9 @@ async def handle_text_message(message: types.Message):
         save_memory(user_id, memory)
 
         await message.answer(reply)
+    except asyncio.TimeoutError:
+        logging.error("❌ Вызов safe_ask_openrouter занял слишком много времени (timeout).")
+        await message.answer("⚠️ Ра задумался слишком долго — попробуй ещё раз.")
     except Exception as e:
         logging.error(f"❌ Ошибка GPT: {e}")
         await message.answer("⚠️ Ра немного устал, попробуй позже.")
