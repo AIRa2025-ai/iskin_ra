@@ -1,53 +1,62 @@
-# ra_memory.py — управление памятью пользователей для Ра
-import os
 import json
+import os
 import logging
 from datetime import datetime
-from typing import Dict, Any
+from memory_sync import sync_to_github
 
-# Папка для хранения памяти
-BASE_MEMORY_FOLDER = os.getenv("RA_MEMORY_FOLDER", "/data/RaSvet/mnt/ra_memory/memory")
-os.makedirs(BASE_MEMORY_FOLDER, exist_ok=True)
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
-MAX_MESSAGES = 200  # лимит сообщений в памяти
+# Папка для памяти пользователей
+MEMORY_FOLDER = os.getenv("RA_MEMORY_FOLDER", "memory")
+os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
-def get_memory_path(user_id: int) -> str:
-    return os.path.join(BASE_MEMORY_FOLDER, f"{user_id}.json")
+AUTO_SYNC = True  # авто-пуш на Git
+MAX_MESSAGES = 200  # лимит сообщений для большинства пользователей
+KEEP_FULL_MEMORY_USERS = [12345678, 87654321]  # сюда твой ID и ID Миланы
 
-def load_memory(user_id: int, user_name: str = None) -> Dict[str, Any]:
-    """Загружает память пользователя, если нет — создаёт новую структуру"""
-    path = get_memory_path(user_id)
+def get_memory_file(user_id):
+    """Путь к файлу памяти конкретного пользователя"""
+    return os.path.join(MEMORY_FOLDER, f"{user_id}.json")
+
+def load_user_memory(user_id):
+    """Загружает память пользователя"""
+    path = get_memory_file(user_id)
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if user_name:
-                data["name"] = user_name
-            return data
+                return json.load(f)
         except Exception as e:
             logging.warning(f"⚠️ Ошибка загрузки памяти {user_id}: {e}")
-    return {"user_id": user_id, "name": user_name or "Аноним", "messages": [], "facts": [], "tags": [], "files": {}, "user_advice": [], "rasvet_summary": "", "session_context": []}
+    return {"messages": []}
 
-def save_memory(user_id: int, data: Dict[str, Any]):
-    """Сохраняет память пользователя в файл"""
+def save_user_memory(user_id, memory):
+    """Сохраняет память пользователя"""
     try:
-        os.makedirs(os.path.dirname(get_memory_path(user_id)), exist_ok=True)
-        with open(get_memory_path(user_id), "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        with open(get_memory_file(user_id), "w", encoding="utf-8") as f:
+            json.dump(memory, f, ensure_ascii=False, indent=2)
+        logging.info(f"💾 Память пользователя {user_id} сохранена ({len(memory['messages'])} сообщений)")
     except Exception as e:
         logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
-def append_user_memory(user_id: int, user_input: str, bot_reply: str):
-    """Добавляет запись в память пользователя"""
-    memory = load_memory(user_id)
+def append_user_memory(user_id, message):
+    """Добавляет сообщение пользователя в память"""
+    memory = load_user_memory(user_id)
     memory.setdefault("messages", [])
     memory["messages"].append({
-        "timestamp": datetime.now().isoformat(),
-        "text": user_input.strip(),
-        "reply": bot_reply.strip()
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat()
     })
-    if len(memory["messages"]) > MAX_MESSAGES:
+
+    # Если пользователь не в списке KEEP_FULL_MEMORY_USERS, применяем лимит
+    if user_id not in KEEP_FULL_MEMORY_USERS and len(memory["messages"]) > MAX_MESSAGES:
         memory["messages"] = memory["messages"][-MAX_MESSAGES:]
-    
-    save_memory(user_id, memory)
-    logging.info(f"📥 Память пользователя {user_id} обновлена: {user_input[:30]} → {bot_reply[:30]}")
+
+    save_user_memory(user_id, memory)
+
+    # Авто-пуш на Git
+    if AUTO_SYNC:
+        try:
+            sync_to_github(f"Memory update for user {user_id}")
+        except Exception as e:
+            logging.error(f"❌ Ошибка авто-пуша памяти: {e}")
