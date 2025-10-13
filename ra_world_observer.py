@@ -1,4 +1,4 @@
-# ra_world_observer.py — суперпанель с автогенерацией модулей и логами
+# ra_world_observer.py — Ra Super Control Center 2.0
 import os
 import json
 import asyncio
@@ -22,7 +22,7 @@ guardian = Guardian()
 self_dev = SelfDeveloper()
 self_writer = SelfWriter()
 
-# --- Папки для веб-панели ---
+# --- Папки ---
 os.makedirs("static", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
 os.makedirs("modules", exist_ok=True)
@@ -35,7 +35,7 @@ logs = []
 def log(msg: str):
     print(msg)
     logs.append(msg)
-    if len(logs) > 500:  # лимит на количество строк
+    if len(logs) > 500:
         logs.pop(0)
 
 # --- Фоновые задачи ---
@@ -53,7 +53,7 @@ async def _cancel_bg_tasks():
     await asyncio.gather(*_bg_tasks, return_exceptions=True)
     _bg_tasks.clear()
 
-# --- Веб-панель: шаблон ---
+# --- Веб-фронтенд ---
 index_html = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -121,7 +121,6 @@ async function clearLogs(){
     }
 }
 
-// Автообновление логов каждые 5 секунд
 setInterval(() => {
     if(logsVisible) refreshLogs()
 }, 5000);
@@ -133,7 +132,6 @@ setInterval(() => {
 with open("templates/index.html", "w", encoding="utf-8") as f:
     f.write(index_html)
 
-# --- Простейший стиль ---
 style_css = """
 body { font-family: Arial, sans-serif; background: #f0f0f0; color: #333; padding: 20px; }
 h1 { color: #ff8c00; }
@@ -143,7 +141,7 @@ button { margin: 5px; padding: 10px; border-radius: 5px; cursor: pointer; }
 with open("static/style.css", "w", encoding="utf-8") as f:
     f.write(style_css)
 
-# --- API эндпоинты ---
+# --- API ---
 @app.get("/status")
 async def status():
     modules = os.listdir("modules")
@@ -170,7 +168,6 @@ async def self_write():
     log(f"✍️ Файл создан: {result}")
     return {"result": result}
 
-# --- Автогенерация и подключение файлов ---
 async def auto_load_modules():
     loaded = []
     for fname in os.listdir("modules"):
@@ -218,7 +215,6 @@ async def upload_module(file: UploadFile = File(...)):
     log(f"📦 Модуль загружен через панель: {file.filename}")
     return {"status": "ok", "filename": file.filename}
 
-# --- Логи через API ---
 @app.get("/logs")
 async def get_logs():
     return {"logs": logs}
@@ -273,3 +269,10 @@ async def on_startup():
 async def on_shutdown():
     log("🛑 Завершение работы Ra Super Control Center...")
     await _cancel_bg_tasks()
+
+# --- Функция для импорта из бота ---
+def ra_observe_world():
+    """Функция для безопасного импорта и старта наблюдения мира"""
+    asyncio.create_task(observer_loop())
+    log("🌀 ra_observe_world запущена")
+    return "Ra наблюдает мир, братан!"
