@@ -16,8 +16,11 @@ META_FILE = "/data/RaSvet.download.meta"
 EXTRACT_META = "/data/RaSvet.extract.meta"
 
 # --- Подключение к Mega ---
-mega = Mega()
-m = mega.login()  # анонимно
+m = Mega()
+m.login()  # если нужно анонимно, можно оставить пустые параметры
+
+file = m.find('имя_файла_в_аккаунте')  # вернёт словарь с данными файла
+m.download(file)  # передаём словарь, а не строку
 
 # --- Чтение прогресса скачивания ---
 start_byte = 0
