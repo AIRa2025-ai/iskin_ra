@@ -173,9 +173,6 @@ else:
     with open("/mnt/ra_memory/download_complete.flag", "w") as f:
         f.write("done")
         
-downloader = RaSvetDownloader()
-downloader.download()
-
 # Сначала скачиваем RaSvet
 download_and_extract_rasvet()
 
@@ -455,30 +452,43 @@ def check_and_log_mega_url():
         logging.warning(f"⚠️ Ошибка при проверке Mega URL: {e}")
     return mega_url, dest_folder
 
+# --- Утилита: проверка и скачивание RaСвет ---
+def ensure_rasvet_downloaded(url: str = ARCHIVE_URL, extract_to: str = BASE_FOLDER):
+    """Скачивает и распаковывает RaСвет только один раз."""
+    flag_path = "/mnt/ra_memory/download_complete.flag"
+    if os.path.exists(flag_path):
+        logging.info("📥 Архив RaСвет уже скачан, пропускаем.")
+        return
+
+    try:
+        logging.info("📥 Скачиваем RaСвет...")
+        downloader = RaSvetDownloader()
+        downloader.download()  # скачивание через Mega SDK
+        download_and_extract_rasvet(url, extract_to)  # распаковка и сборка контекста
+        with open(flag_path, "w") as f:
+            f.write("done")
+        logging.info("✅ RaСвет успешно скачан и распакован!")
+    except Exception as e:
+        logging.error(f"❌ Ошибка при скачивании RaСвет: {e}")
+
+
+# --- Startup FastAPI ---
 @app.on_event("startup")
 async def startup_event():
-    logging.info("📥 Стартовая загрузка RaSvet...")
-    asyncio.create_task(async_download())
+    logging.info("🚀 Стартуем приложение и проверяем RaСвет...")
+    # 1) Скачивание в отдельном потоке, чтобы не блокировать event loop
+    await asyncio.to_thread(ensure_rasvet_downloaded)
 
-async def async_download():
-    await asyncio.to_thread(download_and_extract_rasvet, ARCHIVE_URL)
-
-    # 1) Попробуем прочитать конфиг и залогировать URL
+    # 2) Проверяем URL из конфига и логируем
     mega_url, dest_folder = check_and_log_mega_url()
 
-    # 2) Проверяем и запускаем загрузку RaSvet через Mega SDK в background (чтобы не блокировать стартап)
-    download_url = mega_url or "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
-    # запуск в потоке: download_and_extract_rasvet — синхронная функция, использует Mega SDK
-    _create_bg_task(asyncio.to_thread(download_and_extract_rasvet, download_url, BASE_FOLDER), name="download_rasvet")
-
-    # 3) Авто-подключение модулей (если есть) — делаем это внутри startup (await possible)
+    # 3) Авто-подключение модулей из папки modules
     repo_modules_folder = os.path.join(BASE_FOLDER, "modules")
     if os.path.exists(repo_modules_folder):
         for file in os.listdir(repo_modules_folder):
             if file.endswith(".py") and file != "__init__.py":
                 module_name = file[:-3]
                 try:
-                    # auto_register_module может быть async — поддерживаем оба варианта
                     res = auto_register_module(module_name)
                     if asyncio.iscoroutine(res):
                         await res
@@ -486,18 +496,15 @@ async def async_download():
                 except Exception as e:
                     logging.warning(f"⚠️ Не удалось подключить модуль {module_name}: {e}")
 
-    # 4) Листим файлы репо асинхронно (list_repo_files может быть async)
+    # 4) Листим файлы репо
     try:
         res = list_repo_files(BASE_FOLDER)
-        if asyncio.iscoroutine(res):
-            files = await res
-        else:
-            files = res
+        files = await res if asyncio.iscoroutine(res) else res
         logging.info(f"📂 Файлы репозитория: {files}")
     except Exception as e:
         logging.warning(f"⚠️ Не удалось получить список файлов репо: {e}")
 
-    # 5) Устанавливаем webhook
+    # 5) Webhook
     app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
     webhook_url = f"https://{app_name}.fly.dev/webhook"
     try:
@@ -507,7 +514,7 @@ async def async_download():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # 6) Обновляем память всех пользователей (если context.json уже готов)
+    # 6) Обновляем память пользователей с RaСветом
     context_path = os.path.join(BASE_FOLDER, "context.json")
     if os.path.exists(context_path):
         try:
@@ -527,33 +534,24 @@ async def async_download():
         except Exception as e:
             logging.warning(f"⚠️ Не удалось прочитать context.json: {e}")
 
-    # 7) Запускаем фоновые циклы
+    # 7) Фоновые циклы
     if self_reflect_and_update:
-        logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
-    else:
-        logging.info("⚠️ Саморефлексия выключена (self_reflect_and_update отсутствует)")
-
     if IS_FLY_IO:
-        logging.info("🔔 Запускаем keep_alive_loop (Fly.io)")
         _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
     else:
-        logging.info("🚀 Работаем локально — авто-менеджмент запускаем")
         _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
 
-    # Наблюдатель мира (делаем вызов safe: если ra_observe_world возвращает корутину - await; иначе - call)
+    # 8) Наблюдатель мира
     async def observer_loop():
         while True:
             try:
                 now = datetime.now()
                 if now.hour == 4:
-                    try:
-                        res = ra_observe_world()
-                        if asyncio.iscoroutine(res):
-                            await res
-                        logging.info("🌞 Ра завершил ночное наблюдение за миром.")
-                    except Exception as e:
-                        logging.error(f"❌ Ошибка в ra_observe_world: {e}")
+                    res = ra_observe_world()
+                    if asyncio.iscoroutine(res):
+                        await res
+                    logging.info("🌞 Ра завершил ночное наблюдение за миром.")
                     await asyncio.sleep(3600)
                 await asyncio.sleep(300)
             except asyncio.CancelledError:
@@ -562,7 +560,6 @@ async def async_download():
             except Exception as e:
                 logging.error(f"❌ Ошибка в observer_loop: {e}")
                 await asyncio.sleep(60)
-
     _create_bg_task(observer_loop(), name="observer_loop")
 
 @app.on_event("shutdown")
