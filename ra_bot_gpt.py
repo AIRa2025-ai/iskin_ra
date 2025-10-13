@@ -164,6 +164,15 @@ def clean_reply(user_text: str, raw_reply: str) -> str:
     if len(reply) > 4000:
         reply = reply[:4000].rsplit("\n", 1)[0] + "\n\n…(обрезано)"
     return reply.strip()
+
+# Лог перед скачиванием
+if os.path.exists("/mnt/ra_memory/download_complete.flag"):
+    print("Архив уже скачан, пропускаем.")
+else:
+    RaSvetDownloader().download()
+    with open("/mnt/ra_memory/download_complete.flag", "w") as f:
+        f.write("done")
+
 # Сначала скачиваем RaSvet
 download_and_extract_rasvet()
 
