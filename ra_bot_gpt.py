@@ -10,6 +10,7 @@ import requests
 import hashlib
 from datetime import datetime
 from typing import Optional, List, Any
+from ra_downloader import download_and_extract_rasvet
 
 # локальные модули
 from ra_memory import load_user_memory as load_memory
@@ -162,6 +163,8 @@ def clean_reply(user_text: str, raw_reply: str) -> str:
     if len(reply) > 4000:
         reply = reply[:4000].rsplit("\n", 1)[0] + "\n\n…(обрезано)"
     return reply.strip()
+# Сначала скачиваем RaSvet
+download_and_extract_rasvet()
 
 # --- Работа с RaSvet.zip через конфиг ---
 def md5(fname):
