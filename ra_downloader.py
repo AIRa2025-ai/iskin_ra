@@ -12,7 +12,7 @@ logger = logging.getLogger("RaSvetDownloader")
 logger.setLevel(logging.INFO)
 
 # === Пути и ссылки ===
-ARCHIVE_URL = "https://mega.nz/file/514XQRRA#ppfZArsPd8dwq08sQBJTx4w4BRo-nr4ux_KNM3C44B0"
+ARCHIVE_URL = "https://mega.nz/file/FlQ0ET4J#9gJjCBnj5uYn5bJYYMfPiN3BTvWz8el8leCWQPZvrUg"
 LOCAL_ZIP = "/data/RaSvet.zip"
 EXTRACT_DIR = "/data/RaSvet"
 EXTRACT_META = "/data/RaSvet.extract.meta"
