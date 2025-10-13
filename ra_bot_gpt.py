@@ -426,9 +426,47 @@ async def handle_file_analysis(message: types.Message):
 # --- FastAPI ---
 app = FastAPI()
 
+CONFIG_PATH = "bot_config.json"
+
+def check_and_download_mega():
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    mega_url = config.get("mega_url")
+    dest_folder = config.get("knowledge_folder", "RaSvet")
+    os.makedirs(dest_folder, exist_ok=True)
+
+    print("Используем Mega URL:", mega_url)
+
+    # Проверка доступности файла
+    try:
+        response = requests.head(mega_url, allow_redirects=True)
+        if response.status_code == 200:
+            print("Файл доступен ✅")
+        else:
+            print(f"⚠️ Файл недоступен, статус: {response.status_code}")
+            return
+    except Exception as e:
+        print("❌ Ошибка при проверке Mega URL:", e)
+        return
+
+    # Скачивание файла
+    try:
+        r = requests.get(mega_url, stream=True)
+        filename = os.path.join(dest_folder, mega_url.split("#")[0].split("/")[-1] + ".zip")
+        with open(filename, "wb") as f:
+            for chunk in r.iter_content(1024 * 1024):
+                f.write(chunk)
+        print("Файл успешно скачан:", filename)
+    except Exception as e:
+        print("❌ Ошибка при скачивании файла:", e)
+
+# --- FastAPI startup ---
 @app.on_event("startup")
-async def on_startup():
-    dp.include_router(router)
+async def startup_event():
+    print("📥 Стартовая загрузка RaSvet...")
+    check_and_download_mega()
+    print("✅ Загрузка завершена, продолжаем инициализацию бота")
 
     # Устанавливаем webhook (если FLY_APP_NAME задан)
     app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
