@@ -55,6 +55,14 @@ def analyze_repository() -> list:
     existing_files = os.listdir(".")
     proposals = []
 
+    # ra_guardian.py
+    class Guardian:
+    def __init__(self):
+        pass
+
+    def protect(self):
+        print("Guardian active")
+
     # Пример анализа: проверяем, есть ли определённые ключевые модули
     missing_features = []
 
