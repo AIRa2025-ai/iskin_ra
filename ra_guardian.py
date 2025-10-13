@@ -4,6 +4,7 @@ import json
 import logging
 import asyncio
 from datetime import datetime
+import re
 from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
 
 # --- Настройки ---
@@ -48,34 +49,24 @@ def backup_manifest():
 
 
 def analyze_repository() -> list:
-    """
-    Анализирует текущие файлы проекта Ра, чтобы понять, каких возможностей не хватает.
-    Возвращает список предложений.
-    """
+    """Анализирует текущие файлы проекта Ра и возвращает список предложений по модулям"""
     existing_files = os.listdir(".")
     proposals = []
-
-    # Класс Guardian для примера
-    class Guardian:
-        def __init__(self):
-            pass
-
-        def protect(self):
-            print("Guardian active")
 
     # Проверяем наличие ключевых компонентов
     missing_features = []
     if not any("observer" in f for f in existing_files):
-        missing_features.append("Observation")
+        missing_features.append("Nablyudenie_za_sobytiyami_v_mire")
     if not any("reflection" in f for f in existing_files):
-        missing_features.append("Reflection")
+        missing_features.append("Samoanliz_i_osoznanie_opyta")
     if not any("optimizer" in f for f in existing_files):
-        missing_features.append("Optimizer")
+        missing_features.append("Optimizatsiya_resursov_i_protsessov")
     if not any("context_keeper" in f for f in existing_files):
-        missing_features.append("ContextKeeper")
+        missing_features.append("Khranenie_konteksta_dialogov_i_znaniy")
 
     for feature in missing_features:
-        module_name = f"ra_{feature}_{int(datetime.now().timestamp())}"
+        safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', feature)
+        module_name = f"ra_{safe_name}_{int(datetime.now().timestamp())}"
         description = f"Модуль: {feature}"
         example_code = f'''# {module_name}.py — {feature}
 import logging
@@ -93,10 +84,7 @@ def init():
 
 
 async def propose_new_modules(user: int):
-    """
-    Ра предлагает новые модули для утверждения доверенным пользователем.
-    Создаёт JSON с предложениями и примерным кодом.
-    """
+    """Ра предлагает новые модули для доверенного пользователя"""
     proposals = analyze_repository()
 
     if not proposals:
@@ -115,9 +103,7 @@ async def propose_new_modules(user: int):
 
 
 async def auto_expand(user: int):
-    """
-    Авто-расширение ядра Ра — создаёт новые модули по нужде после проверки доверенным.
-    """
+    """Авто-расширение ядра Ра"""
     proposals = await propose_new_modules(user)
 
     if proposals:
@@ -127,15 +113,12 @@ async def auto_expand(user: int):
 
 
 async def guardian_loop(user: int):
-    """
-    Основной цикл — проверяет необходимость новых модулей каждые 6 часов.
-    Для теста таймер можно уменьшить.
-    """
+    """Основной цикл — проверяет необходимость новых модулей каждые 6 часов"""
     while True:
         try:
             backup_manifest()
             await auto_expand(user)
-            await asyncio.sleep(30)  # для теста 30 секунд, потом 6*3600
+            await asyncio.sleep(6 * 3600)
         except asyncio.CancelledError:
             logging.info("🔧 guardian_loop отменён")
             break
@@ -146,5 +129,10 @@ async def guardian_loop(user: int):
 
 # --- Пример запуска для локального теста ---
 if __name__ == "__main__":
-    user = 5694569448  # только один доверенный пользователь
-    asyncio.run(guardian_loop(user))
+    async def main():
+        for u in TRUSTED_USERS:
+            asyncio.create_task(guardian_loop(u))
+        while True:
+            await asyncio.sleep(3600)  # держим процесс живым
+
+    asyncio.run(main())
