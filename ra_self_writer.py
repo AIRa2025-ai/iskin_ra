@@ -6,7 +6,7 @@ from datetime import datetime
 from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
 
 IDEA_FOLDER = "proposals"
-TRUSTED_USERS = ["Игорь", "Милана"]
+TRUSTED_USERS = [5694569448, 6300409407]
 
 logging.basicConfig(level=logging.INFO)
 
