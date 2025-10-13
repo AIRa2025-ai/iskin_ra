@@ -76,7 +76,7 @@ router = Router()
 # --- Папки памяти ---
 # Оставил вашу структуру — убедитесь, что /data доступна на окружении.
 BASE_FOLDER = "/data/RaSvet"
-MEMORY_FOLDER = os.path.join(BASE_FOLDER, "mnt/ra_memory", "memory")
+MEMORY_FOLDER = os.path.join(BASE_FOLDER, "memory")
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
 
 CREATOR_IDS = [5694569448, 6300409407]
@@ -118,20 +118,16 @@ def append_user_memory(user_id: int, user_input: str, reply: str):
     save_memory(user_id, memory)
 
 def parse_openrouter_response(data: Any) -> Optional[str]:
-    """Попытка извлечь текст ответа из структуры, возвращаемой OpenRouter/wrapper."""
     try:
         if isinstance(data, str):
             return data
         if isinstance(data, dict):
-            choices = data.get("choices") if isinstance(data.get("choices"), list) else None
+            choices = data.get("choices") or []
             if choices:
-                maybe = choices[0].get("message", {}).get("content")
-                if maybe:
-                    return maybe
+                return choices[0].get("message", {}).get("content") or choices[0].get("text")
             return data.get("text") or data.get("content")
     except Exception:
-        pass
-    return None
+        return None
 
 # --- Небольшие утилиты для очистки ответа GPT ---
 def dedupe_consecutive_lines(text: str) -> str:
@@ -245,20 +241,11 @@ def _create_bg_task(coro, name: str) -> asyncio.Task:
     return t
 
 async def _cancel_bg_tasks():
-    if not _bg_tasks:
-        return
-    logging.info("🛑 Останавливаем фоновые задачи...")
     for t in list(_bg_tasks):
-        try:
-            t.cancel()
-        except Exception:
-            pass
-    try:
-        await asyncio.wait_for(asyncio.gather(*_bg_tasks, return_exceptions=True), timeout=5.0)
-    except Exception:
-        pass
+        t.cancel()
+    await asyncio.gather(*_bg_tasks, return_exceptions=True)
     _bg_tasks.clear()
-
+    
 # --- Фоновый процесс саморефлексии ---
 async def auto_reflect_loop():
     """Цикл саморефлексии. Вызывает self_reflect_and_update(), если он доступен."""
@@ -477,8 +464,8 @@ def ensure_rasvet_downloaded(url: str = ARCHIVE_URL, extract_to: str = BASE_FOLD
 async def startup_event():
     logging.info("🚀 Стартуем приложение и проверяем RaСвет...")
     # 1) Скачивание в отдельном потоке, чтобы не блокировать event loop
-    await asyncio.to_thread(ensure_rasvet_downloaded)
-
+    await asyncio.to_thread(download_and_extract_rasvet, ARCHIVE_URL, BASE_FOLDER)
+        
     # 2) Проверяем URL из конфига и логируем
     mega_url, dest_folder = check_and_log_mega_url()
 
@@ -539,8 +526,7 @@ async def startup_event():
         _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
     if IS_FLY_IO:
         _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
-    else:
-        _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
+    _create_bg_task(observer_loop(), name="observer_loop")
 
     # 8) Наблюдатель мира
     async def observer_loop():
