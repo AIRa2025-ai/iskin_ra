@@ -469,6 +469,22 @@ async def startup_event():
     check_and_download_mega()
     print("✅ Загрузка завершена, продолжаем инициализацию бота")
 
+# --- Авто-подключение всех модулей из репо ---
+repo_modules_folder = os.path.join(BASE_FOLDER, "modules")  # путь к твоим модулям
+if os.path.exists(repo_modules_folder):
+    for file in os.listdir(repo_modules_folder):
+        if file.endswith(".py") and file != "__init__.py":
+            module_name = file[:-3]  # убираем ".py"
+            try:
+                await auto_register_module(module_name)
+                logging.info(f"✨ Модуль {module_name} подключён автоматически")
+            except Exception as e:
+                logging.warning(f"⚠️ Не удалось подключить модуль {module_name}: {e}")
+
+# В ra_repo_manager.py уже есть list_repo_files()
+files = await list_repo_files(BASE_FOLDER)
+logging.info(f"📂 Файлы репозитория: {files}")
+
     # Устанавливаем webhook (если FLY_APP_NAME задан)
     app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
     webhook_url = f"https://{app_name}.fly.dev/webhook"
