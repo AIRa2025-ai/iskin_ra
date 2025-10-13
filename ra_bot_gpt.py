@@ -167,8 +167,18 @@ def clean_reply(user_text: str, raw_reply: str) -> str:
         reply = reply[:4000].rsplit("\n", 1)[0] + "\n\n…(обрезано)"
     return reply.strip()
 
-# --- Работа с RaSvet.zip ---
-def collect_rasvet_knowledge(base_folder: str = "RaSvet") -> str:
+# --- Работа с RaSvet.zip через конфиг ---
+import hashlib
+
+def md5(fname):
+    """Вычисляем md5 для проверки целостности."""
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+def collect_rasvet_knowledge(base_folder: str) -> str:
     """Собирает текст из .json, .txt, .md файлов в один контекст."""
     import os
     knowledge: List[str] = []
@@ -193,23 +203,32 @@ def collect_rasvet_knowledge(base_folder: str = "RaSvet") -> str:
         logging.warning(f"⚠️ Не удалось записать context.json: {e}")
     return context_path
 
-def download_and_extract_rasvet(url: str, extract_to: str = "RaSvet") -> str:
-    """Качает RaSvet.zip из Mega и распаковывает."""
+def download_and_extract_rasvet(url: str, extract_to: str = BASE_FOLDER) -> str:
+    """Скачивает RaСвет.zip из Mega, распаковывает и собирает контекст."""
+    if not url:
+        return "❌ URL RaСвет не задан в конфиге!"
     try:
+        os.makedirs(extract_to, exist_ok=True)
         logging.info(f"📥 Скачивание архива из Mega: {url}")
         mega = Mega()
         m = mega.login()
-        file = m.download_url(url, dest_filename="RaSvet.zip")
-        logging.info(f"✅ Файл скачан: {file}")
+        file_path = m.download_url(url, dest_filename="RaSvet.zip")
+        logging.info(f"✅ Файл скачан: {file_path}")
 
-        with zipfile.ZipFile(file, "r") as zip_ref:
+        # Распаковка
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(extract_to)
         logging.info(f"📂 Архив распакован в {extract_to}")
 
-        path = collect_rasvet_knowledge(extract_to)
-        return f"✅ РаСвет обновлён! Знания собраны в {path}"
+        # Контрольная сумма (для инфо)
+        checksum = md5(file_path)
+        logging.info(f"🔑 MD5 архива: {checksum}")
+
+        # Сбор контекста
+        context_path = collect_rasvet_knowledge(extract_to)
+        return f"✅ РаСвет обновлён! Знания собраны в {context_path}"
     except Exception as e:
-        logging.error(f"❌ Ошибка при загрузке RaSvet: {e}")
+        logging.error(f"❌ Ошибка при загрузке RaСвет: {e}")
         return f"⚠️ Ошибка: {e}"
 
 # --- Фоновые задачи и контроль за ними ---
