@@ -444,8 +444,8 @@ def check_and_log_mega_url():
 
 @app.on_event("startup")
 async def startup_event():
+    logging.info("📥 Стартовая загрузка RaSvet...")
     asyncio.create_task(async_download())
-        logging.info("📥 Стартовая загрузка RaSvet...")
 
 async def async_download():
     await asyncio.to_thread(download_and_extract_rasvet)
