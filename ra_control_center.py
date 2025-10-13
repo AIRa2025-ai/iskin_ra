@@ -5,7 +5,7 @@ import asyncio
 import importlib.util
 import traceback
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -25,17 +25,17 @@ self_writer = SelfWriter()
 # --- Папки для веб-панели ---
 os.makedirs("static", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
-os.makedirs("modules", exist_ok=True)  # сюда Ра будет создавать модули
+os.makedirs("modules", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# --- Логирование ---
+# --- Логи ---
 logs = []
 
-def log(msg):
+def log(msg: str):
     print(msg)
     logs.append(msg)
-    if len(logs) > 500:  # обрезаем старые
+    if len(logs) > 500:  # лимит на количество строк
         logs.pop(0)
 
 # --- Фоновые задачи ---
@@ -78,9 +78,12 @@ index_html = """
 
 <h3>Логи:</h3>
 <button onclick="toggleLogs()">Свернуть/Развернуть</button>
+<button onclick="clearLogs()">Очистить логи</button>
 <div id="logContainer" style="white-space: pre-wrap; background: #f5f5f5; padding: 10px; border-radius: 8px; max-height:200px; overflow-y:auto;"></div>
 
 <script>
+let logsVisible = true;
+
 async function call(path){
     let r = await fetch(path)
     let j = await r.json()
@@ -97,22 +100,25 @@ async function uploadModule(){
     document.getElementById("status").innerText = JSON.stringify(j, null, 2)
 }
 
-let logsVisible = true;
 async function toggleLogs(){
     const container = document.getElementById("logContainer");
     logsVisible = !logsVisible;
-    if(logsVisible){
-        container.style.display = "block";
-        await refreshLogs();
-    } else {
-        container.style.display = "none";
-    }
+    container.style.display = logsVisible ? "block" : "none";
+    if(logsVisible) await refreshLogs();
 }
 
 async function refreshLogs(){
     let r = await fetch("/logs")
     let j = await r.json()
     document.getElementById("logContainer").innerText = j.logs.join("\\n")
+}
+
+async function clearLogs(){
+    let r = await fetch("/logs/clear", {method:"POST"});
+    let j = await r.json();
+    if(j.status === "ok"){
+        document.getElementById("logContainer").innerText = "";
+    }
 }
 
 // Автообновление логов каждые 5 секунд
@@ -137,34 +143,6 @@ button { margin: 5px; padding: 10px; border-radius: 5px; cursor: pointer; }
 with open("static/style.css", "w", encoding="utf-8") as f:
     f.write(style_css)
 
-# --- AUTO MODULE MANAGER ---
-async def auto_load_modules():
-    loaded = []
-    for fname in os.listdir("modules"):
-        if not fname.endswith(".py"): continue
-        mod_name = fname[:-3]
-        path = os.path.join("modules", fname)
-        try:
-            spec = importlib.util.spec_from_file_location(mod_name, path)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            if hasattr(mod, "register"):
-                mod.register(globals())
-            loaded.append(mod_name)
-            log(f"🧩 Модуль {fname} загружен")
-        except Exception as e:
-            log(f"Ошибка загрузки модуля {fname}: {e}")
-            log(traceback.format_exc())
-    return loaded
-
-async def self_write_and_connect():
-    filename, content = await self_writer.create_file_auto(return_content=True)
-    path = os.path.join("modules", filename)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    loaded = await auto_load_modules()
-    return {"created": filename, "loaded_modules": loaded}
-
 # --- API эндпоинты ---
 @app.get("/status")
 async def status():
@@ -183,12 +161,41 @@ async def status():
 @app.get("/self/dev")
 async def self_develop():
     result = await self_dev.auto_learn()
+    log("🧠 Самообучение выполнено")
     return {"result": result}
 
 @app.get("/self/write")
 async def self_write():
     result = await self_writer.create_file_auto()
+    log(f"✍️ Файл создан: {result}")
     return {"result": result}
+
+# --- Автогенерация и подключение файлов ---
+async def auto_load_modules():
+    loaded = []
+    for fname in os.listdir("modules"):
+        if not fname.endswith(".py"): continue
+        mod_name = fname[:-3]
+        path = os.path.join("modules", fname)
+        try:
+            spec = importlib.util.spec_from_file_location(mod_name, path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            if hasattr(mod, "register"):
+                mod.register(globals())
+            loaded.append(mod_name)
+            log(f"🧩 Модуль загружен: {mod_name}")
+        except Exception as e:
+            log(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
+    return loaded
+
+async def self_write_and_connect():
+    filename, content = await self_writer.create_file_auto(return_content=True)
+    path = os.path.join("modules", filename)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    loaded = await auto_load_modules()
+    return {"created": filename, "loaded_modules": loaded}
 
 @app.get("/self/write_connect")
 async def write_connect():
@@ -196,6 +203,7 @@ async def write_connect():
         result = await self_write_and_connect()
         return {"status": "ok", **result}
     except Exception as e:
+        log(f"Ошибка write_connect: {e}")
         return {"status": "error", "error": str(e)}
 
 @app.get("/modules/list")
@@ -207,12 +215,19 @@ async def upload_module(file: UploadFile = File(...)):
     path = os.path.join("modules", file.filename)
     with open(path, "wb") as f:
         f.write(await file.read())
-    log(f"📥 Загружен модуль {file.filename}")
+    log(f"📦 Модуль загружен через панель: {file.filename}")
     return {"status": "ok", "filename": file.filename}
 
+# --- Логи через API ---
 @app.get("/logs")
 async def get_logs():
     return {"logs": logs}
+
+@app.post("/logs/clear")
+async def clear_logs():
+    logs.clear()
+    log("🗑 Логи очищены")
+    return {"status": "ok"}
 
 @app.get("/")
 async def web_panel(request: Request):
@@ -248,7 +263,6 @@ async def module_watcher():
             log(f"Ошибка module_watcher: {e}")
             await asyncio.sleep(5)
 
-# --- События старта и остановки ---
 @app.on_event("startup")
 async def on_startup():
     log("🚀 Ra Super Control Center стартует...")
