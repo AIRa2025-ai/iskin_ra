@@ -12,7 +12,7 @@ import uvicorn
 from datetime import datetime
 from typing import Optional, List, Any
 from ra_downloader import download_and_extract_rasvet, ARCHIVE_URL
-
+from ra_downloader import RaSvetDownloader
 # локальные модули
 from ra_memory import load_user_memory as load_memory
 from ra_memory import save_user_memory as save_memory
@@ -172,6 +172,9 @@ else:
     RaSvetDownloader().download()
     with open("/mnt/ra_memory/download_complete.flag", "w") as f:
         f.write("done")
+        
+downloader = RaSvetDownloader()
+downloader.download()
 
 # Сначала скачиваем RaSvet
 download_and_extract_rasvet()
