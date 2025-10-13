@@ -10,7 +10,7 @@ import requests
 import hashlib
 from datetime import datetime
 from typing import Optional, List, Any
-from ra_downloader import download_and_extract_rasvet
+from ra_downloader import download_and_extract_rasvet, ARCHIVE_URL
 
 # локальные модули
 from ra_memory import load_user_memory as load_memory
@@ -448,7 +448,7 @@ async def startup_event():
     asyncio.create_task(async_download())
 
 async def async_download():
-    await asyncio.to_thread(download_and_extract_rasvet)
+    await asyncio.to_thread(download_and_extract_rasvet, ARCHIVE_URL)
 
     # 1) Попробуем прочитать конфиг и залогировать URL
     mega_url, dest_folder = check_and_log_mega_url()
