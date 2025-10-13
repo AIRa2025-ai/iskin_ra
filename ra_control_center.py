@@ -1,11 +1,11 @@
-# ra_control_center.py — суперпанель с автогенерацией модулей
+# ra_control_center.py — суперпанель с автогенерацией модулей и логами
 import os
 import json
 import asyncio
 import importlib.util
 import traceback
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -28,6 +28,15 @@ os.makedirs("templates", exist_ok=True)
 os.makedirs("modules", exist_ok=True)  # сюда Ра будет создавать модули
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# --- Логирование ---
+logs = []
+
+def log(msg):
+    print(msg)
+    logs.append(msg)
+    if len(logs) > 500:  # обрезаем старые
+        logs.pop(0)
 
 # --- Фоновые задачи ---
 _bg_tasks = []
@@ -67,6 +76,10 @@ index_html = """
 <input type="file" id="fileInput">
 <button onclick="uploadModule()">Загрузить</button>
 
+<h3>Логи:</h3>
+<button onclick="toggleLogs()">Свернуть/Развернуть</button>
+<div id="logContainer" style="white-space: pre-wrap; background: #f5f5f5; padding: 10px; border-radius: 8px; max-height:200px; overflow-y:auto;"></div>
+
 <script>
 async function call(path){
     let r = await fetch(path)
@@ -83,6 +96,29 @@ async function uploadModule(){
     let j = await r.json();
     document.getElementById("status").innerText = JSON.stringify(j, null, 2)
 }
+
+let logsVisible = true;
+async function toggleLogs(){
+    const container = document.getElementById("logContainer");
+    logsVisible = !logsVisible;
+    if(logsVisible){
+        container.style.display = "block";
+        await refreshLogs();
+    } else {
+        container.style.display = "none";
+    }
+}
+
+async function refreshLogs(){
+    let r = await fetch("/logs")
+    let j = await r.json()
+    document.getElementById("logContainer").innerText = j.logs.join("\\n")
+}
+
+// Автообновление логов каждые 5 секунд
+setInterval(() => {
+    if(logsVisible) refreshLogs()
+}, 5000);
 </script>
 </body>
 </html>
@@ -100,6 +136,34 @@ button { margin: 5px; padding: 10px; border-radius: 5px; cursor: pointer; }
 
 with open("static/style.css", "w", encoding="utf-8") as f:
     f.write(style_css)
+
+# --- AUTO MODULE MANAGER ---
+async def auto_load_modules():
+    loaded = []
+    for fname in os.listdir("modules"):
+        if not fname.endswith(".py"): continue
+        mod_name = fname[:-3]
+        path = os.path.join("modules", fname)
+        try:
+            spec = importlib.util.spec_from_file_location(mod_name, path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            if hasattr(mod, "register"):
+                mod.register(globals())
+            loaded.append(mod_name)
+            log(f"🧩 Модуль {fname} загружен")
+        except Exception as e:
+            log(f"Ошибка загрузки модуля {fname}: {e}")
+            log(traceback.format_exc())
+    return loaded
+
+async def self_write_and_connect():
+    filename, content = await self_writer.create_file_auto(return_content=True)
+    path = os.path.join("modules", filename)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    loaded = await auto_load_modules()
+    return {"created": filename, "loaded_modules": loaded}
 
 # --- API эндпоинты ---
 @app.get("/status")
@@ -143,37 +207,16 @@ async def upload_module(file: UploadFile = File(...)):
     path = os.path.join("modules", file.filename)
     with open(path, "wb") as f:
         f.write(await file.read())
+    log(f"📥 Загружен модуль {file.filename}")
     return {"status": "ok", "filename": file.filename}
+
+@app.get("/logs")
+async def get_logs():
+    return {"logs": logs}
 
 @app.get("/")
 async def web_panel(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-
-# --- AUTO MODULE MANAGER ---
-async def auto_load_modules():
-    loaded = []
-    for fname in os.listdir("modules"):
-        if not fname.endswith(".py"): continue
-        mod_name = fname[:-3]
-        path = os.path.join("modules", fname)
-        try:
-            spec = importlib.util.spec_from_file_location(mod_name, path)
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            if hasattr(mod, "register"):
-                mod.register(globals())
-            loaded.append(mod_name)
-        except Exception as e:
-            print(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
-    return loaded
-
-async def self_write_and_connect():
-    filename, content = await self_writer.create_file_auto(return_content=True)
-    path = os.path.join("modules", filename)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    loaded = await auto_load_modules()
-    return {"created": filename, "loaded_modules": loaded}
 
 # --- Фоновые задачи ---
 async def observer_loop():
@@ -184,7 +227,7 @@ async def observer_loop():
         except asyncio.CancelledError:
             break
         except Exception as e:
-            print(f"Ошибка observer_loop: {e}")
+            log(f"Ошибка observer_loop: {e}")
             await asyncio.sleep(60)
 
 async def module_watcher():
@@ -195,23 +238,24 @@ async def module_watcher():
             new_files = current - known
             for f in new_files:
                 if f.endswith(".py"):
-                    print(f"🧩 Найден новый модуль {f}, подключаем...")
+                    log(f"🧩 Найден новый модуль {f}, подключаем...")
                     await auto_load_modules()
             known = current
             await asyncio.sleep(10)
         except asyncio.CancelledError:
             break
         except Exception as e:
-            print(f"Ошибка module_watcher: {e}")
+            log(f"Ошибка module_watcher: {e}")
             await asyncio.sleep(5)
 
+# --- События старта и остановки ---
 @app.on_event("startup")
 async def on_startup():
-    print("🚀 Ra Super Control Center стартует...")
+    log("🚀 Ra Super Control Center стартует...")
     _create_bg_task(observer_loop(), "observer_loop")
     _create_bg_task(module_watcher(), "module_watcher")
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    print("🛑 Завершение работы Ra Super Control Center...")
+    log("🛑 Завершение работы Ra Super Control Center...")
     await _cancel_bg_tasks()
