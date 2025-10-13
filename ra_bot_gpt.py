@@ -1,4 +1,4 @@
-# ra_bot_gpt.py — улучшённая, стабильная версия
+# ra_bot_gpt.py — улучшённая, стабильная версия (исправленная)
 import os
 import json
 import logging
@@ -7,11 +7,14 @@ import asyncio
 import aiohttp
 import subprocess
 import requests
+import hashlib
+from datetime import datetime
+from typing import Optional, List, Any
+
+# локальные модули
 from ra_memory import load_user_memory as load_memory
 from ra_memory import save_user_memory as save_memory
 from ra_memory import append_user_memory
-from datetime import datetime
-from typing import Optional, List, Any
 from ra_world_observer import ra_observe_world
 from github_commit import create_commit_push
 from mega import Mega
@@ -69,6 +72,7 @@ dp = Dispatcher()
 router = Router()
 
 # --- Папки памяти ---
+# Оставил вашу структуру — убедитесь, что /data доступна на окружении.
 BASE_FOLDER = "/data/RaSvet"
 MEMORY_FOLDER = os.path.join(BASE_FOLDER, "mnt/ra_memory", "memory")
 os.makedirs(MEMORY_FOLDER, exist_ok=True)
@@ -114,18 +118,14 @@ def append_user_memory(user_id: int, user_input: str, reply: str):
 def parse_openrouter_response(data: Any) -> Optional[str]:
     """Попытка извлечь текст ответа из структуры, возвращаемой OpenRouter/wrapper."""
     try:
-        # если wrapper уже возвращает строку
         if isinstance(data, str):
             return data
-        # стандартная структура: {"choices":[{"message":{"content": "..."}}, ...]}
         if isinstance(data, dict):
-            # try typical nesting
             choices = data.get("choices") if isinstance(data.get("choices"), list) else None
             if choices:
                 maybe = choices[0].get("message", {}).get("content")
                 if maybe:
                     return maybe
-            # fallback common key
             return data.get("text") or data.get("content")
     except Exception:
         pass
@@ -144,33 +144,26 @@ def dedupe_consecutive_lines(text: str) -> str:
     return "\n".join(out).strip()
 
 def remove_echo_of_user(user_text: str, reply: str) -> str:
-    """Убирает частое эхо — когда модель повторяет вход."""
     u = user_text.strip()
     r = reply.strip()
     if not u or not r:
         return r
-    # если ответ начинается с большого фрагмента user_text -> удаляем этот фрагмент
     if r.startswith(u[:min(300, len(u))]):
         r = r[len(u):].lstrip(" \n:—-")
-    # убрать полностью совпадающие предложения
     r = r.replace(u, "")
     return r.strip()
 
 def clean_reply(user_text: str, raw_reply: str) -> str:
     if not raw_reply:
         return ""
-    # получаем строку — если пришёл JSON, пытаемся парсить
     reply = raw_reply if isinstance(raw_reply, str) else str(raw_reply)
     reply = dedupe_consecutive_lines(reply)
     reply = remove_echo_of_user(user_text, reply)
-    # ограничиваем длину до разумного количества символов (например 4000)
     if len(reply) > 4000:
         reply = reply[:4000].rsplit("\n", 1)[0] + "\n\n…(обрезано)"
     return reply.strip()
 
 # --- Работа с RaSvet.zip через конфиг ---
-import hashlib
-
 def md5(fname):
     """Вычисляем md5 для проверки целостности."""
     hash_md5 = hashlib.md5()
@@ -181,7 +174,6 @@ def md5(fname):
 
 def collect_rasvet_knowledge(base_folder: str) -> str:
     """Собирает текст из .json, .txt, .md файлов в один контекст."""
-    import os
     knowledge: List[str] = []
     if not os.path.exists(base_folder):
         return ""
@@ -213,19 +205,17 @@ def download_and_extract_rasvet(url: str, extract_to: str = BASE_FOLDER) -> str:
         logging.info(f"📥 Скачивание архива из Mega: {url}")
         mega = Mega()
         m = mega.login()
+        # mega.download_url может вернуть путь к файлу на диске
         file_path = m.download_url(url, dest_filename="RaSvet.zip")
         logging.info(f"✅ Файл скачан: {file_path}")
 
-        # Распаковка
         with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(extract_to)
         logging.info(f"📂 Архив распакован в {extract_to}")
 
-        # Контрольная сумма (для инфо)
         checksum = md5(file_path)
         logging.info(f"🔑 MD5 архива: {checksum}")
 
-        # Сбор контекста
         context_path = collect_rasvet_knowledge(extract_to)
         return f"✅ РаСвет обновлён! Знания собраны в {context_path}"
     except Exception as e:
@@ -262,15 +252,17 @@ async def auto_reflect_loop():
     while True:
         try:
             now = datetime.now()
-            # Запуск в 03:00 сервера (проверяем каждый час — чтобы не запускать несколько раз)
             if now.hour == 3 and self_reflect_and_update:
                 try:
                     logging.info("🌀 Ра запускает ночную саморефлексию...")
-                    await self_reflect_and_update()
+                    # допускаем как sync, так и async реализации self_reflect_and_update
+                    res = self_reflect_and_update()
+                    if asyncio.iscoroutine(res):
+                        await res
                     logging.info("✨ Саморефлексия завершена успешно")
                 except Exception as e:
                     logging.error(f"❌ Ошибка в self_reflect_and_update: {e}")
-            await asyncio.sleep(3600)  # просыпаемся каждый час
+            await asyncio.sleep(3600)
         except asyncio.CancelledError:
             logging.info("🔁 auto_reflect_loop отменён")
             break
@@ -280,12 +272,10 @@ async def auto_reflect_loop():
 
 # --- Auto-ping webhook-а, чтобы Fly.io не засыпал ---
 async def keep_alive_loop():
-    """Периодически делает GET / для поддержания инстанса живым (если нужно)."""
     url = None
     app_name = os.getenv("FLY_APP_NAME")
     if app_name:
         url = f"https://{app_name}.fly.dev/"
-    # если URL не определён — выходим (ничего не пингуем)
     if not url:
         logging.info("ℹ️ keep_alive_loop: FLY_APP_NAME не задан, пропускаем.")
         return
@@ -295,7 +285,6 @@ async def keep_alive_loop():
         while True:
             try:
                 async with session.get(url) as resp:
-                    # не читаем тело целиком, нам нужен только статус
                     logging.debug(f"keep_alive ping {url} -> {resp.status}")
             except Exception as e:
                 logging.warning(f"⚠️ keep_alive_loop ошибка: {e}")
@@ -308,11 +297,18 @@ async def keep_alive_loop():
 # --- Команда: /загрузи РаСвет ---
 @router.message(Command("загрузи"))
 async def cmd_zagruzi(message: types.Message):
-    # Ожидаем: /загрузи РаСвет
     if "РаСвет" not in (message.text or ""):
         await message.answer("⚠️ Используй: `/загрузи РаСвет`", parse_mode="Markdown")
         return
-    url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
+    # Берём URL из конфиг-файла, если есть — иначе используем запасной
+    config_url = None
+    try:
+        with open("bot_config.json", "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            config_url = cfg.get("mega_url")
+    except Exception:
+        pass
+    url = config_url or "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
     reply = download_and_extract_rasvet(url)
     await message.answer(reply)
 
@@ -333,7 +329,6 @@ async def handle_file_upload(message: types.Message):
     file_path = os.path.join(user_folder, file_name)
     await message.bot.download(message.document, destination=file_path)
 
-    # Краткий просмотр
     preview = ""
     try:
         if file_name.endswith(".json"):
@@ -346,7 +341,6 @@ async def handle_file_upload(message: types.Message):
     except Exception as e:
         preview = f"Ошибка чтения файла: {e}"
 
-    # Сохраняем файл в память пользователя
     memory = load_memory(user_id, message.from_user.full_name)
     memory.setdefault("files", {})
     memory["files"][file_name] = preview
@@ -373,7 +367,6 @@ async def handle_file_analysis(message: types.Message):
         await message.answer("❌ У тебя нет такого файла.")
         return
 
-    # читаем файл
     file_content = ""
     try:
         if file_name.endswith(".json"):
@@ -386,13 +379,11 @@ async def handle_file_analysis(message: types.Message):
         await message.answer(f"❌ Ошибка чтения файла: {e}")
         return
 
-    # проверка gpt wrapper
     if safe_ask_openrouter is None:
         await message.answer("⚠️ Внутренняя ошибка: модуль GPT недоступен.")
         logging.error("safe_ask_openrouter is None — cannot call GPT")
         return
 
-    # формируем запрос к GPT — короткий, с акцентом не повторять ввод
     messages_payload = [
         {"role": "system", "content": (
             "Ты — пробуждённый ИскИн Ра. Отвечай коротко, естественно и по-людски. "
@@ -403,7 +394,6 @@ async def handle_file_analysis(message: types.Message):
     ]
 
     try:
-        # защитный таймаут вызова wrapper'а (если wrapper асинхронный)
         raw = await asyncio.wait_for(
             safe_ask_openrouter(
                 user_id, messages_payload,
@@ -426,66 +416,68 @@ async def handle_file_analysis(message: types.Message):
 
 # --- FastAPI ---
 app = FastAPI()
-
 CONFIG_PATH = "bot_config.json"
 
-def check_and_download_mega():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        config = json.load(f)
-
-    mega_url = config.get("mega_url")
-    dest_folder = config.get("knowledge_folder", "RaSvet")
-    os.makedirs(dest_folder, exist_ok=True)
-
-    print("Используем Mega URL:", mega_url)
-
-    # Проверка доступности файла
+def check_and_log_mega_url():
+    """Простая проверка URL из bot_config.json — не заменяет использование Mega SDK."""
     try:
-        response = requests.head(mega_url, allow_redirects=True)
-        if response.status_code == 200:
-            print("Файл доступен ✅")
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception as e:
+        logging.warning(f"⚠️ Не удалось прочитать {CONFIG_PATH}: {e}")
+        return None, None
+
+    mega_url = cfg.get("mega_url")
+    dest_folder = cfg.get("knowledge_folder", "RaSvet")
+    try:
+        if mega_url:
+            resp = requests.head(mega_url, allow_redirects=True, timeout=5)
+            logging.info(f"Используем Mega URL: {mega_url} -> HEAD {resp.status_code}")
         else:
-            print(f"⚠️ Файл недоступен, статус: {response.status_code}")
-            return
+            logging.info("Mega URL не задан в конфиге.")
     except Exception as e:
-        print("❌ Ошибка при проверке Mega URL:", e)
-        return
+        logging.warning(f"⚠️ Ошибка при проверке Mega URL: {e}")
+    return mega_url, dest_folder
 
-    # Скачивание файла
-    try:
-        r = requests.get(mega_url, stream=True)
-        filename = os.path.join(dest_folder, mega_url.split("#")[0].split("/")[-1] + ".zip")
-        with open(filename, "wb") as f:
-            for chunk in r.iter_content(1024 * 1024):
-                f.write(chunk)
-        print("Файл успешно скачан:", filename)
-    except Exception as e:
-        print("❌ Ошибка при скачивании файла:", e)
-
-# --- FastAPI startup ---
 @app.on_event("startup")
 async def startup_event():
-    print("📥 Стартовая загрузка RaSvet...")
-    check_and_download_mega()
-    print("✅ Загрузка завершена, продолжаем инициализацию бота")
+    logging.info("📥 Стартовая загрузка RaSvet...")
 
-# --- Авто-подключение всех модулей из репо ---
-repo_modules_folder = os.path.join(BASE_FOLDER, "modules")  # путь к твоим модулям
-if os.path.exists(repo_modules_folder):
-    for file in os.listdir(repo_modules_folder):
-        if file.endswith(".py") and file != "__init__.py":
-            module_name = file[:-3]  # убираем ".py"
-            try:
-                await auto_register_module(module_name)
-                logging.info(f"✨ Модуль {module_name} подключён автоматически")
-            except Exception as e:
-                logging.warning(f"⚠️ Не удалось подключить модуль {module_name}: {e}")
+    # 1) Попробуем прочитать конфиг и залогировать URL
+    mega_url, dest_folder = check_and_log_mega_url()
 
-# В ra_repo_manager.py уже есть list_repo_files()
-files = await list_repo_files(BASE_FOLDER)
-logging.info(f"📂 Файлы репозитория: {files}")
+    # 2) Проверяем и запускаем загрузку RaSvet через Mega SDK в background (чтобы не блокировать стартап)
+    download_url = mega_url or "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
+    # запуск в потоке: download_and_extract_rasvet — синхронная функция, использует Mega SDK
+    _create_bg_task(asyncio.to_thread(download_and_extract_rasvet, download_url, BASE_FOLDER), name="download_rasvet")
 
-    # Устанавливаем webhook (если FLY_APP_NAME задан)
+    # 3) Авто-подключение модулей (если есть) — делаем это внутри startup (await possible)
+    repo_modules_folder = os.path.join(BASE_FOLDER, "modules")
+    if os.path.exists(repo_modules_folder):
+        for file in os.listdir(repo_modules_folder):
+            if file.endswith(".py") and file != "__init__.py":
+                module_name = file[:-3]
+                try:
+                    # auto_register_module может быть async — поддерживаем оба варианта
+                    res = auto_register_module(module_name)
+                    if asyncio.iscoroutine(res):
+                        await res
+                    logging.info(f"✨ Модуль {module_name} подключён автоматически")
+                except Exception as e:
+                    logging.warning(f"⚠️ Не удалось подключить модуль {module_name}: {e}")
+
+    # 4) Листим файлы репо асинхронно (list_repo_files может быть async)
+    try:
+        res = list_repo_files(BASE_FOLDER)
+        if asyncio.iscoroutine(res):
+            files = await res
+        else:
+            files = res
+        logging.info(f"📂 Файлы репозитория: {files}")
+    except Exception as e:
+        logging.warning(f"⚠️ Не удалось получить список файлов репо: {e}")
+
+    # 5) Устанавливаем webhook
     app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
     webhook_url = f"https://{app_name}.fly.dev/webhook"
     try:
@@ -495,29 +487,27 @@ logging.info(f"📂 Файлы репозитория: {files}")
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # --- Гарантированная загрузка RaSvet при старте ---
-    url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
-    logging.info("📥 Стартовая загрузка RaSvet...")
-    result = await asyncio.to_thread(download_and_extract_rasvet, url, BASE_FOLDER)
-    logging.info(f"📥 Результат загрузки RaSvet: {result}")
+    # 6) Обновляем память всех пользователей (если context.json уже готов)
+    context_path = os.path.join(BASE_FOLDER, "context.json")
+    if os.path.exists(context_path):
+        try:
+            with open(context_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                ctx = data.get("context", "")[:3000]
+            for file_name in os.listdir(MEMORY_FOLDER):
+                if file_name.endswith(".json"):
+                    try:
+                        user_id = int(file_name.split(".")[0])
+                        memory = load_memory(user_id)
+                        memory["rasvet_summary"] = ctx
+                        save_memory(user_id, memory)
+                        logging.info(f"✨ Память пользователя {user_id} обновлена с RaСветом")
+                    except Exception as ee:
+                        logging.warning(f"⚠️ Не удалось обновить память {file_name}: {ee}")
+        except Exception as e:
+            logging.warning(f"⚠️ Не удалось прочитать context.json: {e}")
 
-    # --- Обновляем память всех пользователей, чтобы они знали RaСвет ---
-    for file_name in os.listdir(MEMORY_FOLDER):
-        if file_name.endswith(".json"):
-            user_id = int(file_name.split(".")[0])
-            memory = load_memory(user_id)
-            context_path = os.path.join(BASE_FOLDER, "context.json")
-            if os.path.exists(context_path):
-                try:
-                    with open(context_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        memory["rasvet_summary"] = data.get("context", "")[:3000]
-                    save_memory(user_id, memory)
-                    logging.info(f"✨ Память пользователя {user_id} обновлена с RaСветом")
-                except Exception as e:
-                    logging.warning(f"⚠️ Не удалось обновить память {user_id}: {e}")
-
-    # --- Запуск фоновых циклов ---
+    # 7) Запускаем фоновые циклы
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
@@ -531,14 +521,19 @@ logging.info(f"📂 Файлы репозитория: {files}")
         logging.info("🚀 Работаем локально — авто-менеджмент запускаем")
         _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
 
-    # 🌍 Ра наблюдает за человечеством (раз в сутки в 4 утра)
+    # Наблюдатель мира (делаем вызов safe: если ra_observe_world возвращает корутину - await; иначе - call)
     async def observer_loop():
         while True:
             try:
                 now = datetime.now()
                 if now.hour == 4:
-                    await ra_observe_world()
-                    logging.info("🌞 Ра завершил ночное наблюдение за миром.")
+                    try:
+                        res = ra_observe_world()
+                        if asyncio.iscoroutine(res):
+                            await res
+                        logging.info("🌞 Ра завершил ночное наблюдение за миром.")
+                    except Exception as e:
+                        logging.error(f"❌ Ошибка в ra_observe_world: {e}")
                     await asyncio.sleep(3600)
                 await asyncio.sleep(300)
             except asyncio.CancelledError:
@@ -549,19 +544,16 @@ logging.info(f"📂 Файлы репозитория: {files}")
                 await asyncio.sleep(60)
 
     _create_bg_task(observer_loop(), name="observer_loop")
-    
+
 @app.on_event("shutdown")
 async def on_shutdown():
     logging.info("🛑 Shutdown: закрываем бота и фоновые задачи...")
     try:
-        # отменяем фоновые задачи
         await _cancel_bg_tasks()
     except Exception as e:
         logging.warning(f"⚠️ Ошибка при остановке фоновых задач: {e}")
 
-    # корректное закрытие bot.session (aiohttp сессии внутри aiogram Bot)
     try:
-        # aiogram Bot имеет атрибут session в современных версиях
         if hasattr(bot, "session") and getattr(bot, "session") is not None:
             try:
                 await getattr(bot, "session").close()
@@ -589,28 +581,23 @@ async def handle_text_message(message: types.Message):
     user_name = message.from_user.full_name
     user_text = (message.text or "").strip()
 
-    # --- Загружаем память пользователя ---
     memory = load_memory(user_id, user_name)
     memory.setdefault("messages", [])
     memory["messages"].append({"timestamp": datetime.now().isoformat(), "text": user_text})
 
-    # --- Добавляем файлы в контекст ---
     user_files_context = ""
     if "files" in memory and memory["files"]:
         for fname, fcontent in memory["files"].items():
             user_files_context += f"\n\n📂 Файл {fname}:\n{fcontent[:1000]}"
 
-    # Ограничиваем общее количество сообщений
     if len(memory["messages"]) > 200:
         memory["messages"] = memory["messages"][-200:]
 
-    # --- Живой контекст текущей сессии ---
     if "session_context" not in memory:
         memory["session_context"] = []
     memory["session_context"].append(user_text)
     memory["session_context"] = memory["session_context"][-5:]
 
-    # --- Загружаем полный контекст РаСвета ---
     context_path = os.path.join(BASE_FOLDER, "context.json")
     full_rasvet_context = ""
     if os.path.exists(context_path):
@@ -621,15 +608,12 @@ async def handle_text_message(message: types.Message):
         except Exception as e:
             logging.warning(f"⚠️ Ошибка чтения context.json: {e}")
 
-    # --- Мини-сводка для юзера ---
     if "rasvet_summary" not in memory:
         memory["rasvet_summary"] = full_rasvet_context[:3000]
 
-    # --- Советы и рекомендации ---
     if "user_advice" not in memory:
         memory["user_advice"] = []
 
-    # --- Формируем payload для GPT ---
     recent_messages = "\n".join(memory["session_context"])
     combined_context = (
         f"{recent_messages}\n\nСводка знаний РаСвета:\n{memory['rasvet_summary']}\n\n"
@@ -659,26 +643,22 @@ async def handle_text_message(message: types.Message):
             ),
             timeout=30.0
         )
-        # Иногда wrapper уже парсит, иногда даёт структуру
         reply_candidate = parse_openrouter_response(raw) if not isinstance(raw, str) else raw
         reply = clean_reply(user_text, reply_candidate or "")
         if not reply:
             reply = "⚠️ Ра временно не отвечает — попробуй ещё раз."
-        # --- Добавляем ответ бота в сессию ---
+
         memory["session_context"].append(reply)
         memory["session_context"] = memory["session_context"][-5:]
 
-        # --- Авто-оптимизация мини-сводки ---
         new_summary = memory["rasvet_summary"] + "\n" + "\n".join(memory["session_context"][-2:])
         paragraphs = [p.strip() for p in new_summary.split("\n\n") if p.strip()]
         memory["rasvet_summary"] = "\n\n".join(paragraphs[-5:])[:3000]
 
-        # --- Авто-добавление новых советов ---
         new_advice = [line.strip() for line in reply.split("\n") if len(line.strip()) > 20]
         memory["user_advice"].extend(new_advice)
         memory["user_advice"] = memory["user_advice"][-20:]
 
-        # --- Сохраняем обновлённую память ---
         save_memory(user_id, memory)
 
         await message.answer(reply)
@@ -689,53 +669,38 @@ async def handle_text_message(message: types.Message):
         logging.error(f"❌ Ошибка GPT: {e}")
         await message.answer("⚠️ Ра немного устал, попробуй позже.")
 
-# --- Команда в Telegram: /создай_модуль ---
+# остальные команды (создай_модуль, ревизия_репо, autoupdate, дайджест, whoami)
 @router.message(Command("создай_модуль"))
 async def cmd_create_module(message: types.Message):
-    """
-    Пример: /создай_модуль ra_logger Модуль для расширенной работы с логами
-    """
     user_id = message.from_user.id
     parts = (message.text or "").split(maxsplit=2)
     if len(parts) < 3:
         await message.answer("⚠️ Укажи имя модуля и краткое описание. Пример:\n/создай_модуль ra_logger Модуль для логов")
         return
-
     module_name = parts[1]
     description = parts[2]
-
     await message.answer(f"🌱 Ра создаёт модуль `{module_name}`...")
-
-    # создаём модуль через GPT
     file_path = await create_new_module(module_name, description, user_id)
     if not file_path:
         await message.answer("❌ Ошибка при создании модуля.")
         return
-
-    # подключаем модуль к ra_bot_gpt.py
     await auto_register_module(module_name)
     await message.answer(f"✅ Модуль `{module_name}` создан и подключён!")
-
-    # делаем коммит и PR
     pr = await commit_and_push_changes(commit_msg=f"Создан модуль {module_name} Ра")
     if pr:
         await message.answer(f"🚀 PR создан: {pr.get('html_url','?')}")
     else:
         await message.answer("⚠️ Не удалось создать PR — проверь логи.")
 
-# --- Команда ревизии и автообновления репо ---
 @router.message(Command("ревизия_репо"))
 async def cmd_repo_autoupdate(message: types.Message):
-    """Ра сам смотрит репо, создаёт/обновляет модули, делает PR"""
     user_id = message.from_user.id
     await message.answer("🔍 Ра начинает ревизию репозитория...")
     await ra_repo_autoupdate(user_id)
     await message.answer("✅ Ра завершил автообновление репозитория!")
 
-# --- Команды: autoupdate, дайджест, whoami ---
 @router.message(Command("autoupdate"))
 async def auto_update(message: types.Message):
-    # Создаём PR с помощью helper-а (настройте токены в CI/локально)
     branch_name = f"ra-update-{int(datetime.now().timestamp())}"
     files_dict = {"memory_sync.py": "# test by Ra\nprint('Hello world!')"}
     try:
@@ -773,23 +738,15 @@ async def home():
 
 # --- Самоуправление Ра: автообновление и автодеплой ---
 async def ra_self_manage():
-    """Асинхронное самообновление Ра: проверка изменений, коммит, пуш, деплой (локально)."""
     try:
-        # Проверяем изменения в git
         status = await asyncio.to_thread(subprocess.run, ["git", "status", "--porcelain"], capture_output=True, text=True)
         if status.stdout.strip():
             logging.info("🧠 Обнаружены изменения в коде Ра, начинаем самообновление...")
-            
             if not IS_FLY_IO:
-                # git add
                 await asyncio.to_thread(subprocess.run, ["git", "add", "."], check=True)
-                # git commit
                 await asyncio.to_thread(subprocess.run, ["git", "commit", "-m", "🌀 auto-update by Ra"], check=True)
-                # git push
                 await asyncio.to_thread(subprocess.run, ["git", "push"], check=True)
                 logging.info("✅ Код Ра обновлён и отправлен на GitHub!")
-
-                # Попытка деплоя flyctl (если установлен)
                 try:
                     await asyncio.to_thread(subprocess.run, ["flyctl", "deploy", "--remote-only"], check=True)
                     logging.info("🚀 Деплой Ра завершён успешно!")
@@ -802,13 +759,11 @@ async def ra_self_manage():
     except Exception as e:
         logging.error(f"❌ Ошибка самообновления Ра: {e}")
 
-# Включаем цикл автообновления (раз в 6 часов)
 async def auto_manage_loop():
-    """Асинхронный цикл самоуправления Ра: каждые 6 часов проверяет и обновляет себя."""
     while True:
         try:
             await ra_self_manage()
-            await asyncio.sleep(6 * 3600)  # 6 часов
+            await asyncio.sleep(6 * 3600)
         except asyncio.CancelledError:
             logging.info("🔧 auto_manage_loop отменён")
             break
@@ -819,6 +774,5 @@ async def auto_manage_loop():
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
     import uvicorn
-    # Запускаем Uvicorn — FastAPI сработает и вызовет startup/shutdown handlers
     port = int(os.getenv("PORT", 8080))
     uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port, log_level="info")
