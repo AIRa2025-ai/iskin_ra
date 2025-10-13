@@ -30,7 +30,7 @@ if os.path.exists(META_FILE):
 def download_resume(url, local_path, start):
     logger.info("📥 Начинаем скачивание архива...")
     # Mega.download поддерживает resume
-    m.download(url, dest_filename=local_path, resume=start)
+    m.download(url, dest_filename=local_path)
     logger.info("✅ Архив скачан полностью")
     # Обновляем мета-файл
     with open(META_FILE, "w") as f:
