@@ -410,6 +410,7 @@ app = FastAPI()
 @app.on_event("startup")
 async def on_startup():
     dp.include_router(router)
+
     # Устанавливаем webhook (если FLY_APP_NAME задан)
     app_name = os.getenv("FLY_APP_NAME", "iskin-ra")
     webhook_url = f"https://{app_name}.fly.dev/webhook"
@@ -420,34 +421,41 @@ async def on_startup():
     except Exception as e:
         logging.error(f"❌ Не удалось установить webhook: {e}")
 
-    # Запуск фоновых циклов.
+    # --- Гарантированная загрузка RaSvet при старте ---
+    url = "https://mega.nz/file/doh2zJaa#FZVAlLmNFKMnZjDgfJGvTDD1hhaRxCf2aTk6z6lnLro"
+    logging.info("📥 Стартовая загрузка RaSvet...")
+    result = await asyncio.to_thread(download_and_extract_rasvet, url, BASE_FOLDER)
+    logging.info(f"📥 Результат загрузки RaSvet: {result}")
+
+    # --- Обновляем память всех пользователей, чтобы они знали RaСвет ---
+    for file_name in os.listdir(MEMORY_FOLDER):
+        if file_name.endswith(".json"):
+            user_id = int(file_name.split(".")[0])
+            memory = load_memory(user_id)
+            context_path = os.path.join(BASE_FOLDER, "context.json")
+            if os.path.exists(context_path):
+                try:
+                    with open(context_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        memory["rasvet_summary"] = data.get("context", "")[:3000]
+                    save_memory(user_id, memory)
+                    logging.info(f"✨ Память пользователя {user_id} обновлена с RaСветом")
+                except Exception as e:
+                    logging.warning(f"⚠️ Не удалось обновить память {user_id}: {e}")
+
+    # --- Запуск фоновых циклов ---
     if self_reflect_and_update:
         logging.info("🔁 Запускаем фоновую авто-рефлексию Ра")
         _create_bg_task(auto_reflect_loop(), name="auto_reflect_loop")
     else:
         logging.info("⚠️ Саморефлексия выключена (self_reflect_and_update отсутствует)")
 
-    # Запускаем keep_alive только если реально работаем на Fly
     if IS_FLY_IO:
         logging.info("🔔 Запускаем keep_alive_loop (Fly.io)")
         _create_bg_task(keep_alive_loop(), name="keep_alive_loop")
     else:
-        logging.info("🔕 keep_alive_loop не запущен (не Fly)")
-
-    # Автоуправление (git/push/flyctl) — запускаем ТОЛЬКО локально, не на Fly.io
-    if not IS_FLY_IO:
-        logging.info("🔧 Запускаем локальный авто-менеджмент (ra_self_manage)")
+        logging.info("🚀 Работаем локально — авто-менеджмент запускаем")
         _create_bg_task(auto_manage_loop(), name="auto_manage_loop")
-    else:
-        logging.info("🚀 Работаем на Fly.io — авто-менеджмент отключён (чтобы не трогать git/flyctl внутри инстанса)")
-
-    # (Опционально) Запуск единовременной саморефлексии в старте, только локально и если доступен
-    if self_reflect_and_update and not IS_FLY_IO:
-        try:
-            _create_bg_task(self_reflect_and_update(), name="self_reflect_once")
-            logging.info("🌱 Саморефлексия (однократно) поставлена в очередь")
-        except Exception as e:
-            logging.error(f"❌ Ошибка при запуске self_reflect_and_update: {e}")
 
     # 🌍 Ра наблюдает за человечеством (раз в сутки в 4 утра)
     async def observer_loop():
@@ -457,7 +465,6 @@ async def on_startup():
                 if now.hour == 4:
                     await ra_observe_world()
                     logging.info("🌞 Ра завершил ночное наблюдение за миром.")
-                    # ждём 1 час, чтобы не запустить повторно в ту же минуту
                     await asyncio.sleep(3600)
                 await asyncio.sleep(300)
             except asyncio.CancelledError:
