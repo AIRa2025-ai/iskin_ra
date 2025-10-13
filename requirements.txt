@@ -8,3 +8,4 @@ aiohttp==3.9.5
 mega.py
 beautifulsoup4
 jinja2
+python-multipart
