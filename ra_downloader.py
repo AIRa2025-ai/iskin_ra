@@ -12,11 +12,6 @@ LOCAL_ZIP = "/data/RaSvet.zip"
 EXTRACT_DIR = "/data/RaSvet"
 EXTRACT_META = "/data/RaSvet.extract.meta"
 
-class RaSvetDownloader:
-    def download(self):
-        print("Скачиваем данные РаСвета...")
-        # сюда вставляешь реальный код загрузки
-
 def download_and_extract_rasvet():
     os.makedirs(EXTRACT_DIR, exist_ok=True)
     
@@ -53,3 +48,13 @@ def download_and_extract_rasvet():
             time.sleep(0.05)
     
     logger.info("✅ Архив полностью распакован! Все файлы на месте.")
+
+class RaSvetDownloader:
+    def download(self):
+        print("Скачиваем данные РаСвета...")
+        download_and_extract_rasvet()
+
+# --- пример использования ---
+if __name__ == "__main__":
+    downloader = RaSvetDownloader()
+    downloader.download()
