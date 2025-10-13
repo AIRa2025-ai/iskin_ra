@@ -8,11 +8,11 @@ primary_region = "ams"
   PYTHONUNBUFFERED = "1"
     
 [experimental]
-  allowed_public_ports = []
+  allowed_public_ports = [80, 443]
   auto_rollback = true
 
 [processes]
-  web = "uvicorn ra_bot_gpt:app --host 0.0.0.0 --port 8080"
+  web = "uvicorn ra_bot_gpt:app --host 0.0.0.0 --port $PORT"
 
 [[services]]
   internal_port = 8080
@@ -35,6 +35,3 @@ primary_region = "ams"
 [mounts]
   source = "ra_memory"
   destination = "/mnt/ra_memory"
-    
-  
-  
