@@ -9,3 +9,4 @@ mega.py
 beautifulsoup4
 jinja2
 python-multipart
+psutil
