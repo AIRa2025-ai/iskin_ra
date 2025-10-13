@@ -8,6 +8,7 @@ import aiohttp
 import subprocess
 import requests
 import hashlib
+import uvicorn
 from datetime import datetime
 from typing import Optional, List, Any
 from ra_downloader import download_and_extract_rasvet, ARCHIVE_URL
@@ -780,6 +781,6 @@ async def auto_manage_loop():
 
 # --- Точка входа для локального запуска ---
 if __name__ == "__main__":
-    import uvicorn
     port = int(os.getenv("PORT", 8080))
-    uvicorn.run("ra_bot_gpt:app", host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+                                                  
