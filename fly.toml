@@ -7,13 +7,14 @@ primary_region = "ams"
 [env]
   PYTHONUNBUFFERED = "1"
   PORT = "8080"
-    
+
 [experimental]
   allowed_public_ports = [80, 443]
   auto_rollback = true
 
 [processes]
-web = "uvicorn ra_bot_gpt:app --host 0.0.0.0 --port ${PORT}"
+  # Запускаем через sh -c, чтобы переменные окружения подставились
+  web = "sh -c 'uvicorn ra_bot_gpt:app --host 0.0.0.0 --port $PORT'"
 
 [[services]]
   internal_port = 8080
