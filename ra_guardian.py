@@ -57,11 +57,12 @@ def analyze_repository() -> list:
 
     # ra_guardian.py
     class Guardian:
-    def __init__(self):
-        pass
+        def __init__(self):
+            pass
 
-    def protect(self):
-        print("Guardian active")
+        def protect(self):
+            print("Guardian active")
+
 
     # Пример анализа: проверяем, есть ли определённые ключевые модули
     missing_features = []
