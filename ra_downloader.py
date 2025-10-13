@@ -1,17 +1,19 @@
 import os
 import zipfile
 import time
-import shutil
 import logging
 import psutil
 from mega import Mega
 
 # === НАСТРОЙКА ===
-ARCHIVE_URL = "https://mega.nz/file/514XQRRA#ppfZArsPd8dwq08sQBJTx4w4BRo-nr4ux_KNM3C44B0"
-DATA_DIR = "/data"
+ARCHIVE_URL = "https://mega.nz/file/FlQ0ET4J#9gJjCBnj5uYn5bJYYMfPiN3BTvWz8el8leCWQPZvrUg"
+DATA_DIR = "/app/data_disk"  # папка на диске, чтобы не нагружать RAM
 LOCAL_ZIP = os.path.join(DATA_DIR, "RaSvet.zip")
 EXTRACT_DIR = os.path.join(DATA_DIR, "RaSvet")
 EXTRACT_META = os.path.join(DATA_DIR, "RaSvet.extract.meta")
+
+# Создаём папку на диске, если ещё нет
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # === ЛОГИ ===
 logger = logging.getLogger("RaSvetDownloader")
@@ -22,7 +24,6 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
-
 def cleanup_temp(folder=DATA_DIR, older_than_hours=3):
     """Удаляет старые файлы из папки, чтобы не переполнять память"""
     now = time.time()
@@ -77,7 +78,6 @@ def safe_extract(zip_path, extract_dir):
 
     logger.info("✅ Архив полностью распакован!")
 
-
 def download_and_extract_rasvet():
     """Главная функция скачивания и распаковки архива РаСвета"""
     check_memory()
@@ -105,13 +105,11 @@ def download_and_extract_rasvet():
     cleanup_temp()
     logger.info("🌞 РаСвет обновлён и чист!")
 
-
 class RaSvetDownloader:
     """Класс-обёртка для удобного вызова"""
     def download(self):
         print("⚙ Скачиваем данные РаСвета...")
         download_and_extract_rasvet()
-
 
 if __name__ == "__main__":
     downloader = RaSvetDownloader()
