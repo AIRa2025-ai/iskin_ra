@@ -2,6 +2,8 @@
 import os
 import json
 import asyncio
+import importlib.util
+import traceback
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +29,21 @@ os.makedirs("modules", exist_ok=True)  # сюда Ра будет создава
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# --- Фоновые задачи ---
+_bg_tasks = []
+
+def _create_bg_task(coro, name: str):
+    t = asyncio.create_task(coro, name=name)
+    _bg_tasks.append(t)
+    return t
+
+async def _cancel_bg_tasks():
+    for t in list(_bg_tasks):
+        try: t.cancel()
+        except: pass
+    await asyncio.gather(*_bg_tasks, return_exceptions=True)
+    _bg_tasks.clear()
+
 # --- Веб-панель: шаблон ---
 index_html = """
 <!DOCTYPE html>
@@ -43,6 +60,7 @@ index_html = """
 <button onclick="call('/status')">Проверить состояние</button>
 <button onclick="call('/self/dev')">Запустить самообучение</button>
 <button onclick="call('/self/write')">Создать новый файл</button>
+<button onclick="call('/self/write_connect')">Создать и подключить файл</button>
 <button onclick="call('/modules/list')">Список модулей</button>
 
 <h3>Загрузить модуль:</h3>
@@ -108,7 +126,14 @@ async def self_write():
     result = await self_writer.create_file_auto()
     return {"result": result}
 
-# --- Работа с модулями ---
+@app.get("/self/write_connect")
+async def write_connect():
+    try:
+        result = await self_write_and_connect()
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
 @app.get("/modules/list")
 async def list_modules():
     return {"modules": os.listdir("modules")}
@@ -125,14 +150,7 @@ async def web_panel(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # --- AUTO MODULE MANAGER ---
-import importlib.util
-import traceback
-
 async def auto_load_modules():
-    """
-    Автоподключение модулей из папки modules.
-    Ра будет их импортировать и регистрировать.
-    """
     loaded = []
     for fname in os.listdir("modules"):
         if not fname.endswith(".py"): continue
@@ -142,7 +160,6 @@ async def auto_load_modules():
             spec = importlib.util.spec_from_file_location(mod_name, path)
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-            # если модуль имеет функцию register, регистрируем его
             if hasattr(mod, "register"):
                 mod.register(globals())
             loaded.append(mod_name)
@@ -151,9 +168,6 @@ async def auto_load_modules():
     return loaded
 
 async def self_write_and_connect():
-    """
-    Ра создаёт новый файл через SelfWriter, затем сразу подключает его.
-    """
     filename, content = await self_writer.create_file_auto(return_content=True)
     path = os.path.join("modules", filename)
     with open(path, "w", encoding="utf-8") as f:
@@ -161,16 +175,18 @@ async def self_write_and_connect():
     loaded = await auto_load_modules()
     return {"created": filename, "loaded_modules": loaded}
 
-# --- Новый эндпоинт для автогенерации и подключения ---
-@app.get("/self/write_connect")
-async def write_connect():
-    try:
-        result = await self_write_and_connect()
-        return {"status": "ok", **result}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+# --- Фоновые задачи ---
+async def observer_loop():
+    while True:
+        try:
+            await guardian.observe()
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Ошибка observer_loop: {e}")
+            await asyncio.sleep(60)
 
-# --- Фоновая задача: следим за новыми модулями ---
 async def module_watcher():
     known = set(os.listdir("modules"))
     while True:
@@ -190,40 +206,10 @@ async def module_watcher():
             await asyncio.sleep(5)
 
 @app.on_event("startup")
-async def startup_extra():
-    print("🔧 Запуск модуля watcher...")
-    _create_bg_task(module_watcher(), "module_watcher")
-
-# --- Фоновые задачи ---
-_bg_tasks = []
-
-def _create_bg_task(coro, name: str):
-    t = asyncio.create_task(coro, name=name)
-    _bg_tasks.append(t)
-    return t
-
-async def _cancel_bg_tasks():
-    for t in list(_bg_tasks):
-        try: t.cancel()
-        except: pass
-    await asyncio.gather(*_bg_tasks, return_exceptions=True)
-    _bg_tasks.clear()
-
-async def observer_loop():
-    while True:
-        try:
-            await guardian.observe()  # наблюдение за миром
-            await asyncio.sleep(3600)
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            print(f"Ошибка observer_loop: {e}")
-            await asyncio.sleep(60)
-
-@app.on_event("startup")
 async def on_startup():
     print("🚀 Ra Super Control Center стартует...")
     _create_bg_task(observer_loop(), "observer_loop")
+    _create_bg_task(module_watcher(), "module_watcher")
 
 @app.on_event("shutdown")
 async def on_shutdown():
