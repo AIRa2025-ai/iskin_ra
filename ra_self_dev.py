@@ -9,6 +9,17 @@ os.makedirs(IDEA_FOLDER, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 
+class SelfDeveloper:
+    def __init__(self):
+        logging.info("🚀 SelfDeveloper инициализирован.")
+
+    def learn_new_module(self, module_name: str):
+        logging.info(f"🧠 SelfDeveloper изучает модуль: {module_name}")
+
+    # Пример функции саморазвития
+    def enhance_skills(self):
+        logging.info("✨ Навыки SelfDeveloper улучшены.")
+        
 def scan_existing_modules():
     """Сканирует файлы Ра и собирает информацию о существующих возможностях"""
     files = [f for f in os.listdir(".") if f.startswith("ra_") and f.endswith(".py")]
