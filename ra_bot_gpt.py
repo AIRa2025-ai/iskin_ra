@@ -562,6 +562,11 @@ async def startup_event():
                 await asyncio.sleep(60)
     _create_bg_task(observer_loop(), name="observer_loop")
 
+# При старте или в FastAPI startup:
+downloader = RaSvetDownloader()
+context_path = downloader.run()  # вернёт путь к context.json
+logging.info(f"📖 RaСвет готов, контекст: {context_path}")
+
 @app.on_event("shutdown")
 async def on_shutdown():
     logging.info("🛑 Shutdown: закрываем бота и фоновые задачи...")
