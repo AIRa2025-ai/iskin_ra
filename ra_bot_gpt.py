@@ -6,6 +6,7 @@ import zipfile
 import asyncio
 import aiohttp
 import subprocess
+import requests
 from ra_memory import load_user_memory as load_memory
 from ra_memory import save_user_memory as save_memory
 from ra_memory import append_user_memory
