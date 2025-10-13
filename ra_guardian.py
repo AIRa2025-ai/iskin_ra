@@ -150,5 +150,5 @@ async def guardian_loop(user: str):
 
 # --- Пример запуска для локального теста ---
 if __name__ == "__main__":
-    user = "5694569448"  # только доверенный
+    user = [5694569448, 6300409407]  # только доверенный
     asyncio.run(guardian_loop(user))
