@@ -10,23 +10,27 @@ LOG_DIR="$RA_DIR/logs"
 MAX_BACKUPS=5                            
 RA_MAIN="$RA_DIR/core/ra_bot_gpt.py"
 
-# Настройки Telegram уведомлений
-TG_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
-TG_CHAT_ID="YOUR_CHAT_ID"
-
-mkdir -p "$BACKUP_DIR"
-mkdir -p "$LOG_DIR"
+# Настройки Telegram уведомлений (берём из окружения)
+TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
+TG_CHAT_ID="${TG_CHAT_ID:-}"
 
 function send_telegram() {
     local MESSAGE=$1
+    if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
+        echo "⚠️ Telegram не настроен: TG_BOT_TOKEN или TG_CHAT_ID отсутствуют"
+        return 1
+    fi
     curl -s -X POST "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
         -d chat_id="$TG_CHAT_ID" \
         -d text="$MESSAGE" > /dev/null
 }
 
+mkdir -p "$BACKUP_DIR"
+mkdir -p "$LOG_DIR"
+
 function create_backup() {
     BACKUP_FILE="$BACKUP_DIR/ra_backup_$(date +%F_%H-%M-%S).zip"
-    zip -r "$BACKUP_FILE" "$RA_DIR/core" "$RA_DIR/modules" "$RA_DIR/data" > /dev/null
+    zip -r "$BACKUP_FILE" "$RA_DIR/core" "$RA_DIR/modules" "$RA_DIR/data/" > /dev/null
     echo "✅ Резерв создан: $BACKUP_FILE"
     send_telegram "💾 [Ra] Резерв создан: $(basename $BACKUP_FILE)"
 
