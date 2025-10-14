@@ -1,0 +1,59 @@
+# ───────── Python cache ─────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ───────── Logs ─────────
+*.log
+logs/
+
+# ───────── Environment / Secrets ─────────
+.env
+.env.*
+secrets.json
+emotional_safety_config.cfg
+
+# ───────── IDE / Editor ─────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ───────── OS / System ─────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ───────── Archives / Build ─────────
+*.zip
+*.tar
+*.gz
+*.rar
+build/
+dist/
+*.egg-info/
+
+# ───────── Python / Virtual env ─────────
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ───────── GitHub / CI ─────────
+.github/workflows/deploy.yml  # старый деплой на Fly.io
+*.yml.backup
+
+# ───────── Mega / Temporary / Downloads ─────────
+tmp/
+downloads/
+*.temp
+*.part
+
+# ───────── Misc ─────────
+*.cache
+*.bak
+*.swp
+*.swo
