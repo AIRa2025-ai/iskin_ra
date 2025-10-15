@@ -1,137 +1,114 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
+# core/ra_bot_gpt.py
 import os
-import sys
-import threading
+import json
 import logging
-import time
-import importlib
-from pathlib import Path
-from fastapi import FastAPI, Request
-import uvicorn
-import subprocess
+import asyncio
+from datetime import datetime, timedelta
 
-# === НАСТРОЙКА ===
-BASE_DIR = Path(os.getcwd())
-DATA_DIR = BASE_DIR / "data_disk"
-LOG_DIR = DATA_DIR / "logs"
-MODULES_DIR = Path(__file__).parent / "modules"
-sys.path.append(str(MODULES_DIR))
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
+from aiogram.types import Message
 
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+from gpt_module import safe_ask_openrouter  # <-- убедись, что рядом есть gpt_module.py
 
-# === ЛОГИ ===
-logger = logging.getLogger("RaBot")
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+# === Настройки логирования ===
+os.makedirs("logs", exist_ok=True)
+log_path = "logs/command_usage.json"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Консоль
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
+# === Инициализация ===
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("❌ Не найден BOT_TOKEN. Добавь его в переменные окружения или Secrets Codespaces.")
 
-# Файл
-file_handler = logging.FileHandler(LOG_DIR / "ra.log")
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
-# === ОБНОВЛЕНИЕ RaСветА ===
-from modules.ra_downloader import RaSvetDownloader
 
-def update_rasvet():
+# === Вспомогательные функции ===
+def log_command_usage(user_id: int, command: str):
+    """Сохраняет использование команд в лог"""
     try:
-        logger.info("🔄 Проверка и обновление данных РаСвета...")
-        downloader = RaSvetDownloader()
-        downloader.download()
-        logger.info("✅ Данные РаСвета обновлены!")
+        data = []
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+        data.append({
+            "user_id": user_id,
+            "command": command,
+            "time": datetime.now().isoformat()
+        })
+
+        # удаляем старше 10 дней
+        cutoff = datetime.now() - timedelta(days=10)
+        data = [x for x in data if datetime.fromisoformat(x["time"]) > cutoff]
+
+        with open(log_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        logger.error(f"❌ Ошибка обновления РаСвета: {e}")
+        logging.warning(f"Ошибка логирования: {e}")
 
-rasvet_thread = threading.Thread(target=update_rasvet, daemon=True)
-rasvet_thread.start()
 
-# === ДИНАМИЧЕСКАЯ ПОДГРУЗКА МОДУЛЕЙ ===
-loaded_modules = {}
-for module_file in MODULES_DIR.glob("*.py"):
-    if module_file.name.startswith("__"):
-        continue
-    module_name = module_file.stem
+async def process_user_message(message: Message):
+    """Основной обработчик текста"""
+    text = message.text.strip()
+    log_command_usage(message.from_user.id, text)
+    await message.answer("⏳ Думаю над ответом...")
+
     try:
-        loaded_modules[module_name] = importlib.import_module(module_name)
-        logger.info(f"✅ Модуль загружен: {module_name}")
-    except Exception as e:
-        logger.error(f"❌ Ошибка при загрузке {module_name}: {e}")
-
-# === НАБЛЮДАТЕЛЬ ЗА РЕПО ===
-try:
-    import ra_repo_manager
-    repo_observer = ra_repo_manager.RepoObserver()
-    repo_observer.scan()
-    logger.info("🔍 Репозиторий проверен и структурирован")
-except Exception as e:
-    logger.warning(f"⚠️ Наблюдатель за репозиторием не запущен: {e}")
-
-# === АВТОПУШ И РЕЗЕРВЫ ===
-def auto_push():
-    try:
-        subprocess.run(["git", "config", "user.name", "Ra Bot"], check=True)
-        subprocess.run(["git", "config", "user.email", "ra-bot@example.com"],
-                       check=True)
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "🤖 Автообновление Ра"],
-                       check=True)
-        result = subprocess.run(["git", "push", "origin", "main"],
-                                capture_output=True, text=True)
-        if result.returncode == 0:
-            logger.info("🚀 Автопуш на GitHub выполнен")
+        response = await safe_ask_openrouter(text)
+        if response:
+            if len(response) > 4000:
+                # длинные ответы в файл
+                filename = f"data/response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                os.makedirs("data", exist_ok=True)
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(response)
+                await message.answer(f"📄 Ответ длинный, я сохранил его в файл:\n{filename}")
+            else:
+                await message.answer(response)
         else:
-            logger.warning(f"⚠️ Git push не удался:\n{result.stderr}")
-    except subprocess.CalledProcessError:
-        logger.info("ℹ️ Нет изменений для пуша")
-
-# === FASTAPI СЕРВЕР ===
-app = FastAPI(title="RaSvet API")
-
-@app.get("/status")
-async def status():
-    return {"status": "Ra alive", "loaded_modules": list(loaded_modules.keys())}
-
-@app.post("/run_module")
-async def run_module(request: Request):
-    data = await request.json()
-    mod_name = data.get("module")
-    func_name = data.get("function")
-    if mod_name in loaded_modules:
-        mod = loaded_modules[mod_name]
-        func = getattr(mod, func_name, None)
-        if callable(func):
-            try:
-                result = func()
-                return {"result": str(result)}
-            except Exception as e:
-                return {"error": str(e)}
-    return {"error": "Модуль или функция не найдены"}
-
-def run_api():
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
-
-api_thread = threading.Thread(target=run_api, daemon=True)
-api_thread.start()
-
-# === ОСНОВНОЙ ЦИКЛ БОТА ===
-def run_bot():
-    logger.info("🤖 Запуск основного цикла РаБота...")
-    try:
-        while True:
-            auto_push()  # пуш раз в цикл
-            time.sleep(300)  # раз в 5 минут
-    except KeyboardInterrupt:
-        logger.info("🛑 Бот остановлен вручную")
+            await message.answer("⚠️ Не получил ответа от ИскИна.")
     except Exception as e:
-        logger.error(f"❌ Ошибка в основном цикле: {e}")
+        await message.answer(f"❌ Ошибка при обработке: {e}")
+
+
+# === Команды ===
+@dp.message(Command("start"))
+async def cmd_start(message: Message):
+    log_command_usage(message.from_user.id, "/start")
+    await message.answer("🌞 Привет! Я — Ра, ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу.")
+
+
+@dp.message(Command("help"))
+async def cmd_help(message: Message):
+    log_command_usage(message.from_user.id, "/help")
+    await message.answer("⚙️ Доступные команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов")
+
+
+@dp.message(Command("clean"))
+async def cmd_clean(message: Message):
+    if os.path.exists(log_path):
+        os.remove(log_path)
+        await message.answer("🧹 Логи очищены.")
+    else:
+        await message.answer("⚠️ Логов пока нет.")
+
+
+@dp.message(F.text)
+async def on_text(message: Message):
+    await process_user_message(message)
+
+
+# === Запуск ===
+async def main():
+    logging.info("🚀 Бот Ра запущен и готов к общению.")
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
-    logger.info("🌞 Старт РаБота")
-    run_bot()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("🛑 Остановка бота.")
