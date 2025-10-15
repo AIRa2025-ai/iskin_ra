@@ -13,11 +13,15 @@ import uvicorn
 import subprocess
 
 # === НАСТРОЙКА ===
-DATA_DIR = Path("/app/data_disk")
+BASE_DIR = Path(os.getcwd())  # корень репозитория
+DATA_DIR = BASE_DIR / "data_disk"
 LOG_DIR = DATA_DIR / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
 MODULES_DIR = Path(__file__).parent / "modules"
 sys.path.append(str(MODULES_DIR))
+
+# Создаём папки, если их нет
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # === ЛОГИ ===
 logger = logging.getLogger("RaBot")
