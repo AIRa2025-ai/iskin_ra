@@ -13,23 +13,29 @@ import uvicorn
 import subprocess
 
 # === НАСТРОЙКА ===
-BASE_DIR = Path(os.getcwd())  # корень репозитория
+BASE_DIR = Path(os.getcwd())
 DATA_DIR = BASE_DIR / "data_disk"
 LOG_DIR = DATA_DIR / "logs"
 MODULES_DIR = Path(__file__).parent / "modules"
 sys.path.append(str(MODULES_DIR))
 
-# Создаём папки, если их нет
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # === ЛОГИ ===
 logger = logging.getLogger("RaBot")
 logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+
+# Консоль
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Файл
+file_handler = logging.FileHandler(LOG_DIR / "ra.log")
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 # === ОБНОВЛЕНИЕ RaСветА ===
 from modules.ra_downloader import RaSvetDownloader
@@ -45,10 +51,8 @@ def update_rasvet():
 
 rasvet_thread = threading.Thread(target=update_rasvet, daemon=True)
 rasvet_thread.start()
-rasvet_thread.join()
-logger.info("🚀 Ра готов к работе, все данные РаСвета загружены")
 
-# === ДИНАМИЧЕСКАЯ ПОДГРУЗКА ВСЕХ МОДУЛЕЙ ===
+# === ДИНАМИЧЕСКАЯ ПОДГРУЗКА МОДУЛЕЙ ===
 loaded_modules = {}
 for module_file in MODULES_DIR.glob("*.py"):
     if module_file.name.startswith("__"):
@@ -73,11 +77,17 @@ except Exception as e:
 def auto_push():
     try:
         subprocess.run(["git", "config", "user.name", "Ra Bot"], check=True)
-        subprocess.run(["git", "config", "user.email", "ra-bot@example.com"], check=True)
+        subprocess.run(["git", "config", "user.email", "ra-bot@example.com"],
+                       check=True)
         subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "🤖 Автообновление Ра"], check=True)
-        subprocess.run(["git", "push", "origin", "main"], check=True)
-        logger.info("🚀 Автопуш на GitHub выполнен")
+        subprocess.run(["git", "commit", "-m", "🤖 Автообновление Ра"],
+                       check=True)
+        result = subprocess.run(["git", "push", "origin", "main"],
+                                capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info("🚀 Автопуш на GitHub выполнен")
+        else:
+            logger.warning(f"⚠️ Git push не удался:\n{result.stderr}")
     except subprocess.CalledProcessError:
         logger.info("ℹ️ Нет изменений для пуша")
 
@@ -96,7 +106,7 @@ async def run_module(request: Request):
     if mod_name in loaded_modules:
         mod = loaded_modules[mod_name]
         func = getattr(mod, func_name, None)
-        if func:
+        if callable(func):
             try:
                 result = func()
                 return {"result": str(result)}
@@ -115,11 +125,8 @@ def run_bot():
     logger.info("🤖 Запуск основного цикла РаБота...")
     try:
         while True:
-            # Можно вызывать функции модулей
-            # loaded_modules['ra_file_manager'].check_new_files()
-            # repo_observer.update()
-            auto_push()  # раз в цикл пушим на GitHub
-            time.sleep(60)
+            auto_push()  # пуш раз в цикл
+            time.sleep(300)  # раз в 5 минут
     except KeyboardInterrupt:
         logger.info("🛑 Бот остановлен вручную")
     except Exception as e:
