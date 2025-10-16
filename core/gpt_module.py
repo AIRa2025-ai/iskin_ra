@@ -1,5 +1,4 @@
 # core/gpt_module.py
-# gpt_module.py
 import os
 import aiohttp
 import logging
