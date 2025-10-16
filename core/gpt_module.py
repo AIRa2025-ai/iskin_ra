@@ -33,22 +33,19 @@ async def ask_openrouter_single(session, user_id, messages, model, append_user_m
     }
 
     async with session.post(url, headers=headers, json=payload) as resp:
-        text = await resp.text()
-        if resp.status != 200:
-            logging.error(f"❌ Ошибка API {resp.status}: {text}")
-            raise Exception(f"{resp.status}: {text}")
-
         data = await resp.json()
-        answer = data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices or not isinstance(choices, list):
+            raise ValueError(f"Модель {model} не вернула choices")
+        answer = choices[0]["message"]["content"]
+        # очищаем служебные токены
+        answer = answer.replace("<｜begin▁of▁sentence｜>", "").strip()
 
         if _parse_openrouter_response:
             answer = _parse_openrouter_response(data)
-
         if append_user_memory:
             append_user_memory(user_id, messages[-1]["content"], answer)
-
-        return answer.strip()
-
+        return answer
 
 # --- Обёртка с перебором моделей ---
 async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None, _parse_openrouter_response=None):
@@ -83,28 +80,7 @@ async def main():
     # Получаем ответ от OpenRouter
     answer = await ask_openrouter_with_fallback(user_id, messages_payload)
     logging.info(f"💬 Ответ от Ra: {answer}")
-
-    # --- Создаём автоматический PR (только вне Fly.io) ---
-    if os.getenv("FLY_APP_NAME") is None:
-        logging.info("🌍 Работаем локально — можно делать коммит и пуш")
-        branch_name = f"auto-update-{os.getpid()}"
-        files_dict = {
-            "memory_sync.py": """# test
-change
-print('Ra updated!')"""
-        }
-
-        pr = await asyncio.to_thread(
-            create_commit_push,
-            branch_name,
-            files_dict,
-            "обновление от Ра"
-        )
-        logging.info(f"✅ Создан PR: {pr['html_url']}")
-    else:
-        logging.info("🚀 Работаем на Fly.io — git-коммиты пропускаем")
-
-
+    
 # --- Запуск ---
 if __name__ == "__main__":
     asyncio.run(main())
