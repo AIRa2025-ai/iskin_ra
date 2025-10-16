@@ -5,19 +5,16 @@ import json
 import logging
 import asyncio
 from datetime import datetime, timedelta
-import requests
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
-
-# --- ДОБАВЛЯЕМ КОРЕНЬ ПРОЕКТА В PATH ДО ИМПОРТОВ ---
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import requests
 
 # --- Импорт модулей Ра ---
 from modules.ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
-from modules.ra_downloader_async import RaSvetDownloaderAsync
+from modules.ra_downloader_async import RaSvetDownloaderAsync  # Асинхронный загрузчик РаСвета
 from gpt_module import safe_ask_openrouter
 
 # --- Автозагрузка модулей ---
@@ -66,16 +63,8 @@ def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    try:
-        resp = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
-            timeout=10
-        )
-        return resp.ok
-    except Exception as e:
-        logging.warning(f"Ошибка отправки уведомления: {e}")
-        return False
+    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
+    return resp.ok
 
 # --- РаСвет база знаний ---
 rasvet_downloader = RaSvetDownloaderAsync()
@@ -83,6 +72,8 @@ rasvet_downloader = RaSvetDownloaderAsync()
 async def initialize_rasvet():
     logging.info("🌞 Инициализация РаСвет-знаний...")
     await rasvet_downloader.download_async()
+    await rasvet_downloader.knowledge.load_all_texts()
+    logging.info(f"📚 Загружено знаний: {len(rasvet_downloader.knowledge.documents)} файлов")
     logging.info("🌞 РаСвет готов к ответам!")
 
 # --- Основной обработчик сообщений ---
@@ -92,16 +83,17 @@ async def process_user_message(message: Message):
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        # --- Сначала пробуем РаСвет-знания ---
+        # --- Сначала проверяем локальные РаСвет-знания ---
         response = None
         if rasvet_downloader.knowledge.documents:
             response = await rasvet_downloader.knowledge.ask(text, user_id=message.from_user.id)
 
-        # --- Если нет ответа — обращаемся к OpenRouter ---
+        # --- Если нет ответа из базы — используем OpenRouter GPT ---
         if not response:
             messages_payload = [{"role": "user", "content": text}]
             response = await safe_ask_openrouter(message.from_user.id, messages_payload)
 
+        # --- Отправляем ответ пользователю ---
         if response:
             if len(response) > 4000:
                 os.makedirs("data", exist_ok=True)
@@ -120,7 +112,7 @@ async def process_user_message(message: Message):
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     log_command_usage(message.from_user.id, "/start")
-    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу.")
+    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу через свет знаний.")
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
@@ -144,6 +136,9 @@ async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
     await initialize_rasvet()
     await dp.start_polling(bot)
+
+# Добавляем корень проекта в путь
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if __name__ == "__main__":
     try:
