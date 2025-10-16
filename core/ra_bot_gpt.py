@@ -19,11 +19,11 @@ sys.path.insert(0, ROOT_DIR)
 sys.path.insert(0, MODULES_DIR)
 
 # --- 🔄 Автообновление модулей с GitHub с дебагом ---
-GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим своё репо
+GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"
 
 def update_modules():
     try:
-        if os.path.exists(MODULES_DIR):
+        if os.path.exists(MODULES_DIR) and os.path.exists(os.path.join(MODULES_DIR, ".git")):
             result = subprocess.run(
                 ["git", "-C", MODULES_DIR, "pull"], capture_output=True, text=True
             )
@@ -42,10 +42,9 @@ def update_modules():
     except Exception as e:
         logging.error(f"❌ Исключение при обновлении модулей: {e}")
 
-# --- Вызываем обновление перед импортом модулей ---
 update_modules()
 
-# === 🧩 Создание недостающих модулей ---
+# === 🧩 Создание недостающих модулей ===
 def ensure_module_exists(path: str, template: str = ""):
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -53,7 +52,6 @@ def ensure_module_exists(path: str, template: str = ""):
             f.write(template or "# Автоматически создан РаСветом\n")
         logging.warning(f"⚠️ Модуль {path} не найден — создан шаблонный файл.")
 
-# Проверка критичных модулей
 ensure_module_exists(os.path.join(MODULES_DIR, "ra_logger.py"), "import logging\nlogging.basicConfig(level=logging.INFO)\n")
 ensure_module_exists(os.path.join(MODULES_DIR, "ra_config.py"), "import os\nBOT_NAME = 'RaSvet'\n")
 
@@ -149,16 +147,13 @@ async def process_user_message(message: Message):
 
         memory_context.append({"role": "user", "content": text})
 
-        # 1️⃣ Пробуем ответить через РаСвет-знания
         response = None
         if rasvet_downloader.knowledge.documents:
             response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
 
-        # 2️⃣ Если нет ответа — GPT
         if not response:
             response = await safe_ask_openrouter(user_id, memory_context[-20:])
 
-        # 3️⃣ Сохраняем память и отвечаем
         if response:
             append_user_memory(user_id, text, response)
             if len(response) > 4000:
