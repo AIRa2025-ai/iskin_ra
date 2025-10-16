@@ -14,6 +14,7 @@ import json
 import hashlib
 import logging
 import zipfile
+import time
 from datetime import datetime
 from typing import Dict
 
@@ -34,6 +35,29 @@ class RaPolice:
     def __init__(self, root_dir="."):
         self.root = root_dir
         self.checksums_path = CHECKSUMS_FILE
+        self.last_remote_push = 0
+        self.remote_push_interval = 60 * 15  # 15 минут минимум между пушами
+
+        def _should_push_remote(self):
+        return (time.time() - self.last_remote_push) > self.remote_push_interval
+
+    def handle_attack(self, details: dict, notify_func=None):
+        """
+        details: словарь с информацией об инциденте {changed:[], new:[], removed:[]}
+        notify_func: callable(title, text) — опционально отправляет уведомления (например, через Telegram)
+        """
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        incident_name = f"incident_{ts}"
+        logging.warning(f"[RaPolice] Инцидент зафиксирован: {details}")
+
+        # 1) локальный бэкап немедленно
+        backup_res = self.create_backup()
+        logging.info(f"[RaPolice] Локальный бэкап: {backup_res}")
+
+        # 2) сохранить детали инцидента рядом с бэкапом
+        incident_file = os.path.join(BACKUP_DIR, f"{incident_name}.json")
+        with open(incident_file, "w", encoding="utf-8") as f:
+            json.dump({"ts": ts, "details": details, "backup": backup_res}, f, ensure_ascii=False, indent=2)
 
     # --- utility: compute checksum for a file ---
     def _sha256(self, path: str) -> str:
