@@ -5,17 +5,19 @@ import json
 import logging
 import asyncio
 from datetime import datetime, timedelta
+import requests
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
-import requests
+
+# --- ДОБАВЛЯЕМ КОРЕНЬ ПРОЕКТА В PATH ДО ИМПОРТОВ ---
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- Импорт модулей Ра ---
 from modules.ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
-from modules.ra_downloader_async import RaSvetDownloaderAsync  # новое
-
+from modules.ra_downloader_async import RaSvetDownloaderAsync
 from gpt_module import safe_ask_openrouter
 
 # --- Автозагрузка модулей ---
@@ -64,8 +66,16 @@ def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
-    return resp.ok
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+            timeout=10
+        )
+        return resp.ok
+    except Exception as e:
+        logging.warning(f"Ошибка отправки уведомления: {e}")
+        return False
 
 # --- РаСвет база знаний ---
 rasvet_downloader = RaSvetDownloaderAsync()
@@ -82,13 +92,12 @@ async def process_user_message(message: Message):
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        # --- Сначала через РаСвет-знания ---
+        # --- Сначала пробуем РаСвет-знания ---
+        response = None
         if rasvet_downloader.knowledge.documents:
             response = await rasvet_downloader.knowledge.ask(text, user_id=message.from_user.id)
-        else:
-            response = None
 
-        # --- Если нет ответа, fallback на OpenRouter GPT ---
+        # --- Если нет ответа — обращаемся к OpenRouter ---
         if not response:
             messages_payload = [{"role": "user", "content": text}]
             response = await safe_ask_openrouter(message.from_user.id, messages_payload)
@@ -135,9 +144,6 @@ async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
     await initialize_rasvet()
     await dp.start_polling(bot)
-
-# добавляем корень проекта в путь
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if __name__ == "__main__":
     try:
