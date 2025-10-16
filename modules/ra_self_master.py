@@ -1,3 +1,4 @@
+# modules/ra_self_master.py
 import logging
 from modules.ra_thinker import RaThinker
 from modules.ra_creator import RaCreator
