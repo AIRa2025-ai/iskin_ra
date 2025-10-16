@@ -4,15 +4,15 @@ import json
 import logging
 import asyncio
 from datetime import datetime, timedelta
-
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
-
 from gpt_module import safe_ask_openrouter
 from ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
+from ra_autoloader import load_modules
 
+active_modules = load_modules()
 autoloader = RaAutoloader()
 modules = autoloader.activate_modules()
 self_master = RaSelfMaster()
