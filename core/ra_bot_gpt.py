@@ -19,6 +19,8 @@ self_master = RaSelfMaster()
 
 print(self_master.awaken())
 print(autoloader.status())
+# если нужно — можно вызвать police вручную:
+print(self_master.police_status())
 
 # --- Настройки ---
 os.makedirs("logs", exist_ok=True)
