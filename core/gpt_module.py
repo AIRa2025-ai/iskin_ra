@@ -2,7 +2,7 @@ import os
 import aiohttp
 import logging
 import asyncio
-from .github_commit import create_commit_push
+from github_commit import create_commit_push
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
