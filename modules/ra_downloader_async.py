@@ -3,17 +3,18 @@ import os
 import zipfile
 import asyncio
 import logging
-import time
 from pathlib import Path
-from mega import Mega
-from typing import Set
+from typing import Set, Dict
+from datetime import datetime
+import aiohttp
+import json
 
-# === НАСТРОЙКА ===
 ARCHIVE_URL = "https://mega.nz/file/FlQ0ET4J#9gJjCBnj5uYn5bJYYMfPiN3BTvWz8el8leCWQPZvrUg"
 DATA_DIR = Path("/app/data_disk")
 LOCAL_ZIP = DATA_DIR / "RaSvet.zip"
 EXTRACT_DIR = DATA_DIR / "RaSvet"
 EXTRACT_META = DATA_DIR / "RaSvet.extract.meta"
+META_JSON = DATA_DIR / "RaSvet.meta.json"  # хранит дату и size файлов для incremental
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -25,80 +26,100 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 class KnowledgeBase:
-    """Хранение распакованных документов и быстрый доступ к ним"""
     def __init__(self):
-        self.documents = {}  # {filename: content}
+        self.documents: Dict[str, Dict] = {}  # filename -> {"content": str, "mtime": datetime}
 
     async def load_from_folder(self, folder: Path):
-        """Загрузка всех текстов из папки в память"""
         self.documents = {}
         for file in folder.rglob("*"):
             if file.is_file() and file.suffix in [".txt", ".md", ".json"]:
                 try:
-                    self.documents[file.name] = file.read_text(encoding="utf-8")
-                except Exception:
-                    pass
-        logger.info(f"📚 Загрузка знаний завершена, документов: {len(self.documents)}")
+                    self.documents[file.name] = {
+                        "content": file.read_text(encoding="utf-8"),
+                        "mtime": datetime.fromtimestamp(file.stat().st_mtime)
+                    }
+                except Exception as e:
+                    logger.warning(f"⚠ Не удалось прочитать {file}: {e}")
+        logger.info(f"📚 Загружено знаний: {len(self.documents)} файлов")
 
     async def ask(self, question: str, user_id=None) -> str:
-        """Простой поиск по документам (можно апгрейдить на embeddings)"""
         answers = []
-        for fname, content in self.documents.items():
-            if question.lower() in content.lower():
-                snippet = content[:500].replace("\n", " ")
+        sorted_docs = sorted(self.documents.items(), key=lambda x: x[1]["mtime"], reverse=True)
+        for fname, meta in sorted_docs:
+            if question.lower() in meta["content"].lower():
+                snippet = meta["content"][:500].replace("\n", " ")
                 answers.append(f"[{fname}] {snippet}...")
-        if answers:
-            return "\n\n".join(answers)
-        return None
+        return "\n\n".join(answers[:5]) if answers else None
 
 class RaSvetDownloaderAsync:
-    """Асинхронный апгрейд скачивания и обновления базы РаСвет"""
+    """Асинхронное скачивание и incremental update архива"""
     def __init__(self):
         self.knowledge = KnowledgeBase()
         self.extracted_files: Set[str] = set()
+        self.meta_data: Dict[str, Dict] = {}
         if EXTRACT_META.exists():
             self.extracted_files = set(line.strip() for line in EXTRACT_META.read_text().splitlines() if line.strip())
+        if META_JSON.exists():
+            try:
+                self.meta_data = json.loads(META_JSON.read_text())
+            except Exception:
+                self.meta_data = {}
 
     async def download_async(self):
-        """Скачивание архива (если нужно) и безопасная распаковка новых файлов"""
-        mega = Mega()
-        mega.login()
-        # Скачиваем только если нет архива
-        if not LOCAL_ZIP.exists() or LOCAL_ZIP.stat().st_size == 0:
-            logger.info("📥 Скачиваем архив с Mega...")
-            for attempt in range(3):
-                try:
-                    mega.download_url(ARCHIVE_URL, dest_filename=str(LOCAL_ZIP))
-                    logger.info("✅ Архив скачан")
-                    break
-                except Exception as e:
-                    logger.warning(f"⚠ Ошибка скачивания ({attempt+1}): {e}")
-                    await asyncio.sleep(5)
-            else:
-                logger.error("❌ Не удалось скачать архив")
-                return
-
-        await self.safe_extract_async()
+        await self._download_archive_if_needed()
+        await self._safe_extract_incremental()
         await self.knowledge.load_from_folder(EXTRACT_DIR)
 
-        # Удаляем архив после распаковки
-        if LOCAL_ZIP.exists():
-            LOCAL_ZIP.unlink()
-            logger.info("🧹 Архив удалён после распаковки")
+    async def _download_archive_if_needed(self):
+        """Скачиваем архив только если нет локального файла или изменился размер"""
+        async with aiohttp.ClientSession() as session:
+            async with session.head(ARCHIVE_URL) as resp:
+                resp.raise_for_status()
+                remote_size = int(resp.headers.get("Content-Length", 0))
+        local_size = LOCAL_ZIP.stat().st_size if LOCAL_ZIP.exists() else 0
+        if local_size != remote_size:
+            logger.info(f"⬇️ Начинаю скачивание архива RaSvet ({remote_size / 1024:.1f} KB)")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(ARCHIVE_URL) as resp:
+                    resp.raise_for_status()
+                    with open(LOCAL_ZIP, "wb") as f:
+                        async for chunk in resp.content.iter_chunked(32*1024):
+                            f.write(chunk)
+                            await asyncio.sleep(0)
+            logger.info("✅ Архив скачан и готов к распаковке")
+        else:
+            logger.info("ℹ️ Архив актуален, скачивание пропущено")
 
-    async def safe_extract_async(self):
-        """Распаковка только новых файлов"""
+    async def _safe_extract_incremental(self):
         EXTRACT_DIR.mkdir(parents=True, exist_ok=True)
         new_files = set()
-        with zipfile.ZipFile(LOCAL_ZIP, 'r') as zip_ref:
-            for member in zip_ref.infolist():
-                if member.filename in self.extracted_files:
-                    continue
-                zip_ref.extract(member, EXTRACT_DIR)
-                logger.info(f"📂 Новый файл распакован: {member.filename}")
-                new_files.add(member.filename)
-                await asyncio.sleep(0)  # async-friendly
+        if not LOCAL_ZIP.exists():
+            logger.warning("⚠ Нет архива для распаковки")
+            return
+
+        try:
+            with zipfile.ZipFile(LOCAL_ZIP, 'r') as zip_ref:
+                for member in zip_ref.infolist():
+                    meta = self.meta_data.get(member.filename, {})
+                    size_changed = meta.get("size") != member.file_size
+                    if member.filename in self.extracted_files and not size_changed:
+                        continue
+                    zip_ref.extract(member, EXTRACT_DIR)
+                    logger.info(f"📂 Новый или обновлённый файл распакован: {member.filename}")
+                    new_files.add(member.filename)
+                    self.meta_data[member.filename] = {"size": member.file_size, "mtime": datetime.now().isoformat()}
+                    await asyncio.sleep(0)
+        except zipfile.BadZipFile:
+            logger.error("❌ Архив поврежден, распаковка невозможна")
+            return
+
         if new_files:
             self.extracted_files.update(new_files)
             EXTRACT_META.write_text("\n".join(self.extracted_files))
+            META_JSON.write_text(json.dumps(self.meta_data, indent=2))
             logger.info(f"🌞 Обновлено файлов: {len(new_files)}")
+
+        # Опционально можно удалить архив после распаковки
+        if LOCAL_ZIP.exists():
+            LOCAL_ZIP.unlink()
+            logger.info("🧹 Архив удалён после распаковки")
