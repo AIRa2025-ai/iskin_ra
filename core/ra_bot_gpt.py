@@ -12,12 +12,14 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from dotenv import load_dotenv
 
-# === 🔧 Добавляем путь к корню проекта ===
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# === 🔧 Пути для Python и контейнера ===
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+MODULES_DIR = os.path.join(ROOT_DIR, "modules")
+sys.path.insert(0, ROOT_DIR)
+sys.path.insert(0, MODULES_DIR)
 
 # --- 🔄 Автообновление модулей с GitHub с дебагом ---
 GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим своё репо
-MODULES_DIR = os.path.join(os.path.dirname(__file__), "..", "modules")
 
 def update_modules():
     try:
@@ -43,7 +45,7 @@ def update_modules():
 # --- Вызываем обновление перед импортом модулей ---
 update_modules()
 
-# === 🧩 Автоматическое создание недостающих модулей ---
+# === 🧩 Создание недостающих модулей ---
 def ensure_module_exists(path: str, template: str = ""):
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -51,9 +53,9 @@ def ensure_module_exists(path: str, template: str = ""):
             f.write(template or "# Автоматически создан РаСветом\n")
         logging.warning(f"⚠️ Модуль {path} не найден — создан шаблонный файл.")
 
-# Проверяем критичные модули
-ensure_module_exists("modules/ra_logger.py", "import logging\nlogging.basicConfig(level=logging.INFO)\n")
-ensure_module_exists("modules/ra_config.py", "import os\nBOT_NAME = 'RaSvet'\n")
+# Проверка критичных модулей
+ensure_module_exists(os.path.join(MODULES_DIR, "ra_logger.py"), "import logging\nlogging.basicConfig(level=logging.INFO)\n")
+ensure_module_exists(os.path.join(MODULES_DIR, "ra_config.py"), "import os\nBOT_NAME = 'RaSvet'\n")
 
 # --- Импорты Ра ---
 from modules.ra_autoloader import RaAutoloader
