@@ -5,7 +5,7 @@ import logging
 import asyncio
 import json
 from datetime import datetime, timedelta
-from github_commit import create_commit_push
+from github_commit import create_commit_push  # оставлено для будущего автоматического апдейта
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 # --- Настройки кэша и исключения моделей ---
 CACHE_FILE = "data/response_cache.json"
 os.makedirs("data", exist_ok=True)
+
 excluded_models = {}  # модель: datetime, до которого не использовать
 last_working_model = None
 MODEL_COOLDOWN_HOURS = 2
@@ -49,8 +50,8 @@ def save_cache(user_id, text, answer):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# --- Функция одного запроса к OpenRouter ---
-async def ask_openrouter_single(session, user_id, messages, model, append_user_memory=None, _parse_openrouter_response=None):
+# --- Один запрос к OpenRouter ---
+async def ask_openrouter_single(session, user_id, messages, model):
     url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.7}
     headers = {
@@ -68,18 +69,11 @@ async def ask_openrouter_single(session, user_id, messages, model, append_user_m
         data = await resp.json()
         if "choices" not in data or not data["choices"]:
             raise Exception(f"Модель {model} не вернула choices")
-        answer = data["choices"][0]["message"]["content"]
 
-        if _parse_openrouter_response:
-            answer = _parse_openrouter_response(data)
-
-        if append_user_memory:
-            append_user_memory(user_id, messages[-1]["content"], answer)
-
-        return answer.strip()
+        return data["choices"][0]["message"]["content"].strip()
 
 # --- Обёртка с перебором моделей и кэшированием ---
-async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None, _parse_openrouter_response=None):
+async def safe_ask_openrouter(user_id, messages_payload):
     global excluded_models, last_working_model
     text_message = messages_payload[-1]["content"]
     cached = load_cache(user_id, text_message)
@@ -100,50 +94,30 @@ async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_me
             logging.error("⚠️ Все модели временно недоступны.")
             return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
-        main_model = usable_models[0]
-        other_models = usable_models[1:]
-
-        try:
-            answer = await ask_openrouter_single(session, user_id, messages_payload, main_model,
-                                                 append_user_memory, _parse_openrouter_response)
-            last_working_model = main_model
-            save_cache(user_id, text_message, answer)
-        except Exception as e:
-            logging.warning(f"⚠️ Модель {main_model} временно исключена: {e}")
-            excluded_models[main_model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
-            if other_models:
-                main_model = other_models.pop(0)
-                answer = await ask_openrouter_single(session, user_id, messages_payload, main_model,
-                                                     append_user_memory, _parse_openrouter_response)
-                last_working_model = main_model
+        for model in usable_models:
+            try:
+                logging.info(f"💡 Пробуем модель {model}")
+                answer = await ask_openrouter_single(session, user_id, messages_payload, model)
+                last_working_model = model
                 save_cache(user_id, text_message, answer)
-            else:
-                return f"⚠️ Все модели временно недоступны, попробуй позже 🙏"
+                break
+            except Exception as e:
+                logging.warning(f"⚠️ Модель {model} временно исключена: {e}")
+                excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
+        else:
+            return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
-        # фоновые запросы для кэша
+        # фоновые запросы для кэша остальных моделей
         async def background_cache(model):
             try:
-                ans = await ask_openrouter_single(session, user_id, messages_payload, model,
-                                                  append_user_memory, _parse_openrouter_response)
+                ans = await ask_openrouter_single(session, user_id, messages_payload, model)
                 save_cache(user_id, text_message, ans)
             except Exception as e:
                 excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
                 logging.warning(f"⚠️ Фоновая модель {model} исключена: {e}")
 
-        for model in other_models:
-            asyncio.create_task(background_cache(model))
+        for model in usable_models:
+            if model != last_working_model:
+                asyncio.create_task(background_cache(model))
 
         return answer
-
-# --- Совместимость со старыми вызовами ---
-safe_ask_openrouter = ask_openrouter_with_fallback
-
-# --- Главная функция для теста ---
-async def main():
-    user_id = "user123"
-    messages_payload = [{"role": "user", "content": "Привет, Ра!"}]
-    answer = await ask_openrouter_with_fallback(user_id, messages_payload)
-    logging.info(f"💬 Ответ от Ra: {answer}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
