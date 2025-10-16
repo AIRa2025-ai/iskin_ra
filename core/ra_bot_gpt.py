@@ -3,21 +3,24 @@ import os
 import json
 import logging
 import asyncio
-import requests
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
+
 from gpt_module import safe_ask_openrouter
 from ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
 
-# --- Инициализация модулей ---
+# --- Автозагрузка модулей ---
 autoloader = RaAutoloader()
 modules = autoloader.activate_modules()
 
+# --- Сознание ---
 self_master = RaSelfMaster()
+
+# --- Полиция ---
 police = RaPolice()
 
 print(self_master.awaken())
@@ -51,13 +54,12 @@ def log_command_usage(user_id: int, command: str):
     except Exception as e:
         logging.warning(f"Ошибка логирования: {e}")
 
-# --- Уведомления в телеграмм ---
+# --- Telegram уведомления ---
 def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                         json={"chat_id": chat_id, "text": text}, timeout=10)
+    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
     return resp.ok
 
 # --- Основной обработчик сообщений ---
@@ -76,8 +78,14 @@ async def process_user_message(message: Message):
                 filename = f"data/response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 with open(filename, "w", encoding="utf-8") as f:
                     f.write(response)
-                await message.answer(f"📄 Ответ длинный,
-
+                await message.answer(f"📄 Ответ длинный, я сохранил его в файл:\n{filename}")
+            else:
+                await message.answer(response)
+        else:
+            await message.answer("⚠️ Не получил ответа от ИскИна.")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка при обработке: {e}")
+        
 # --- Команды ---
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
