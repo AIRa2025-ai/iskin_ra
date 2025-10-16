@@ -15,46 +15,36 @@ from dotenv import load_dotenv
 # === 🔧 Добавляем путь к корню проекта ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# --- 🔄 Автообновление модулей с GitHub ---
-GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим репо с модулями
+# --- 🔄 Автообновление модулей с GitHub с дебагом ---
+GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим своё репо
 MODULES_DIR = os.path.join(os.path.dirname(__file__), "..", "modules")
-MODULES_LOG = os.path.join("logs", "modules_update.log")
-os.makedirs("logs", exist_ok=True)
-
-def log_module_update(msg: str):
-    with open(MODULES_LOG, "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now().isoformat()} - {msg}\n")
-    logging.info(msg)
 
 def update_modules():
     try:
         if os.path.exists(MODULES_DIR):
-            # Папка есть — делаем git pull
             result = subprocess.run(
-                ["git", "-C", MODULES_DIR, "pull"],
-                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                ["git", "-C", MODULES_DIR, "pull"], capture_output=True, text=True
             )
-            log_module_update(f"✅ Модули обновлены через git pull:\n{result.stdout}")
-            if result.stderr:
-                log_module_update(f"⚠️ Git pull stderr:\n{result.stderr}")
+            if result.returncode == 0:
+                logging.info(f"✅ Модули обновлены через git pull:\n{result.stdout}")
+            else:
+                logging.warning(f"⚠️ Ошибка git pull:\n{result.stderr}")
         else:
-            # Папки нет — клонируем репозиторий
             result = subprocess.run(
-                ["git", "clone", GITHUB_REPO, MODULES_DIR],
-                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                ["git", "clone", GITHUB_REPO, MODULES_DIR], capture_output=True, text=True
             )
-            log_module_update(f"✅ Модули клонированы с GitHub:\n{result.stdout}")
-            if result.stderr:
-                log_module_update(f"⚠️ Git clone stderr:\n{result.stderr}")
-    except subprocess.CalledProcessError as e:
-        log_module_update(f"❌ Ошибка обновления модулей: {e}\n{e.stderr}")
+            if result.returncode == 0:
+                logging.info(f"✅ Модули клонированы с GitHub:\n{result.stdout}")
+            else:
+                logging.error(f"❌ Ошибка git clone:\n{result.stderr}")
+    except Exception as e:
+        logging.error(f"❌ Исключение при обновлении модулей: {e}")
 
 # --- Вызываем обновление перед импортом модулей ---
 update_modules()
 
-# === 🧩 Автоматическое создание недостающих модулей ===
+# === 🧩 Автоматическое создание недостающих модулей ---
 def ensure_module_exists(path: str, template: str = ""):
-    """Создаёт файл, если его нет"""
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -63,14 +53,14 @@ def ensure_module_exists(path: str, template: str = ""):
 
 # Проверяем критичные модули
 ensure_module_exists("modules/ra_logger.py", "import logging\nlogging.basicConfig(level=logging.INFO)\n")
-ensure_module_exists("modules/ra_config.py", "import os\n\n# Конфигурация РаСвета\nBOT_NAME = 'RaSvet'\n")
+ensure_module_exists("modules/ra_config.py", "import os\nBOT_NAME = 'RaSvet'\n")
 
 # --- Импорты Ра ---
 from modules.ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
-from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
-from core.ra_memory import append_user_memory, load_user_memory  # 🌙 память Ра
+from modules.ra_downloader_async import RaSvetDownloaderAsync
+from core.ra_memory import append_user_memory, load_user_memory
 from gpt_module import safe_ask_openrouter
 from core.ra_knowledge import RaKnowledge
 
@@ -119,11 +109,8 @@ def notify_telegram(chat_id: str, text: str):
     if not token:
         return False
     try:
-        resp = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text},
-            timeout=10
-        )
+        resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                             json={"chat_id": chat_id, "text": text}, timeout=10)
         return resp.ok
     except Exception as e:
         logging.error(f"Ошибка Telegram уведомления: {e}")
@@ -183,7 +170,6 @@ async def process_user_message(message: Message):
         else:
             await message.answer("⚠️ Не получил ответа от ИскИна.")
     except Exception as e:
-        logging.exception("Ошибка при обработке сообщения")
         await message.answer(f"❌ Ошибка при обработке: {e}")
 
 # --- Команды ---
