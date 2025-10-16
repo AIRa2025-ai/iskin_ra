@@ -17,8 +17,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # --- Импорты Ра ---
 from modules.ra_autoloader import RaAutoloader
-from modules.ra_logger import RaLogger
-from modules.ra_config import RaConfig
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
 from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
