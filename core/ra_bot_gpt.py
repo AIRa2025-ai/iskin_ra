@@ -46,6 +46,16 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Добавляем родительскую папку и "modules" в PYTHONPATH
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.extend([ROOT_DIR, os.path.join(ROOT_DIR, "modules"), os.path.join(ROOT_DIR, "core")])
+
+try:
+    from modules.ra_autoloader import RaAutoloader
+except ModuleNotFoundError:
+    from core.ra_autoloader import RaAutoloader
+    
 # --- Логирование команд ---
 def log_command_usage(user_id: int, command: str):
     try:
