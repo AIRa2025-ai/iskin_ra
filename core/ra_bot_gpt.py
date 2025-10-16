@@ -10,6 +10,14 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from gpt_module import safe_ask_openrouter
+from ra_autoloader import RaAutoloader
+from ra_self_master import RaSelfMaster
+
+autoloader = RaAutoloader()
+modules = autoloader.activate_modules()
+self_master = RaSelfMaster()
+
+print(self_master.awaken())
 
 # --- Настройки ---
 os.makedirs("logs", exist_ok=True)
