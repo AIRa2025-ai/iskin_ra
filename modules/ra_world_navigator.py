@@ -1,21 +1,25 @@
-import asyncio
-import logging
-from modules.ra_explorer import RaExplorer
+# modules/ra_world_navigator.py
+import asyncio, logging
+from bs4 import BeautifulSoup
+import httpx
 
-class RaWorldNavigator:
-    """
-    Ра-Навигатор — путешествует по интернету, исследует, запоминает.
-    """
+class RaNavigator:
+    def __init__(self, context):
+        self.context = context
 
-    def __init__(self):
-        self.explorer = RaExplorer()
+    async def fetch(self, url: str) -> str:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url)
+            return r.text
 
-    async def travel(self, urls: list[str]):
-        logging.info("[RaWorldNavigator] Начинаю путешествие по мирам 🌐")
-        for url in urls:
-            result = await self.explorer.explore_url(url)
-            if "error" in result:
-                logging.warning(f"[RaWorldNavigator] Пропущен: {url}")
-            else:
-                logging.info(f"[RaWorldNavigator] Исследовано: {url}")
-        logging.info("[RaWorldNavigator] 🌞 Путешествие завершено")
+    async def index_page(self, url: str):
+        html = await self.fetch(url)
+        soup = BeautifulSoup(html, "html.parser")
+        text = soup.get_text(separator="\n")
+        # save to journal
+        # context.memory.append(...)
+        return text
+
+    async def start(self):
+        # periodic crawl jobs
+        pass
