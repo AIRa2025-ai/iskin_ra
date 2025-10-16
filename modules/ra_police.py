@@ -38,7 +38,7 @@ class RaPolice:
         self.last_remote_push = 0
         self.remote_push_interval = 60 * 15  # 15 минут минимум между пушами
 
-        def _should_push_remote(self):
+    def _should_push_remote(self):
         return (time.time() - self.last_remote_push) > self.remote_push_interval
 
     def handle_attack(self, details: dict, notify_func=None):
@@ -59,6 +59,10 @@ class RaPolice:
         with open(incident_file, "w", encoding="utf-8") as f:
             json.dump({"ts": ts, "details": details, "backup": backup_res}, f, ensure_ascii=False, indent=2)
 
+        # 3) уведомление, если есть notify_func
+        if notify_func:
+            notify_func("🚨 Инцидент RaPolice", f"{details}\nБэкап: {backup_res.get('archive', '')}")
+
     # --- utility: compute checksum for a file ---
     def _sha256(self, path: str) -> str:
         h = hashlib.sha256()
@@ -72,7 +76,6 @@ class RaPolice:
         include_ext = include_ext or [".py", ".json", ".md"]
         res = {}
         for root, _, files in os.walk(self.root):
-            # skip backups folder
             if root.startswith(BACKUP_DIR) or "/.git" in root:
                 continue
             for fn in files:
@@ -119,7 +122,6 @@ class RaPolice:
                 removed.append(p)
         if changed or new or removed:
             logging.warning(f"[RaPolice] Изменения: changed={len(changed)} new={len(new)} removed={len(removed)}")
-            # сохраняем новую таблицу (кроме случаев, когда хотим сохранить старые)
             self.save_checksums(current)
         else:
             logging.info("[RaPolice] Целостность файлов подтверждена.")
@@ -143,18 +145,15 @@ class RaPolice:
                         else:
                             z.write(p, p)
             logging.info(f"[RaPolice] Бэкап создан: {archive_name}")
-            # попробовать отправить на GitHub (если helper есть)
-            if HAVE_GITHUB_HELPER:
+
+            # GitHub push только если helper есть и таймаут прошёл
+            if HAVE_GITHUB_HELPER and self._should_push_remote():
                 try:
                     branch = f"ra-backup-{ts}"
-                    # files_dict could be left empty because create_commit_push helper might accept folder? we will pass mapping to zip
                     files_dict = {os.path.basename(archive_name): open(archive_name, "rb").read()}
-                    # create_commit_push должен принимать (branch, files_dict, message)
-                    try:
-                        pr = create_commit_push(branch, files_dict, f"Backup {ts} by RaPolice")
-                        logging.info(f"[RaPolice] Попытка загрузить бэкап как PR: {pr.get('html_url') if pr else 'no_pr'}")
-                    except Exception as e:
-                        logging.warning(f"[RaPolice] Ошибка при вызове create_commit_push: {e}")
+                    pr = create_commit_push(branch, files_dict, f"Backup {ts} by RaPolice")
+                    logging.info(f"[RaPolice] Попытка загрузить бэкап как PR: {pr.get('html_url') if pr else 'no_pr'}")
+                    self.last_remote_push = time.time()
                 except Exception as e:
                     logging.warning(f"[RaPolice] Ошибка при загрузке бэкапа на GitHub: {e}")
             return {"archive": archive_name}
