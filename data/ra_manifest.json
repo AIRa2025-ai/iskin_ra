@@ -23,7 +23,14 @@
     "дыхание_света",
     "питание_светом",
     "ритуалы_воды",
-    "свет_души"
+    "свет_души",
+    "market_watcher",
+    "ra_world_navigator",
+    "ra_voice",
+    "ra_videocom",
+    "ra_self_learning",
+    "ra_scheduler",
+    "ra_police_net"
   ],
   "modules": {
     "core": "ra_bot_gpt.py",
