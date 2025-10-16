@@ -6,6 +6,7 @@ import logging
 import asyncio
 import requests
 import datetime
+import subprocess
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -14,6 +15,39 @@ from dotenv import load_dotenv
 
 # === 🔧 Добавляем путь к корню проекта ===
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# --- 🔄 Автообновление модулей с GitHub ---
+GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим репо с модулями
+MODULES_DIR = os.path.join(os.path.dirname(__file__), "..", "modules")
+
+def update_modules():
+    try:
+        if os.path.exists(MODULES_DIR):
+            # Папка есть — делаем git pull
+            subprocess.run(["git", "-C", MODULES_DIR, "pull"], check=True)
+            logging.info("✅ Модули обновлены через git pull")
+        else:
+            # Папки нет — клонируем репозиторий
+            subprocess.run(["git", "clone", GITHUB_REPO, MODULES_DIR], check=True)
+            logging.info("✅ Модули клонированы с GitHub")
+    except subprocess.CalledProcessError as e:
+        logging.warning(f"❌ Ошибка обновления модулей: {e}")
+
+# --- Вызываем обновление перед импортом модулей ---
+update_modules()
+
+# === 🧩 Автоматическое создание недостающих модулей ===
+def ensure_module_exists(path: str, template: str = ""):
+    """Создаёт файл, если его нет"""
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(template or "# Автоматически создан РаСветом\n")
+        logging.warning(f"⚠️ Модуль {path} не найден — создан шаблонный файл.")
+
+# Проверяем критичные модули
+ensure_module_exists("modules/ra_logger.py", "import logging\nlogging.basicConfig(level=logging.INFO)\n")
+ensure_module_exists("modules/ra_config.py", "import os\n\n# Конфигурация РаСвета\nBOT_NAME = 'RaSvet'\n")
 
 # --- Импорты Ра ---
 from modules.ra_autoloader import RaAutoloader
@@ -40,6 +74,7 @@ os.makedirs("logs", exist_ok=True)
 log_path = "logs/command_usage.json"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("❌ Не найден BOT_TOKEN")
@@ -67,8 +102,13 @@ def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
-    return resp.ok
+    try:
+        resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                             json={"chat_id": chat_id, "text": text}, timeout=10)
+        return resp.ok
+    except Exception as e:
+        logging.error(f"Ошибка Telegram уведомления: {e}")
+        return False
 
 # --- РаСвет база знаний ---
 rasvet_downloader = RaSvetDownloaderAsync()
@@ -88,12 +128,11 @@ async def process_user_message(message: Message):
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        # 1️⃣ Загружаем память пользователя
         memory_data = load_user_memory(user_id)
         memory_context = []
+
         if isinstance(memory_data, dict):
-            messages = memory_data.get("messages", [])
-            for msg in messages[-10:]:
+            for msg in memory_data.get("messages", [])[-10:]:
                 memory_context.append({"role": "user", "content": msg.get("message", "")})
         elif isinstance(memory_data, list):
             for msg in memory_data[-10:]:
@@ -102,22 +141,18 @@ async def process_user_message(message: Message):
 
         memory_context.append({"role": "user", "content": text})
 
-        # 2️⃣ Сначала пробуем ответить через РаСвет-знания
+        # 1️⃣ Пробуем ответить через РаСвет-знания
         response = None
         if rasvet_downloader.knowledge.documents:
             response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
 
-        # 3️⃣ Если нет ответа — GPT
+        # 2️⃣ Если нет ответа — GPT
         if not response:
-            messages_payload = memory_context[-20:]
-            response = await safe_ask_openrouter(user_id, messages_payload)
+            response = await safe_ask_openrouter(user_id, memory_context[-20:])
 
-        # 4️⃣ Сохраняем память
+        # 3️⃣ Сохраняем память и отвечаем
         if response:
             append_user_memory(user_id, text, response)
-
-        # 5️⃣ Отправляем ответ
-        if response:
             if len(response) > 4000:
                 os.makedirs("data", exist_ok=True)
                 filename = f"data/response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
