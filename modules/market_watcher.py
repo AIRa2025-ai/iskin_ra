@@ -4,9 +4,14 @@ import logging
 from typing import Callable, List
 
 class MarketWatcher:
-    def __init__(self, context, pairs: List[str]=None):
+    """
+    Мониторинг крипто и валютных пар.
+    Сигналы можно отдавать через notify callback (например, Telegram).
+    """
+    def __init__(self, context=None, pairs: List[str]=None, notify: Callable=None):
         self.context = context
-        self.pairs = pairs or ["BTC/USDT"]
+        self.pairs = pairs or ["BTC/USDT", "ETH/USDT"]
+        self.notify = notify
         self.running = False
 
     async def start(self):
@@ -19,18 +24,20 @@ class MarketWatcher:
     async def _loop(self):
         while self.running:
             try:
-                # TODO: fetch prices via HTTP or WS
-                prices = {"BTC/USDT": 50000}
-                # detect simple signals
-                # if condition: self._alert(...)
+                # Заглушка: в реале тут API или websocket
+                prices = {p: 50000.0 for p in self.pairs}  # пример данных
+                logging.info(f"[MarketWatcher] Prices: {prices}")
+                # TODO: условия сигналов
+                # if prices['BTC/USDT'] > 60000:
+                #     self._alert("BTC выше 60k")
             except Exception as e:
-                logging.exception("market_watcher loop")
-            await asyncio.sleep(30)  # разумный интервал
+                logging.exception("MarketWatcher loop error")
+            await asyncio.sleep(30)  # опрашивать каждые 30 сек
 
-    def _alert(self, text: str, notify: Callable=None):
-        logging.info("MARKET ALERT: " + text)
-        if notify:
-            notify(text)
+    def _alert(self, text: str):
+        logging.info(f"[MarketWatcher ALERT] {text}")
+        if self.notify:
+            self.notify(text)
 
     def status(self):
-        return {"pairs": self.pairs, "running": self.running}
+        return {"running": self.running, "pairs": self.pairs}
