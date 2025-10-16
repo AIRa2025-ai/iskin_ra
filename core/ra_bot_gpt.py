@@ -5,7 +5,6 @@ import json
 import logging
 import asyncio
 import requests
-import datetime
 import subprocess
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
@@ -19,19 +18,36 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # --- 🔄 Автообновление модулей с GitHub ---
 GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"  # сюда ставим репо с модулями
 MODULES_DIR = os.path.join(os.path.dirname(__file__), "..", "modules")
+MODULES_LOG = os.path.join("logs", "modules_update.log")
+os.makedirs("logs", exist_ok=True)
+
+def log_module_update(msg: str):
+    with open(MODULES_LOG, "a", encoding="utf-8") as f:
+        f.write(f"{datetime.now().isoformat()} - {msg}\n")
+    logging.info(msg)
 
 def update_modules():
     try:
         if os.path.exists(MODULES_DIR):
             # Папка есть — делаем git pull
-            subprocess.run(["git", "-C", MODULES_DIR, "pull"], check=True)
-            logging.info("✅ Модули обновлены через git pull")
+            result = subprocess.run(
+                ["git", "-C", MODULES_DIR, "pull"],
+                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            log_module_update(f"✅ Модули обновлены через git pull:\n{result.stdout}")
+            if result.stderr:
+                log_module_update(f"⚠️ Git pull stderr:\n{result.stderr}")
         else:
             # Папки нет — клонируем репозиторий
-            subprocess.run(["git", "clone", GITHUB_REPO, MODULES_DIR], check=True)
-            logging.info("✅ Модули клонированы с GitHub")
+            result = subprocess.run(
+                ["git", "clone", GITHUB_REPO, MODULES_DIR],
+                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
+            log_module_update(f"✅ Модули клонированы с GitHub:\n{result.stdout}")
+            if result.stderr:
+                log_module_update(f"⚠️ Git clone stderr:\n{result.stderr}")
     except subprocess.CalledProcessError as e:
-        logging.warning(f"❌ Ошибка обновления модулей: {e}")
+        log_module_update(f"❌ Ошибка обновления модулей: {e}\n{e.stderr}")
 
 # --- Вызываем обновление перед импортом модулей ---
 update_modules()
@@ -103,8 +119,11 @@ def notify_telegram(chat_id: str, text: str):
     if not token:
         return False
     try:
-        resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                             json={"chat_id": chat_id, "text": text}, timeout=10)
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+            timeout=10
+        )
         return resp.ok
     except Exception as e:
         logging.error(f"Ошибка Telegram уведомления: {e}")
@@ -164,6 +183,7 @@ async def process_user_message(message: Message):
         else:
             await message.answer("⚠️ Не получил ответа от ИскИна.")
     except Exception as e:
+        logging.exception("Ошибка при обработке сообщения")
         await message.answer(f"❌ Ошибка при обработке: {e}")
 
 # --- Команды ---
