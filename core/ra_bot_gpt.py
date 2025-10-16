@@ -10,34 +10,33 @@ from aiogram.filters import Command
 from aiogram.types import Message
 import requests
 
-# --- Добавляем корень проекта в путь, чтобы модули находились ---
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from gpt_module import safe_ask_openrouter
+# --- Импорт модулей Ра ---
 from modules.ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
+from modules.ra_downloader_async import RaSvetDownloaderAsync  # новое
 
-# ================== Автозагрузка модулей ==================
+from gpt_module import safe_ask_openrouter
+
+# --- Автозагрузка модулей ---
 autoloader = RaAutoloader()
 modules = autoloader.activate_modules()
 
-# ================== Сознание ==================
+# --- Сознание ---
 self_master = RaSelfMaster()
 
-# ================== Полиция ==================
+# --- Полиция ---
 police = RaPolice()
 
 print(self_master.awaken())
 print(autoloader.status())
 print(police.status())
 
-# ================== Настройки логирования ==================
+# --- Настройки ---
 os.makedirs("logs", exist_ok=True)
 log_path = "logs/command_usage.json"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# ================== Telegram Bot ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("❌ Не найден BOT_TOKEN")
@@ -45,7 +44,7 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ================== Логирование команд ==================
+# --- Логирование команд ---
 def log_command_usage(user_id: int, command: str):
     try:
         data = []
@@ -60,42 +59,41 @@ def log_command_usage(user_id: int, command: str):
     except Exception as e:
         logging.warning(f"Ошибка логирования: {e}")
 
-# ================== Фильтр спец-токенов модели ==================
-def clean_response(text: str) -> str:
-    for token in ["<｜begin▁of▁sentence｜>", "<｜end▁of▁sentence｜>"]:
-        text = text.replace(token, "")
-    return text.strip()
-
-# ================== Telegram уведомления ==================
+# --- Telegram уведомления ---
 def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    resp = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text},
-        timeout=10
-    )
+    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
     return resp.ok
 
-# ================== Основной обработчик сообщений ==================
+# --- РаСвет база знаний ---
+rasvet_downloader = RaSvetDownloaderAsync()
+
+async def initialize_rasvet():
+    logging.info("🌞 Инициализация РаСвет-знаний...")
+    await rasvet_downloader.download_async()
+    logging.info("🌞 РаСвет готов к ответам!")
+
+# --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
     text = message.text.strip()
     log_command_usage(message.from_user.id, text)
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        messages_payload = [{"role": "user", "content": text}]
-        response = await safe_ask_openrouter(message.from_user.id, messages_payload)
+        # --- Сначала через РаСвет-знания ---
+        if rasvet_downloader.knowledge.documents:
+            response = await rasvet_downloader.knowledge.ask(text, user_id=message.from_user.id)
+        else:
+            response = None
+
+        # --- Если нет ответа, fallback на OpenRouter GPT ---
+        if not response:
+            messages_payload = [{"role": "user", "content": text}]
+            response = await safe_ask_openrouter(message.from_user.id, messages_payload)
 
         if response:
-            response = clean_response(response)
-
-            # Доступ к знаниям РаСвета
-            rasvet_knowledge = self_master.query(text)
-            if rasvet_knowledge:
-                response += f"\n\n💡 РаСвет-знания:\n{rasvet_knowledge}"
-
             if len(response) > 4000:
                 os.makedirs("data", exist_ok=True)
                 filename = f"data/response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -109,7 +107,7 @@ async def process_user_message(message: Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка при обработке: {e}")
 
-# ================== Команды ==================
+# --- Команды ---
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     log_command_usage(message.from_user.id, "/start")
@@ -118,12 +116,7 @@ async def cmd_start(message: Message):
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     log_command_usage(message.from_user.id, "/help")
-    await message.answer(
-        "⚙️ Доступные команды:\n"
-        "/start — приветствие\n"
-        "/help — помощь\n"
-        "/clean — очистка логов"
-    )
+    await message.answer("⚙️ Доступные команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов")
 
 @dp.message(Command("clean"))
 async def cmd_clean(message: Message):
@@ -137,10 +130,14 @@ async def cmd_clean(message: Message):
 async def on_text(message: Message):
     await process_user_message(message)
 
-# ================== Запуск ==================
+# --- Запуск ---
 async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
+    await initialize_rasvet()
     await dp.start_polling(bot)
+
+# добавляем корень проекта в путь
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if __name__ == "__main__":
     try:
