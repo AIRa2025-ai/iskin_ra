@@ -18,6 +18,7 @@ modules = autoloader.activate_modules()
 self_master = RaSelfMaster()
 
 print(self_master.awaken())
+print(autoloader.status())
 
 # --- Настройки ---
 os.makedirs("logs", exist_ok=True)
