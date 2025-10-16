@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import asyncio
+import requests
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -49,6 +50,14 @@ def log_command_usage(user_id: int, command: str):
     except Exception as e:
         logging.warning(f"Ошибка логирования: {e}")
 
+# --- Уведомления в телеграмм ---
+def notify_telegram(chat_id: str, text: str):
+    token = os.getenv("BOT_TOKEN")
+    if not token:
+        return False
+    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
+    return resp.ok
+    
 # --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
     text = message.text.strip()
