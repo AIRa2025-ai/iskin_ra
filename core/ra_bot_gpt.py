@@ -4,23 +4,21 @@ import sys
 import json
 import logging
 import asyncio
+import requests
+import datetime
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
-import requests
+from dotenv import load_dotenv
 
-# --- Пути проекта ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.extend([ROOT_DIR, os.path.join(ROOT_DIR, "modules"), os.path.join(ROOT_DIR, "core")])
+# === 🔧 Добавляем путь к корню проекта ===
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # --- Импорты Ра ---
-try:
-    from modules.ra_autoloader import RaAutoloader
-except ModuleNotFoundError:
-    from core.ra_autoloader import RaAutoloader
-
+from modules.ra_autoloader import RaAutoloader
+from modules.ra_logger import RaLogger
+from modules.ra_config import RaConfig
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
 from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
