@@ -11,17 +11,18 @@ from aiogram.types import Message
 from gpt_module import safe_ask_openrouter
 from ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
-from ra_autoloader import load_modules
+from modules.ra_police import RaPolice
 
-active_modules = load_modules()
+# --- Инициализация модулей ---
 autoloader = RaAutoloader()
 modules = autoloader.activate_modules()
+
 self_master = RaSelfMaster()
+police = RaPolice()
 
 print(self_master.awaken())
 print(autoloader.status())
-# если нужно — можно вызвать police вручную:
-print(self_master.police_status())
+print(police.status())
 
 # --- Настройки ---
 os.makedirs("logs", exist_ok=True)
@@ -55,9 +56,10 @@ def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
         return False
-    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={"chat_id": chat_id, "text": text}, timeout=10)
+    resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                         json={"chat_id": chat_id, "text": text}, timeout=10)
     return resp.ok
-    
+
 # --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
     text = message.text.strip()
@@ -74,13 +76,7 @@ async def process_user_message(message: Message):
                 filename = f"data/response_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
                 with open(filename, "w", encoding="utf-8") as f:
                     f.write(response)
-                await message.answer(f"📄 Ответ длинный, я сохранил его в файл:\n{filename}")
-            else:
-                await message.answer(response)
-        else:
-            await message.answer("⚠️ Не получил ответа от ИскИна.")
-    except Exception as e:
-        await message.answer(f"❌ Ошибка при обработке: {e}")
+                await message.answer(f"📄 Ответ длинный,
 
 # --- Команды ---
 @dp.message(Command("start"))
