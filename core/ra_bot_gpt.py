@@ -11,6 +11,7 @@ from aiogram.types import Message
 
 from gpt_module import safe_ask_openrouter
 
+# --- Настройки ---
 os.makedirs("logs", exist_ok=True)
 log_path = "logs/command_usage.json"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -22,6 +23,7 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# --- Логирование команд ---
 def log_command_usage(user_id: int, command: str):
     try:
         data = []
@@ -36,6 +38,7 @@ def log_command_usage(user_id: int, command: str):
     except Exception as e:
         logging.warning(f"Ошибка логирования: {e}")
 
+# --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
     text = message.text.strip()
     log_command_usage(message.from_user.id, text)
@@ -59,10 +62,11 @@ async def process_user_message(message: Message):
     except Exception as e:
         await message.answer(f"❌ Ошибка при обработке: {e}")
 
+# --- Команды ---
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     log_command_usage(message.from_user.id, "/start")
-    await message.answer("🌞 Привет! Я — Ра, ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу.")
+    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу.")
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
@@ -81,6 +85,7 @@ async def cmd_clean(message: Message):
 async def on_text(message: Message):
     await process_user_message(message)
 
+# --- Запуск ---
 async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
     await dp.start_polling(bot)
@@ -90,4 +95,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logging.info("🛑 Остановка бота.")
-
