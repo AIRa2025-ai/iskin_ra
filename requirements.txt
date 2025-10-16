@@ -9,5 +9,4 @@ beautifulsoup4
 jinja2
 python-multipart
 psutil
-tenacity>=8.2.2
 mega.py==1.0.8
