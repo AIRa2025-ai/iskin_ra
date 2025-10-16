@@ -1,7 +1,12 @@
 # modules/ra_scheduler.py
 import asyncio
+import logging
+
 class RaScheduler:
-    def __init__(self, context):
+    """
+    Планировщик cron-подобных задач.
+    """
+    def __init__(self, context=None):
         self.context = context
         self.jobs = []
 
@@ -9,12 +14,20 @@ class RaScheduler:
         self.jobs.append((coro, interval_seconds))
 
     async def start(self):
-        async def runner(coro, sec):
-            while True:
-                try:
-                    await coro()
-                except Exception:
-                    pass
-                await asyncio.sleep(sec)
-        for coro, sec in self.jobs:
-            asyncio.create_task(runner(coro, sec))
+        for coro, interval in self.jobs:
+            asyncio.create_task(self._runner(coro, interval))
+
+    async def _runner(self, coro, interval):
+        while True:
+            try:
+                await coro()
+            except Exception as e:
+                logging.exception("RaScheduler job error")
+            await asyncio.sleep(interval)
+
+    async def stop(self):
+        # TODO: можно хранить задачи в self._tasks и отменять их
+        pass
+
+    def status(self):
+        return {"jobs": len(self.jobs)}
