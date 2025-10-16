@@ -10,24 +10,29 @@ from aiogram.filters import Command
 from aiogram.types import Message
 import requests
 
-# --- Импорт модулей Ра ---
-from modules.ra_autoloader import RaAutoloader
+# --- Пути проекта ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.extend([ROOT_DIR, os.path.join(ROOT_DIR, "modules"), os.path.join(ROOT_DIR, "core")])
+
+# --- Импорты Ра ---
+try:
+    from modules.ra_autoloader import RaAutoloader
+except ModuleNotFoundError:
+    from core.ra_autoloader import RaAutoloader
+
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
 from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
 from core.ra_memory import append_user_memory, load_user_memory  # 🌙 память Ра
 from gpt_module import safe_ask_openrouter
 from core.ra_knowledge import RaKnowledge
-ra_knowledge = RaKnowledge()
 
-# --- Автозагрузка модулей ---
+# --- Инициализация ---
+ra_knowledge = RaKnowledge()
 autoloader = RaAutoloader()
 modules = autoloader.activate_modules()
-
-# --- Сознание ---
 self_master = RaSelfMaster()
-
-# --- Полиция ---
 police = RaPolice()
 
 print(self_master.awaken())
@@ -46,16 +51,6 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Добавляем родительскую папку и "modules" в PYTHONPATH
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.extend([ROOT_DIR, os.path.join(ROOT_DIR, "modules"), os.path.join(ROOT_DIR, "core")])
-
-try:
-    from modules.ra_autoloader import RaAutoloader
-except ModuleNotFoundError:
-    from core.ra_autoloader import RaAutoloader
-    
 # --- Логирование команд ---
 def log_command_usage(user_id: int, command: str):
     try:
@@ -109,24 +104,23 @@ async def process_user_message(message: Message):
                 memory_context.append({"role": "user", "content": msg.get("user", "")})
                 memory_context.append({"role": "assistant", "content": msg.get("bot", "")})
 
-        # 2️⃣ Добавляем текущее сообщение
         memory_context.append({"role": "user", "content": text})
 
-        # 3️⃣ Сначала пробуем ответить через РаСвет-знания
+        # 2️⃣ Сначала пробуем ответить через РаСвет-знания
         response = None
         if rasvet_downloader.knowledge.documents:
             response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
 
-        # 4️⃣ Если нет ответа, используем GPT (с контекстом памяти)
+        # 3️⃣ Если нет ответа — GPT
         if not response:
             messages_payload = memory_context[-20:]
             response = await safe_ask_openrouter(user_id, messages_payload)
 
-        # 5️⃣ Сохраняем память
+        # 4️⃣ Сохраняем память
         if response:
             append_user_memory(user_id, text, response)
 
-        # 6️⃣ Отправляем ответ
+        # 5️⃣ Отправляем ответ
         if response:
             if len(response) > 4000:
                 os.makedirs("data", exist_ok=True)
@@ -150,7 +144,7 @@ async def cmd_start(message: Message):
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     log_command_usage(message.from_user.id, "/help")
-    await message.answer("⚙️ Доступные команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов\n/forget — очистить память")
+    await message.answer("⚙️ Команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов\n/forget — очистить память\n/знание — поиск в базе РаСвета")
 
 @dp.message(Command("clean"))
 async def cmd_clean(message: Message):
@@ -172,7 +166,6 @@ async def cmd_knowledge(message: types.Message):
 
 @dp.message(Command("forget"))
 async def cmd_forget(message: Message):
-    """Очистка личной памяти пользователя"""
     user_id = message.from_user.id
     path = os.path.join("memory", f"{user_id}.json")
     if os.path.exists(path):
@@ -190,9 +183,6 @@ async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
     await initialize_rasvet()
     await dp.start_polling(bot)
-
-# Добавляем корень проекта в путь
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if __name__ == "__main__":
     try:
