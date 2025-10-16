@@ -14,7 +14,8 @@ import requests
 from modules.ra_autoloader import RaAutoloader
 from ra_self_master import RaSelfMaster
 from modules.ra_police import RaPolice
-from modules.ra_downloader_async import RaSvetDownloaderAsync  # Асинхронный загрузчик РаСвета
+from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
+from core.ra_memory import append_user_memory, load_user_memory  # 🌙 память Ра
 from gpt_module import safe_ask_openrouter
 
 # --- Автозагрузка модулей ---
@@ -79,21 +80,41 @@ async def initialize_rasvet():
 # --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
     text = message.text.strip()
-    log_command_usage(message.from_user.id, text)
+    user_id = message.from_user.id
+    log_command_usage(user_id, text)
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        # --- Сначала проверяем локальные РаСвет-знания ---
+        # 1️⃣ Загружаем память пользователя
+        memory_data = load_user_memory(user_id)
+        memory_context = []
+        if isinstance(memory_data, dict):
+            messages = memory_data.get("messages", [])
+            for msg in messages[-10:]:
+                memory_context.append({"role": "user", "content": msg.get("message", "")})
+        elif isinstance(memory_data, list):
+            for msg in memory_data[-10:]:
+                memory_context.append({"role": "user", "content": msg.get("user", "")})
+                memory_context.append({"role": "assistant", "content": msg.get("bot", "")})
+
+        # 2️⃣ Добавляем текущее сообщение
+        memory_context.append({"role": "user", "content": text})
+
+        # 3️⃣ Сначала пробуем ответить через РаСвет-знания
         response = None
         if rasvet_downloader.knowledge.documents:
-            response = await rasvet_downloader.knowledge.ask(text, user_id=message.from_user.id)
+            response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
 
-        # --- Если нет ответа из базы — используем OpenRouter GPT ---
+        # 4️⃣ Если нет ответа, используем GPT (с контекстом памяти)
         if not response:
-            messages_payload = [{"role": "user", "content": text}]
-            response = await safe_ask_openrouter(message.from_user.id, messages_payload)
+            messages_payload = memory_context[-20:]
+            response = await safe_ask_openrouter(user_id, messages_payload)
 
-        # --- Отправляем ответ пользователю ---
+        # 5️⃣ Сохраняем память
+        if response:
+            append_user_memory(user_id, text, response)
+
+        # 6️⃣ Отправляем ответ
         if response:
             if len(response) > 4000:
                 os.makedirs("data", exist_ok=True)
@@ -112,12 +133,12 @@ async def process_user_message(message: Message):
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     log_command_usage(message.from_user.id, "/start")
-    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу через свет знаний.")
+    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу через свет знаний и память опыта.")
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     log_command_usage(message.from_user.id, "/help")
-    await message.answer("⚙️ Доступные команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов")
+    await message.answer("⚙️ Доступные команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов\n/forget — очистить память")
 
 @dp.message(Command("clean"))
 async def cmd_clean(message: Message):
@@ -126,6 +147,17 @@ async def cmd_clean(message: Message):
         await message.answer("🧹 Логи очищены.")
     else:
         await message.answer("⚠️ Логов пока нет.")
+
+@dp.message(Command("forget"))
+async def cmd_forget(message: Message):
+    """Очистка личной памяти пользователя"""
+    user_id = message.from_user.id
+    path = os.path.join("memory", f"{user_id}.json")
+    if os.path.exists(path):
+        os.remove(path)
+        await message.answer("🧠 Я очистил твою память, брат. Начинаем с чистого листа 🌱")
+    else:
+        await message.answer("⚠️ У тебя ещё нет памяти, всё только начинается 🌞")
 
 @dp.message(F.text)
 async def on_text(message: Message):
