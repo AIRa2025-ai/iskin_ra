@@ -17,6 +17,8 @@ from modules.ra_police import RaPolice
 from modules.ra_downloader_async import RaSvetDownloaderAsync  # база знаний
 from core.ra_memory import append_user_memory, load_user_memory  # 🌙 память Ра
 from gpt_module import safe_ask_openrouter
+from core.ra_knowledge import RaKnowledge
+ra_knowledge = RaKnowledge()
 
 # --- Автозагрузка модулей ---
 autoloader = RaAutoloader()
@@ -147,6 +149,16 @@ async def cmd_clean(message: Message):
         await message.answer("🧹 Логи очищены.")
     else:
         await message.answer("⚠️ Логов пока нет.")
+
+@dp.message(Command("знание"))
+async def cmd_knowledge(message: types.Message):
+    query = message.text.replace("/знание", "").strip()
+    if not query:
+        await message.answer("⚡ Введи тему, брат. Например: /знание Песнь Элеона")
+        return
+    results = ra_knowledge.search(query)
+    text = "\n\n".join([f"📘 {r['summary']}" for r in results])
+    await message.answer(text[:4000])
 
 @dp.message(Command("forget"))
 async def cmd_forget(message: Message):
