@@ -24,7 +24,6 @@ if not BOT_TOKEN:
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-
 # === Вспомогательные функции ===
 def log_command_usage(user_id: int, command: str):
     """Сохраняет использование команд в лог"""
@@ -57,7 +56,10 @@ async def process_user_message(message: Message):
     await message.answer("⏳ Думаю над ответом...")
 
     try:
-        response = await safe_ask_openrouter(text)
+        # Формируем messages_payload в формате, который ожидает safe_ask_openrouter
+        messages_payload = [{"role": "user", "content": text}]
+        response = await safe_ask_openrouter(message.from_user.id, messages_payload)
+
         if response:
             if len(response) > 4000:
                 # длинные ответы в файл
