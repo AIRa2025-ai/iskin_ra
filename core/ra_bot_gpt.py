@@ -1,5 +1,6 @@
 # core/ra_bot_gpt.py
 import os
+import sys
 import json
 import logging
 import asyncio
@@ -113,6 +114,9 @@ async def on_text(message: Message):
 async def main():
     logging.info("🚀 Бот Ра запущен и готов к общению.")
     await dp.start_polling(bot)
+
+# добавляем корень проекта в путь
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 if __name__ == "__main__":
     try:
