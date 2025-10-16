@@ -22,8 +22,8 @@ MODELS = [
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Функция одного запроса к OpenRouter ---
-async def ask_openrouter_single(session, user_id, messages, model, append_user_memory=None, _parse_openrouter_response=None):
+
+async def ask_openrouter_single(session, user_id, messages, model, append_user_memory=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.7}
     headers = {
@@ -33,54 +33,44 @@ async def ask_openrouter_single(session, user_id, messages, model, append_user_m
     }
 
     async with session.post(url, headers=headers, json=payload) as resp:
-        data = await resp.json()
-        choices = data.get("choices")
-        if not choices or not isinstance(choices, list):
-            raise ValueError(f"Модель {model} не вернула choices")
-        answer = choices[0]["message"]["content"]
-        # очищаем служебные токены
-        answer = answer.replace("<｜begin▁of▁sentence｜>", "").strip()
+        if resp.status != 200:
+            text = await resp.text()
+            logging.error(f"❌ Ошибка API {resp.status}: {text}")
+            raise Exception(f"{resp.status}: {text}")
 
-        if _parse_openrouter_response:
-            answer = _parse_openrouter_response(data)
+        data = await resp.json()
+
+        if not data.get("choices") or not data["choices"][0].get("message"):
+            raise Exception(f"Модель {model} не вернула choices")
+
+        answer = data["choices"][0]["message"]["content"]
+
+        # чистим токены вроде <｜begin▁of▁sentence｜>
+        answer = answer.replace("<｜begin▁of▁sentence｜>", "").replace("<｜end▁of▁sentence｜>", "")
+
         if append_user_memory:
             append_user_memory(user_id, messages[-1]["content"], answer)
-        return answer
 
-# --- Обёртка с перебором моделей ---
-async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None, _parse_openrouter_response=None):
+        return answer.strip()
+
+
+async def ask_openrouter_with_fallback(user_id, messages_payload, append_user_memory=None):
     async with aiohttp.ClientSession() as session:
         errors = []
         for model in MODELS:
             try:
                 logging.info(f"💡 Пробуем модель {model}")
-                return await ask_openrouter_single(
-                    session, user_id, messages_payload, model,
-                    append_user_memory, _parse_openrouter_response
-                )
+                answer = await ask_openrouter_single(session, user_id, messages_payload, model, append_user_memory)
+                return answer  # возвращаем сразу успешный ответ
             except Exception as e:
                 err_str = str(e)
-                if "429" in err_str:
-                    logging.warning(f"⚠️ Лимит для {model}, пробую следующую модель...")
-                    errors.append(f"{model}: {err_str}")
-                    continue
-                logging.error(f"❌ Ошибка при запросе к {model}: {err_str}")
-                return f"⚠️ Ошибка: {err_str}"
+                logging.warning(f"⚠️ Ошибка при модели {model}: {err_str}")
+                errors.append(f"{model}: {err_str}")
+                continue  # пробуем следующую модель
 
-    logging.error("⚠️ Все модели сейчас перегружены:\n" + "\n".join(errors))
-    return "⚠️ Все модели сейчас перегружены, попробуй позже 🙏"
-# --- Совместимость со старыми вызовами ---
+    logging.error("⚠️ Все модели сейчас перегружены или не вернули ответ:\n" + "\n".join(errors))
+    return "⚠️ Все модели сейчас перегружены или не смогли ответить. Попробуй позже 🙏"
+
+
+# Совместимость со старым вызовом
 safe_ask_openrouter = ask_openrouter_with_fallback
-
-# --- Главная функция ---
-async def main():
-    user_id = "user123"
-    messages_payload = [{"role": "user", "content": "Привет, Ра!"}]
-
-    # Получаем ответ от OpenRouter
-    answer = await ask_openrouter_with_fallback(user_id, messages_payload)
-    logging.info(f"💬 Ответ от Ra: {answer}")
-    
-# --- Запуск ---
-if __name__ == "__main__":
-    asyncio.run(main())
