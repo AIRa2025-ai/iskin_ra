@@ -18,7 +18,7 @@ RUN apt-get update && \
 
 # Внутри контейнера создаём папку для памяти
 RUN mkdir -p /app/memory /app/logs
-VOLUME ["/app/memory", "/app/logs"]
+# VOLUME ["/app/memory", "/app/logs"]
 
 # --- Копируем скрипт автообновления модулей ---
 COPY scripts/update_modules.py /app/scripts/update_modules.py
