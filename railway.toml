@@ -5,6 +5,10 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 buildEnvironment = "V3"
 
+[volumes]
+memory = "/app/memory"
+logs = "/app/logs"
+
 [deploy]
 # Запуск через run_bot.py — автоперезапуск и синхронизация с Mega
 startCommand = "python3 /app/scripts/run_bot.py"
