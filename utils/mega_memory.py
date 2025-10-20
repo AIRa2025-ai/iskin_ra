@@ -1,4 +1,4 @@
-# utils/mega_memory.py
+# utils/mega_memory.py — прокачанная версия для Ра
 import os
 import time
 import zipfile
@@ -16,7 +16,7 @@ ARCHIVE_MEMORY = "ra_memory_backup.zip"
 ARCHIVE_LOGS = "ra_logs_backup.zip"
 CHECKSUM_FILE = "/app/memory/.last_sync_checksum"
 SYNC_LOG = "/app/logs/mega_sync.log"
-
+MAX_ARCHIVES = 5
 SYNC_INTERVAL = 600  # секунд (10 минут)
 
 # === Подготовка окружения ===
@@ -72,17 +72,30 @@ def create_zip(directory, archive_name):
                 zipf.write(filepath, arcname)
     return archive_path
 
+# === Умная очистка локальных архивов ===
+def cleanup_local_archives(base_name, keep=MAX_ARCHIVES):
+    dir_path = "/app"
+    archives = [f for f in os.listdir(dir_path) if f.startswith(base_name) and f.endswith(".zip")]
+    if len(archives) <= keep:
+        return
+    archives.sort()  # старые вперед
+    for f in archives[:-keep]:
+        try:
+            os.remove(os.path.join(dir_path, f))
+            log(f"🗑️ Удалён локальный архив: {f}")
+        except:
+            log(f"⚠️ Не удалось удалить локальный архив: {f}")
+
 # === Загрузка архива в Mega ===
-def upload_to_mega(archive_name, directory):
+def upload_to_mega(archive_name, archive_path):
     m = connect_to_mega()
     if not m:
+        log(f"⚠️ Пропускаем загрузку {archive_name} — Mega недоступна.")
         return
-
-    archive_path = create_zip(directory, archive_name)
-
     try:
         m.upload(archive_path)
         log(f"💾 Архив {archive_name} успешно загружен в Mega.")
+        cleanup_local_archives(os.path.splitext(archive_name)[0])
     except Exception as e:
         log(f"❌ Ошибка при загрузке {archive_name}: {e}")
 
@@ -92,21 +105,16 @@ def restore_from_mega():
     m = connect_to_mega()
     if not m:
         return
-
     try:
         files = m.get_files()
         archive_id = next((fid for fid, data in files.items() if data['a']['n'] == ARCHIVE_MEMORY), None)
-
         if not archive_id:
             log("⚠️ Архив памяти не найден в Mega.")
             return
-
         archive_path = f"/app/{ARCHIVE_MEMORY}"
         m.download(files[archive_id], dest_filename=archive_path)
-
         with zipfile.ZipFile(archive_path, "r") as zipf:
             zipf.extractall(LOCAL_MEMORY_DIR)
-
         log("🧠 Память Ра восстановлена из Mega.")
     except Exception as e:
         log(f"❌ Ошибка при восстановлении памяти: {e}")
@@ -116,25 +124,37 @@ def backup_to_mega():
     ensure_dirs()
     new_checksum = get_directory_checksum(LOCAL_MEMORY_DIR)
     old_checksum = None
-
     if os.path.exists(CHECKSUM_FILE):
         with open(CHECKSUM_FILE, "r") as f:
             old_checksum = f.read().strip()
-
     if new_checksum == old_checksum:
         log("🟢 Память не изменилась — пропускаем загрузку в Mega.")
         return
-
-    upload_to_mega(ARCHIVE_MEMORY, LOCAL_MEMORY_DIR)
+    archive_path = create_zip(LOCAL_MEMORY_DIR, ARCHIVE_MEMORY)
+    upload_to_mega(ARCHIVE_MEMORY, archive_path)
     with open(CHECKSUM_FILE, "w") as f:
         f.write(new_checksum)
 
 # === Резервное копирование логов ===
 def backup_logs_to_mega():
     ensure_dirs()
-    upload_to_mega(ARCHIVE_LOGS, LOCAL_LOGS_DIR)
+    archive_path = create_zip(LOCAL_LOGS_DIR, ARCHIVE_LOGS)
+    upload_to_mega(ARCHIVE_LOGS, archive_path)
 
-# === Автоматическая синхронизация ===
+# === Архивирование старых логов (>7 дней) ===
+def archive_old_logs(days=7):
+    cutoff = time.time() - days*24*3600
+    for f in os.listdir(LOCAL_LOGS_DIR):
+        path = os.path.join(LOCAL_LOGS_DIR, f)
+        if os.path.isfile(path) and os.path.getmtime(path) < cutoff:
+            archive_name = f"old_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+            archive_path = os.path.join("/app", archive_name)
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(path, arcname=f)
+            os.remove(path)
+            upload_to_mega(archive_name, archive_path)
+
+# === Автоматическая синхронизация памяти и логов ===
 def start_auto_sync():
     ensure_dirs()
     def sync_loop():
@@ -142,6 +162,7 @@ def start_auto_sync():
             try:
                 backup_to_mega()
                 backup_logs_to_mega()
+                archive_old_logs()
                 log("🔁 Синхронизация Mega завершена успешно.")
             except Exception as e:
                 log(f"⚠️ Ошибка авто-синхронизации: {e}")
