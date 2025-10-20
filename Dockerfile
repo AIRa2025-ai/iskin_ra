@@ -1,0 +1,29 @@
+# --- Базовый Python образ ---
+FROM python:3.11-slim
+
+# --- Устанавливаем рабочую директорию ---
+WORKDIR /app
+
+# --- Копируем проект в контейнер ---
+COPY . /app
+
+# --- Устанавливаем системные зависимости ---
+RUN apt-get update && \
+    apt-get install -y git curl && \
+    pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir aiohttp gitpython python-dotenv watchdog
+
+# --- Создаем папки для логов и памяти ---
+RUN mkdir -p /app/logs /app/memory /app/scripts
+
+# --- Копируем скрипт автообновления модулей ---
+COPY scripts/update_modules.py /app/scripts/update_modules.py
+
+# --- Копируем скрипт авто-перезапуска бота ---
+COPY scripts/run_bot.py /app/scripts/run_bot.py
+
+# --- Открываем порт для вебхуков или API (если нужно) ---
+EXPOSE 8080
+
+# --- Команда запуска: сначала обновляем модули, потом запускаем бот с автоперезапуском ---
+CMD ["python", "/app/scripts/run_bot.py"]
