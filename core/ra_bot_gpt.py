@@ -23,14 +23,17 @@ GITHUB_REPO = "https://github.com/YourUsername/RaSvetModules.git"
 
 def update_modules():
     try:
-        if os.path.exists(MODULES_DIR) and os.path.exists(os.path.join(MODULES_DIR, ".git")):
-            result = subprocess.run(
-                ["git", "-C", MODULES_DIR, "pull"], capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                logging.info(f"✅ Модули обновлены через git pull:\n{result.stdout}")
-            else:
-                logging.warning(f"⚠️ Ошибка git pull:\n{result.stderr}")
+        if os.path.exists(MODULES_DIR):
+            logging.info(f"⚠️ {MODULES_DIR} уже существует, пропускаем git clone")
+            if os.path.exists(os.path.join(MODULES_DIR, ".git")):
+                # делаем git pull
+                result = subprocess.run(
+                    ["git", "-C", MODULES_DIR, "pull"], capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    logging.info(f"✅ Модули обновлены через git pull:\n{result.stdout}")
+                else:
+                    logging.warning(f"⚠️ Ошибка git pull:\n{result.stderr}")
         else:
             result = subprocess.run(
                 ["git", "clone", GITHUB_REPO, MODULES_DIR], capture_output=True, text=True
