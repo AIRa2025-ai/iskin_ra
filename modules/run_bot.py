@@ -11,6 +11,8 @@ while True:
         # Запускаем бота
         print("Запуск бота Ра...")
         subprocess.run(["python", "core/ra_bot_gpt.py"], check=True)
-    except Exception as e:
-        print(f"Бот упал с ошибкой: {e}, перезапуск через 5 секунд...")
-        time.sleep(5)
+   except Exception as e:
+       print(f"Бот упал с ошибкой: {e}, перезапуск через 5 секунд...")
+       with open("/app/logs/bot_errors.log", "a") as f:
+           f.write(f"{time.ctime()}: {e}\n")
+       time.sleep(5)
