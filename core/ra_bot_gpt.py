@@ -74,7 +74,7 @@ modules = autoloader.activate_modules()
 self_master = RaSelfMaster()
 police = RaPolice()
 
-print(self_master.awaken())
+asyncio.run(self_master.awaken())
 print(autoloader.status())
 print(police.status())
 
