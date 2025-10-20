@@ -10,6 +10,12 @@ while True:
         # Перед каждым запуском обновляем модули
         subprocess.run(["python", "/app/scripts/update_modules.py"], check=True)
         
+        # === Восстанавливаем память при старте ===
+        restore_from_mega()
+
+        # === Запускаем фоновой поток синхронизации ===
+        threading.Thread(target=backup_to_mega, daemon=True).start()
+        
         # Запускаем бота
         print("Запуск бота Ра...")
         subprocess.run(["python", "core/ra_bot_gpt.py"], check=True)
