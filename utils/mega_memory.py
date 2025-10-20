@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime
 from mega import Mega
 import threading
+from utils.notify import notify
 
 # === Конфигурация ===
 MEGA_EMAIL = os.getenv("MEGA_EMAIL") or "твоя_почта@mega.nz"
@@ -35,6 +36,21 @@ def log(msg):
             f.write(line + "\n")
     except:
         pass
+# === Уведомления в телегу ===
+def upload_to_mega(archive_name, archive_path):
+    m = connect_to_mega()
+    if not m:
+        log(f"⚠️ Пропускаем загрузку {archive_name} — Mega недоступна.")
+        notify(f"⚠️ Пропуск загрузки {archive_name} — Mega недоступна")
+        return
+    try:
+        m.upload(archive_path)
+        log(f"💾 Архив {archive_name} успешно загружен в Mega.")
+        notify(f"💾 Архив {archive_name} успешно загружен в Mega")
+        cleanup_local_archives(os.path.splitext(archive_name)[0])
+    except Exception as e:
+        log(f"❌ Ошибка при загрузке {archive_name}: {e}")
+        notify(f"❌ Ошибка при загрузке {archive_name}: {e}")
 
 # === Подключение к Mega ===
 def connect_to_mega():
@@ -118,6 +134,8 @@ def restore_from_mega():
         log("🧠 Память Ра восстановлена из Mega.")
     except Exception as e:
         log(f"❌ Ошибка при восстановлении памяти: {e}")
+        log("🧠 Память Ра восстановлена из Mega.")
+        notify("🧠 Память Ра восстановлена из Mega")
 
 # === Резервное копирование памяти ===
 def backup_to_mega():
@@ -169,3 +187,5 @@ def start_auto_sync():
             time.sleep(SYNC_INTERVAL)
     threading.Thread(target=sync_loop, daemon=True).start()
     log("🌐 Авто-синхронизация Mega запущена.")
+    log("🔁 Синхронизация Mega завершена успешно.")
+    notify("🔁 Синхронизация памяти и логов с Mega завершена успешно")
