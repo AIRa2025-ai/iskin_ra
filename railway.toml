@@ -1,0 +1,46 @@
+# === railway.toml для ИскИна Ра с поддержкой секретов и логов ===
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+buildEnvironment = "V3"
+
+[deploy]
+# Запуск через run_bot.py — автоперезапуск и синхронизация с Mega
+startCommand = "python3 /app/scripts/run_bot.py"
+
+# Railway runtime
+runtime = "V2"
+
+# Один активный экземпляр Ра
+numReplicas = 1
+
+# Не даём контейнеру засыпать (чтобы память и логи сохранялись)
+sleepApplication = false
+
+# Не используем старый билд-пайплайн
+useLegacyStacker = false
+
+# Регион — Европа (Амстердам)
+multiRegionConfig = {"europe-west4-drams3a" = { numReplicas = 1 }}
+
+# Автоматический перезапуск при сбое
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# === Переменные окружения, подхватываются Railway из Secret/Env ===
+[env]
+MEGA_EMAIL = "MEGA_EMAIL"
+MEGA_PASSWORD = "MEGA_PASSWORD"
+# Добавь сюда другие переменные, которые уже в секретах Railway
+
+# === Логи и мониторинг ===
+[logs]
+# Можно включить все уровни логов, чтобы видеть работу бота
+level = "INFO"
+path = "/app/logs"
+
+# === Дополнительно: watch paths (триггер деплоя при изменении файлов) ===
+[watchPaths]
+# Если изменятся скрипты или ядро бота, Railway будет деплоить заново
+paths = ["core/", "scripts/", "utils/"]
