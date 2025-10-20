@@ -13,6 +13,10 @@ RUN apt-get update && \
     pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir aiohttp gitpython python-dotenv watchdog
 
+# Внутри контейнера создаём папку для памяти
+RUN mkdir -p /app/memory /app/logs
+VOLUME ["/app/memory", "/app/logs"]
+
 # --- Создаем папки для логов и памяти ---
 RUN mkdir -p /app/logs /app/memory /app/scripts
 
