@@ -73,7 +73,7 @@ class RaSvetDownloaderAsync:
     async def _download_archive_if_needed(self):
         """Скачиваем архив только если нет локального файла или изменился размер"""
         async with aiohttp.ClientSession() as session:
-            async with session.head(ARCHIVE_URL) as resp:
+            async with session.head(ARCHIVE_URL, timeout=aiohttp.ClientTimeout(total=60)) as resp:
                 resp.raise_for_status()
                 remote_size = int(resp.headers.get("Content-Length", 0))
         local_size = LOCAL_ZIP.stat().st_size if LOCAL_ZIP.exists() else 0
