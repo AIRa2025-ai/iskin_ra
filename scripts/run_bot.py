@@ -3,6 +3,7 @@ import subprocess
 import time
 from scripts.update_modules import MODULES_DIR
 from utils.mega_memory import restore_from_mega, start_auto_sync, log
+from utils.notify import notify
 
 def main_loop():
     while True:
@@ -14,7 +15,7 @@ def main_loop():
             restore_from_mega()
 
             log("🌐 Запуск авто-синхронизации памяти и логов...")
-            start_auto_sync()  # запускает фоновые потоки и управляет ими сам
+            start_auto_sync()
 
             log("🚀 Запуск бота Ра...")
             subprocess.run(["python", "core/ra_bot_gpt.py"], check=True)
@@ -22,11 +23,13 @@ def main_loop():
         except Exception as e:
             err_msg = f"💥 Бот упал с ошибкой: {e}, перезапуск через 5 секунд..."
             log(err_msg)
+            notify(err_msg)
             try:
                 with open("/app/logs/bot_errors.log", "a", encoding="utf-8") as f:
                     f.write(f"{time.ctime()}: {e}\n")
             except Exception as log_error:
                 log(f"⚠️ Не удалось записать лог ошибки: {log_error}")
+                notify(f"⚠️ Не удалось записать лог ошибки: {log_error}")
             time.sleep(5)
 
 if __name__ == "__main__":
