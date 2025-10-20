@@ -2,6 +2,8 @@
 import subprocess
 import time
 from scripts.update_modules import MODULES_DIR
+from utils.mega_memory import restore_from_mega, backup_to_mega
+import threading
 
 while True:
     try:
