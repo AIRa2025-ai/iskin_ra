@@ -3,7 +3,7 @@ import json
 import os
 import logging
 from datetime import datetime
-from memory_sync import sync_to_github
+from utils.memory_sync import sync_to_github
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
