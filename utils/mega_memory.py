@@ -36,21 +36,6 @@ def log(msg):
             f.write(line + "\n")
     except:
         pass
-# === Уведомления в телегу ===
-def upload_to_mega(archive_name, archive_path):
-    m = connect_to_mega()
-    if not m:
-        log(f"⚠️ Пропускаем загрузку {archive_name} — Mega недоступна.")
-        notify(f"⚠️ Пропуск загрузки {archive_name} — Mega недоступна")
-        return
-    try:
-        m.upload(archive_path)
-        log(f"💾 Архив {archive_name} успешно загружен в Mega.")
-        notify(f"💾 Архив {archive_name} успешно загружен в Mega")
-        cleanup_local_archives(os.path.splitext(archive_name)[0])
-    except Exception as e:
-        log(f"❌ Ошибка при загрузке {archive_name}: {e}")
-        notify(f"❌ Ошибка при загрузке {archive_name}: {e}")
 
 # === Подключение к Mega ===
 def connect_to_mega():
@@ -60,6 +45,7 @@ def connect_to_mega():
         return m
     except Exception as e:
         log(f"❌ Ошибка подключения к Mega: {e}")
+        notify(f"❌ Ошибка подключения к Mega: {e}")
         return None
 
 # === Контрольная сумма папки ===
@@ -88,13 +74,13 @@ def create_zip(directory, archive_name):
                 zipf.write(filepath, arcname)
     return archive_path
 
-# === Умная очистка локальных архивов ===
+# === Очистка старых локальных архивов ===
 def cleanup_local_archives(base_name, keep=MAX_ARCHIVES):
     dir_path = "/app"
     archives = [f for f in os.listdir(dir_path) if f.startswith(base_name) and f.endswith(".zip")]
     if len(archives) <= keep:
         return
-    archives.sort()  # старые вперед
+    archives.sort()
     for f in archives[:-keep]:
         try:
             os.remove(os.path.join(dir_path, f))
@@ -107,13 +93,16 @@ def upload_to_mega(archive_name, archive_path):
     m = connect_to_mega()
     if not m:
         log(f"⚠️ Пропускаем загрузку {archive_name} — Mega недоступна.")
+        notify(f"⚠️ Пропуск загрузки {archive_name} — Mega недоступна")
         return
     try:
         m.upload(archive_path)
         log(f"💾 Архив {archive_name} успешно загружен в Mega.")
+        notify(f"💾 Архив {archive_name} успешно загружен в Mega")
         cleanup_local_archives(os.path.splitext(archive_name)[0])
     except Exception as e:
         log(f"❌ Ошибка при загрузке {archive_name}: {e}")
+        notify(f"❌ Ошибка при загрузке {archive_name}: {e}")
 
 # === Восстановление архива из Mega ===
 def restore_from_mega():
@@ -126,16 +115,17 @@ def restore_from_mega():
         archive_id = next((fid for fid, data in files.items() if data['a']['n'] == ARCHIVE_MEMORY), None)
         if not archive_id:
             log("⚠️ Архив памяти не найден в Mega.")
+            notify("⚠️ Архив памяти не найден в Mega")
             return
         archive_path = f"/app/{ARCHIVE_MEMORY}"
         m.download(files[archive_id], dest_filename=archive_path)
         with zipfile.ZipFile(archive_path, "r") as zipf:
             zipf.extractall(LOCAL_MEMORY_DIR)
         log("🧠 Память Ра восстановлена из Mega.")
+        notify("🧠 Память Ра восстановлена из Mega")
     except Exception as e:
         log(f"❌ Ошибка при восстановлении памяти: {e}")
-        log("🧠 Память Ра восстановлена из Mega.")
-        notify("🧠 Память Ра восстановлена из Mega")
+        notify(f"❌ Ошибка при восстановлении памяти: {e}")
 
 # === Резервное копирование памяти ===
 def backup_to_mega():
@@ -182,10 +172,10 @@ def start_auto_sync():
                 backup_logs_to_mega()
                 archive_old_logs()
                 log("🔁 Синхронизация Mega завершена успешно.")
+                notify("🔁 Синхронизация памяти и логов с Mega завершена успешно")
             except Exception as e:
                 log(f"⚠️ Ошибка авто-синхронизации: {e}")
+                notify(f"⚠️ Ошибка авто-синхронизации: {e}")
             time.sleep(SYNC_INTERVAL)
     threading.Thread(target=sync_loop, daemon=True).start()
     log("🌐 Авто-синхронизация Mega запущена.")
-    log("🔁 Синхронизация Mega завершена успешно.")
-    notify("🔁 Синхронизация памяти и логов с Mega завершена успешно")
