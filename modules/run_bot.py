@@ -1,22 +1,28 @@
-# run_bot.py — автоперезапуск бота при сбое
+# run_bot.py — автоперезапуск бота при сбое + синхронизация с Mega
 import subprocess
 import time
 import threading
 from scripts.update_modules import MODULES_DIR
-from utils.mega_memory import restore_from_mega, backup_to_mega
+from utils.mega_memory import restore_from_mega, backup_to_mega, backup_logs_to_mega
+
+def start_background_sync():
+    """Фоновые процессы для резервного копирования памяти и логов"""
+    threading.Thread(target=backup_to_mega, daemon=True).start()
+    threading.Thread(target=backup_logs_to_mega, daemon=True).start()
 
 while True:
     try:
-        # Перед каждым запуском обновляем модули
+        # --- Обновляем модули перед запуском ---
         subprocess.run(["python", "/app/scripts/update_modules.py"], check=True)
 
-        # === Восстанавливаем память при старте ===
+        # --- Восстанавливаем память Ра при старте ---
+        print("🧠 Восстановление памяти из Mega...")
         restore_from_mega()
 
-        # === Запускаем фоновой поток синхронизации ===
-        threading.Thread(target=backup_to_mega, daemon=True).start()
+        # --- Запускаем фоновую синхронизацию памяти и логов ---
+        start_background_sync()
 
-        # Запускаем бота
+        # --- Запуск основного ядра Ра ---
         print("🚀 Запуск бота Ра...")
         subprocess.run(["python", "core/ra_bot_gpt.py"], check=True)
 
