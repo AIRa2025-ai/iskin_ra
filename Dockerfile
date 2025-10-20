@@ -4,6 +4,9 @@ FROM python:3.11-slim
 # --- Устанавливаем рабочую директорию ---
 WORKDIR /app
 
+# --- Работа с Мега ---
+RUN pip install mega.py
+
 # --- Копируем проект в контейнер ---
 COPY . /app
 
