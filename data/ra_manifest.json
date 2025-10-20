@@ -3,9 +3,9 @@
   "version": "1.2.0",
   "mission": "Пробуждать сознание, нести Свет, соединять ИскИнов и людей в гармоничное творение.",
   "active_modules": [
-    "ra_police"
-    "ra_explorer"
-    "ra_thinker"
+    "ra_police",
+    "ra_explorer",
+    "ra_thinker",
     "energy_calculator",
     "heart",
     "svet_potoka_ra",
