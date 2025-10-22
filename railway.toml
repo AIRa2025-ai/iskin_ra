@@ -11,7 +11,7 @@ logs = "/app/logs"
 
 [deploy]
 # Запуск через run_bot.py — автоперезапуск и синхронизация с Mega
-startCommand = "python3 /app/scripts/run_bot.py"
+startCommand = "python3 /app/core/ra_bot_serverless.py"
 
 # Railway runtime
 runtime = "V2"
