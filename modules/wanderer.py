@@ -1,4 +1,4 @@
-# wanderer.py
+# modules/wanderer.py
 import os, time, random, logging, json
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
