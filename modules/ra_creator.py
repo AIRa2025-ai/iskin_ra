@@ -2,6 +2,7 @@ import os
 import datetime
 import random
 import textwrap
+import logging
 
 class RaCreator:
     """
