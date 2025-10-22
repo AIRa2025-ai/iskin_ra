@@ -11,17 +11,17 @@ MAX_BACKUPS=5
 RA_MAIN="$RA_DIR/core/ra_bot_gpt.py"
 
 # Настройки Telegram уведомлений (берём из окружения)
-TG_BOT_TOKEN="${TG_BOT_TOKEN:-}"
-TG_CHAT_ID="${TG_CHAT_ID:-}"
+BOT_TOKEN="${BOT_TOKEN:-}"
+CHAT_ID="${CHAT_ID:-}"
 
 function send_telegram() {
     local MESSAGE=$1
-    if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
-        echo "⚠️ Telegram не настроен: TG_BOT_TOKEN или TG_CHAT_ID отсутствуют"
+    if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
+        echo "⚠️ Telegram не настроен: BOT_TOKEN или CHAT_ID отсутствуют"
         return 1
     fi
-    curl -s -X POST "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
-        -d chat_id="$TG_CHAT_ID" \
+    curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+        -d chat_id="$CHAT_ID" \
         -d text="$MESSAGE" > /dev/null
 }
 
