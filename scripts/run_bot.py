@@ -1,36 +1,23 @@
-# scripts/run_bot.py — автоперезапуск бота при сбое + авто-синхронизация с Mega
-import subprocess
-import time
-from scripts.update_modules import MODULES_DIR
-from utils.mega_memory import restore_from_mega, start_auto_sync, log
-from utils.notify import notify
+# scripts/run_bot.py — serverless версия для Railway Free Plan
+import asyncio
+import logging
+import os
+import sys
 
-def main_loop():
-    while True:
-        try:
-            log("🔄 Обновление модулей перед запуском...")
-            subprocess.run(["python", "/app/scripts/update_modules.py"], check=True)
+# Добавляем путь к корню проекта, чтобы импорты работали
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, ROOT_DIR)
 
-            log("🧠 Восстановление памяти Ра из Mega...")
-            restore_from_mega()
-
-            log("🌐 Запуск авто-синхронизации памяти и логов...")
-            start_auto_sync()
-
-            log("🚀 Запуск бота Ра...")
-            subprocess.run(["python", "core/ra_bot_gpt.py"], check=True)
-
-        except Exception as e:
-            err_msg = f"💥 Бот упал с ошибкой: {e}, перезапуск через 5 секунд..."
-            log(err_msg)
-            notify(err_msg)
-            try:
-                with open("/app/logs/bot_errors.log", "a", encoding="utf-8") as f:
-                    f.write(f"{time.ctime()}: {e}\n")
-            except Exception as log_error:
-                log(f"⚠️ Не удалось записать лог ошибки: {log_error}")
-                notify(f"⚠️ Не удалось записать лог ошибки: {log_error}")
-            time.sleep(5)
+from core.ra_bot_gpt import main as run_ra_bot
 
 if __name__ == "__main__":
-    main_loop()
+    logging.basicConfig(level=logging.INFO)
+    logging.info("🚀 Запуск РаСвет (serverless режим)...")
+
+    try:
+        asyncio.run(run_ra_bot())  # просто запускаем, без бесконечного цикла
+        logging.info("✅ РаСвет завершил работу без ошибок.")
+    except KeyboardInterrupt:
+        logging.info("🛑 Остановка вручную.")
+    except Exception as e:
+        logging.error(f"💥 Ошибка при запуске Ра: {e}")
