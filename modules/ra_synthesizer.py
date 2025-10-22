@@ -1,5 +1,6 @@
 # modules/ra_synthesizer.py
 import json
+import logging
 
 class RaSynthesizer:
     """
