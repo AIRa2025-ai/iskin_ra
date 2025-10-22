@@ -9,7 +9,7 @@ from datetime import datetime
 import aiohttp
 import json
 
-ARCHIVE_URL = "https://mega.nz/file/FlQ0ET4J#9gJjCBnj5uYn5bJYYMfPiN3BTvWz8el8leCWQPZvrUg"
+ARCHIVE_URL = "https://mega.nz/file/https://mega.nz/file/FlQ0ET4J#9gJjCBnj5uYn5bJYYMfPiN3BTvWz8el8leCWQPZvrUg"
 DATA_DIR = Path("/app/data_disk")
 LOCAL_ZIP = DATA_DIR / "RaSvet.zip"
 EXTRACT_DIR = DATA_DIR / "RaSvet"
