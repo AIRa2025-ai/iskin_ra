@@ -11,6 +11,14 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import Message
 from dotenv import load_dotenv
+# конфиги и константы
+from modules.ra_config import ARCHIVE_URL, TIMEOUT
+
+# логирование
+from modules.ra_logger import log
+
+# модуль Сердце
+from modules.сердце import HeartModule
 
 # === 🔧 Пути для Python и контейнера ===
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
