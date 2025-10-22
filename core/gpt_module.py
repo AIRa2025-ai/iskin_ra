@@ -119,5 +119,8 @@ async def safe_ask_openrouter(user_id, messages_payload):
         for model in usable_models:
             if model != last_working_model:
                 asyncio.create_task(background_cache(model))
-
         return answer
+
+async def ask_openrouter_with_fallback(prompt: str):
+    # временный заглушечный вариант
+    return f"[RaStub] Ответ на: {prompt[:50]}..."
