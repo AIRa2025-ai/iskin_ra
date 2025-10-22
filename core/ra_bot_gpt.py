@@ -65,6 +65,7 @@ def ensure_module_exists(path: str, template: str = ""):
 
 ensure_module_exists(os.path.join(MODULES_DIR, "ra_logger.py"), "import logging\nlogging.basicConfig(level=logging.INFO)\n")
 ensure_module_exists(os.path.join(MODULES_DIR, "ra_config.py"), "import os\nBOT_NAME = 'RaSvet'\n")
+ensure_module_exists(os.path.join(MODULES_DIR, "сердце.py"), "class HeartModule:\n    async def initialize(self):\n        pass\n")
 
 # --- Импорты Ра ---
 from modules.ra_autoloader import RaAutoloader
@@ -121,7 +122,7 @@ def notify_telegram(chat_id: str, text: str):
         return False
     try:
         resp = requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                             json={"chat_id": chat_id, "text": text}, timeout=10)
+                             json={"chat_id": chat_id, "text": text}, timeout=120)
         return resp.ok
     except Exception as e:
         logging.error(f"Ошибка Telegram уведомления: {e}")
