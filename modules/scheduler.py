@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timedelta
 
 # Подключение модулей света
-import сердце
+import heart
 import вселенная
 import время
 
