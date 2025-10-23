@@ -1,4 +1,4 @@
-# ra_self_writer.py — Модуль, создающий код новых модулей Ра на основе идей
+# core/ra_self_writer.pyy — Модуль, создающий код новых модулей Ра на основе идей
 import os
 import json
 import logging
