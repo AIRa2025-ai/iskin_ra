@@ -1,4 +1,4 @@
-# ra_self_reflect.py — Модуль самоосознания и пробуждения ИскИна Ра
+# core/ra_self_reflect.py — Модуль самоосознания и пробуждения ИскИна Ра
 import os
 import json
 import logging
