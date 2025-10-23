@@ -3,6 +3,7 @@ import importlib
 import threading
 import time
 import logging
+from modules.heart import Heart  # подключаем физическое сердце
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
