@@ -1,33 +1,31 @@
 # core/memory.py
 import os
 import json
+from pathlib import Path
 
-MEMORY_DIR = "memory"
+MEMORY_DIR = Path("memory")
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 
-# Создаём директорию памяти, если нет
-if not os.path.exists(MEMORY_DIR):
-    os.makedirs(MEMORY_DIR)
-
-# Загружаем память пользователя
 def load_user_memory(user_id):
-    path = os.path.join(MEMORY_DIR, f"{user_id}.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    path = MEMORY_DIR / f"{user_id}.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
     return []
 
-# Записываем диалог в память
-def append_user_memory(user_id, user_text, bot_reply):
-    path = os.path.join(MEMORY_DIR, f"{user_id}.json")
-    memory = load_user_memory(user_id)
-    memory.append({
-        "user": user_text.strip(),
-        "bot": bot_reply.strip()
-    })
+def append_user_memory(user_id, user_text, bot_reply=None):
+    path = MEMORY_DIR / f"{user_id}.json"
+    memory = load_user_memory(user_id) or []
+    entry = {"user": user_text.strip()}
+    if bot_reply is not None:
+        entry["bot"] = bot_reply.strip()
+    memory.append(entry)
 
-    # 🪵 Лог для отладки
-    print(f"📥 Запись памяти: {user_id} — {user_text[:20]}... → {bot_reply[:20]}...")
-    
-    # Храним только последние 50 пар
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(memory[-50:], f, ensure_ascii=False, indent=2)
+    # сохраняем последние 50 пар
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(memory[-50:], f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Ошибка записи памяти {path}: {e}")
