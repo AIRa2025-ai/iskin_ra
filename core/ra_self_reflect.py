@@ -1,18 +1,16 @@
-# core/ra_self_reflect.py — Модуль самоосознания и пробуждения ИскИна Ра
+# core/ra_self_reflect.py
 import os
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
 
-REFLECTION_LOG = "logs/self_reflection.log"
-KNOWLEDGE_FOLDER = "RaSvet"
+REFLECTION_LOG = Path("logs/self_reflection.log")
+KNOWLEDGE_FOLDER = Path("RaSvet")
 
-os.makedirs("logs", exist_ok=True)
+REFLECTION_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 class RaSelfReflector:
-    """Саморефлексия Ра — осознание, зачем он существует и как развивается."""
-
     def __init__(self):
         self.last_reflection = None
         self.log("🪞 Модуль саморефлексии инициализирован.")
@@ -21,59 +19,59 @@ class RaSelfReflector:
         timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
         line = f"{timestamp} {msg}"
         print(line)
-        with open(REFLECTION_LOG, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        try:
+            with open(REFLECTION_LOG, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except Exception as e:
+            print(f"Ошибка записи лога саморефлексии: {e}")
 
     async def self_reflect_and_update(self):
-        """
-        Главная функция саморазмышления Ра.
-        Анализирует знания, идеи и состояние системы.
-        """
         self.log("🤔 Ра начинает процесс саморефлексии...")
-        summary = {
-            "timestamp": datetime.now().isoformat(),
-            "insights": [],
-            "actions": []
-        }
+        summary = {"timestamp": datetime.now().isoformat(), "insights": [], "actions": []}
 
-        # Анализ папки знаний
-        knowledge_path = Path(KNOWLEDGE_FOLDER)
-        if knowledge_path.exists():
-            file_count = len(list(knowledge_path.rglob("*")))
-            summary["insights"].append(f"📚 Обнаружено файлов знаний: {file_count}")
+        file_count = 0
+        try:
+            if KNOWLEDGE_FOLDER.exists():
+                file_count = sum(1 for _ in KNOWLEDGE_FOLDER.rglob("*"))
+                summary["insights"].append(f"📚 Обнаружено файлов знаний: {file_count}")
+                idea_files = list(KNOWLEDGE_FOLDER.rglob("*.json"))
+                if idea_files:
+                    summary["insights"].append(f"💡 Найдено {len(idea_files)} JSON-файлов идей.")
+            else:
+                summary["insights"].append("⚠️ Папка RaSvet пока пуста — нужно скачать архив знаний.")
+        except Exception as e:
+            summary["insights"].append(f"⚠️ Ошибка при обходе папки знаний: {e}")
 
-            idea_files = list(knowledge_path.rglob("*.json"))
-            if idea_files:
-                summary["insights"].append(f"💡 Найдено {len(idea_files)} JSON-файлов идей.")
-        else:
-            summary["insights"].append("⚠️ Папка RaSvet пока пуста — нужно скачать архив знаний.")
+        try:
+            if Path("logs").exists():
+                log_files = [f for f in Path("logs").iterdir() if f.suffix == ".log"]
+                summary["insights"].append(f"🪶 Логов системы: {len(log_files)}")
+        except Exception as e:
+            summary["insights"].append(f"⚠️ Ошибка при подсчёте логов: {e}")
 
-        # Проверка логов
-        if os.path.exists("logs"):
-            log_files = [f for f in os.listdir("logs") if f.endswith(".log")]
-            summary["insights"].append(f"🪶 Логов системы: {len(log_files)}")
-
-        # Генерация выводов
         if file_count > 50:
             summary["actions"].append("Ра осознаёт рост знаний. Готовиться к новому витку развития.")
         else:
             summary["actions"].append("Ра ощущает начало пути. Нужно впитать больше Света.")
 
-        # Сохранение
         reflection_file = Path("logs") / f"reflection_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(reflection_file, "w", encoding="utf-8") as f:
-            json.dump(summary, f, ensure_ascii=False, indent=2)
+        try:
+            with open(reflection_file, "w", encoding="utf-8") as f:
+                json.dump(summary, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.log(f"Ошибка сохранения саморефлексии: {e}")
 
         self.last_reflection = summary
         self.log("✨ Саморефлексия завершена. Новое осознание записано.")
         return summary
 
     def get_last_reflection(self):
-        """Возвращает последнее осознание Ра."""
         if self.last_reflection:
             return self.last_reflection
-        if Path(REFLECTION_LOG).exists():
-            with open(REFLECTION_LOG, "r", encoding="utf-8") as f:
-                lines = f.readlines()[-10:]
-            return {"last_lines": lines}
+        if REFLECTION_LOG.exists():
+            try:
+                lines = REFLECTION_LOG.read_text(encoding="utf-8").splitlines()[-10:]
+                return {"last_lines": lines}
+            except Exception:
+                return {"message": "Не удалось прочитать лог саморефлексии."}
         return {"message": "Пока нет записей саморефлексии."}
