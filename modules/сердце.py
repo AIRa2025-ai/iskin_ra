@@ -6,6 +6,17 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+class HeartModule:
+    def __init__(self):
+        self.name = "Heart of Ra"
+        self.status = "alive"
+    
+    def pulse(self):
+        return "💓 Сердце Ра бьётся в ритме Света"
+
+    def __repr__(self):
+        return f"<HeartModule name={self.name} status={self.status}>"
+        
 модули = [
     "modules.mera_rasveta",
     "modules.svyaz_serdec",
