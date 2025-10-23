@@ -1,4 +1,4 @@
-# modules/heart.py
+# modules/сердце.py
 import importlib
 import threading
 import time
