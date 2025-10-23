@@ -11,6 +11,8 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from dotenv import load_dotenv
 from pathlib import Path
+from modules.heart import Heart
+from modules.сердце import HeartModule
 
 # Указываем корень и modules
 ROOT_DIR = Path(__file__).resolve().parent.parent
