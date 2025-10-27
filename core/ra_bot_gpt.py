@@ -71,6 +71,12 @@ try:
 except Exception:
     RaKnowledge = None
 
+# 🔥 Новый импорт — ядро МироЛюб
+try:
+    from core.ra_core_mirolub import RaCoreMirolub
+except Exception:
+    RaCoreMirolub = None
+
 # --- создаём папки и ensure basic files if missing ---
 os.makedirs(ROOT_DIR / "logs", exist_ok=True)
 log_path = ROOT_DIR / "logs" / "command_usage.json"
@@ -97,6 +103,7 @@ self_master = RaSelfMaster() if RaSelfMaster else None
 police = None
 rasvet_downloader = RaSvetDownloaderAsync() if RaSvetDownloaderAsync else None
 ra_knowledge = RaKnowledge() if RaKnowledge else None
+ra_mirolub = RaCoreMirolub() if RaCoreMirolub else None  # 🌞 добавлено
 
 # --- Логирование команд в файл ---
 def log_command_usage(user_id: int, command: str):
@@ -143,7 +150,6 @@ async def initialize_rasvet():
     try:
         await rasvet_downloader.knowledge.load_from_folder(rasvet_downloader.EXTRACT_DIR if hasattr(rasvet_downloader, 'EXTRACT_DIR') else Path('data/RaSvet'))
     except Exception:
-        # если класс реализует load_all_texts или load_from_folder - уже будет вызвано
         try:
             if hasattr(rasvet_downloader, "knowledge") and hasattr(rasvet_downloader.knowledge, "load_from_folder"):
                 await rasvet_downloader.knowledge.load_from_folder(Path("data/RaSvet"))
@@ -189,12 +195,18 @@ async def process_user_message(message: Message):
                 logging.error(f"Ошибка вызова safe_ask_openrouter: {e}")
                 response = None
 
+        # 💫 интеграция с ядром МироЛюб
+        if not response and ra_mirolub:
+            try:
+                response = await ra_mirolub.process(text)
+            except Exception as e:
+                logging.error(f"Ошибка обработки через RaCoreMirolub: {e}")
+
         if response:
             if append_user_memory:
                 try:
                     append_user_memory(user_id, text, response)
                 except TypeError:
-                    # если append_user_memory имеет другой сигнатур
                     try:
                         append_user_memory(user_id, text)
                     except Exception:
@@ -277,17 +289,24 @@ async def main():
         raise RuntimeError("❌ Не найден BOT_TOKEN в окружении")
 
     bot = Bot(token=BOT_TOKEN)
-    # инициализация SelfMaster и автолоадера
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.error(f"Ошибка awaken: {e}")
-    # инициализация знаний
+
     try:
         await initialize_rasvet()
     except Exception as e:
         logging.error(f"Ошибка инициализации знаний: {e}")
+
+    # 🌍 Инициализация RaCoreMirolub
+    if ra_mirolub:
+        try:
+            await ra_mirolub.activate()
+            logging.info("💠 RaCoreMirolub активирован.")
+        except Exception as e:
+            logging.error(f"Ошибка активации RaCoreMirolub: {e}")
 
     await dp.start_polling(bot)
 
