@@ -1,0 +1,22 @@
+{
+"symbols": ["EURUSD","GBPUSD","USDJPY"],
+"risk_per_trade": 0.01,
+"data_path": "",
+"poll_interval": 5
+}
+
+
+
+
+-- END OF DOCUMENT --
+
+
+-- README (quick steps):
+-- 1) Put ra_imbalance.mq5 into MQL5/Experts/ and compile in MetaEditor. Attach EA to chart(s) and enable AlgoTrading.
+-- 2) In MT5, EA writes ra_zones.json into Terminal\MQL5\Files (this folder). Find it and set that folder path into ra_config.json -> data_path.
+-- 3) On the same machine, install Python, pip install MetaTrader5, then run ra_brain.py (it will read ra_zones.json). Adjust config.
+-- 4) Commit these files to your GitHub repo under a folder like /ra/mt5_ea/ and push.
+
+
+-- Notes:
+-- This is minimal, defensive first-version: it detects simple FVG patterns and exports them. Next steps: de-duplicate zone detection, add expiration, add confluence (S/R, daily levels), backtest rules, add order placement module, add Telegram notifications and GPT integration.
