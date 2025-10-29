@@ -1,23 +1,9 @@
 {
-  "timestamp": 1700000000,
+  "timestamp": 0,
   "symbol": "EURUSD",
-  "signal": "bull",
-  "ema": 1.2345,
-  "rsi": 55.2,
-  "fvg": [
-    {
-      "type": "bull",
-      "time_from": 1699999800,
-      "time_to": 1699999860,
-      "price_top": 1.2340,
-      "price_bottom": 1.2335
-    },
-    {
-      "type": "bear",
-      "time_from": 1699999700,
-      "time_to": 1699999760,
-      "price_top": 1.2350,
-      "price_bottom": 1.2345
-    }
-  ]
+  "signal": "none",
+  "ema": 0,
+  "rsi": 0,
+  "price": 0,
+  "fvg": []
 }
