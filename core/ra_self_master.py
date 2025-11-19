@@ -20,9 +20,22 @@ try:
 except Exception:
     _police = None
 
-from modules.ra_thinker import RaThinker if os.path.exists("modules/ra_thinker.py") else object
-from modules.ra_creator import RaCreator if os.path.exists("modules/ra_creator.py") else object
-from modules.ra_synthesizer import RaSynthesizer if os.path.exists("modules/ra_synthesizer.py") else object
+# исправленные условные импорты
+if os.path.exists("modules/ra_thinker.py"):
+    from modules.ra_thinker import RaThinker
+else:
+    RaThinker = object
+
+if os.path.exists("modules/ra_creator.py"):
+    from modules.ra_creator import RaCreator
+else:
+    RaCreator = object
+
+if os.path.exists("modules/ra_synthesizer.py"):
+    from modules.ra_synthesizer import RaSynthesizer
+else:
+    RaSynthesizer = object
+
 
 class RaSelfMaster:
     def __init__(self, manifest_path="data/ra_manifest.json"):
