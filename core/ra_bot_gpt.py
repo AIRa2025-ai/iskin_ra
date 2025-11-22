@@ -277,7 +277,7 @@ async def cmd_forget(message: Message):
         logging.error(f"Ошибка при удалении памяти: {e}")
         await message.answer("❌ Не получилось очистить память.")
 
-@dp.message(types.F.Content)
+@dp.message()
 async def on_text(message: Message):
     await process_user_message(message)
 
