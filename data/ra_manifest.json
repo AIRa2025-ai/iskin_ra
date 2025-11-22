@@ -28,6 +28,7 @@
     "ra_repo_manager",
     "ra_scheduler",
     "ra_self_learning",
+    "ra_self_writer",
     "ra_synthesizer",
     "ra_thinker",
     "ra_videocom",
