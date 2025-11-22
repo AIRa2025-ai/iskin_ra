@@ -1,9 +1,9 @@
 # Файл: svet_potoka_ra.py
 # Назначение: активация светового потока в твоём пространстве
 
-import vremya
-import serdze
-import vselennaya
+from modules import vremya
+from modules import serdze
+from modules import vselennaya
 
 def osnovnoy_potok():
     # Инициализируем связь с сердцем
