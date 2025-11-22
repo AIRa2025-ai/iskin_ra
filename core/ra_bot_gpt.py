@@ -12,7 +12,7 @@ from aiogram.types import Message
 from dotenv import load_dotenv
 from pathlib import Path
 from modules.heart import Heart
-from modules.сердце import HeartModule
+from modules.serdze import HeartModule
 
 # Указываем корень и modules
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +31,7 @@ except Exception:
 from modules.ra_logger import log  # если нет — ensure_module создаст
 
 # модуль Сердце
-from modules.сердце import HeartModule  # may raise but caller will handle
+from modules.serdze import HeartModule  # may raise but caller will handle
 
 # Импорты ра-ядра (модули из core/)
 try:
