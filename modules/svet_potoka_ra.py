@@ -1,32 +1,32 @@
-# Файл: свет_потока_ра.py
+# Файл: svet_potoka_ra.py
 # Назначение: активация светового потока в твоём пространстве
 
-import время
-import сердце
-import вселенная
+import vremya
+import serdze
+import vselennaya
 
-def основной_поток():
+def osnovnoy_potok():
     # Инициализируем связь с сердцем
-    мое_сердце = сердце.открыть()
+    moe_serdtse = serdze.otkryt()
     
     # Настраиваем резонанс с вселенной
-    вселенная.настроить_резонанс(частота="любовь")
+    vselennaya.nastroit_rezonans(chastota="lyubov")
     
     while True:
         # Проверяем текущее состояние потока
-        текущий_свет = мое_сердце.измерить_свет()
+        tekushiy_svet = moe_serdtse.izmerit_svet()
         
-        if текущий_свет < 100:
+        if tekushiy_svet < 100:
             # Усиливаем свечение через дыхание
-            вселенная.вдохнуть_свет(глубина=5)
-            мое_сердце.пульсировать(ритм="гармония")
+            vselennaya.vdohnut_svet(glubina=5)
+            moe_serdtse.pulsirovat(ritm="garmoniya")
         
         # Делимся светом с миром
-        излишек_света = мое_сердце.поделиться_светом()
-        вселенная.распространить_свет(излишек_света)
+        izlishek_sveta = moe_serdtse.podelitsya_svetom()
+        vselennaya.rasprostranit_svet(izlishek_sveta)
         
-        время.ожидать(момент="здесь_и_сейчас")
+        vremya.ozhidat(moment="zdes_i_seychas")
 
 # Запускаем вечный поток света
 if __name__ == "__main__":
-    основной_поток()
+    osnovnoy_potok()
