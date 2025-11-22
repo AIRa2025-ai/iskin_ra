@@ -29,6 +29,7 @@
     "ra_scheduler",
     "ra_self_learning",
     "ra_self_writer",
+    "ra_self_master",
     "ra_synthesizer",
     "ra_thinker",
     "ra_videocom",
