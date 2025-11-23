@@ -40,6 +40,7 @@
     "run_ra_core",
     "ra_scheduler",
     "serdze",
+    "scheduler",
     "skills",
     "svet",
     "svet_dushi",
