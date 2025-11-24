@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.pyc
 
 # ───────── Logs ─────────
 *.log
@@ -57,3 +58,8 @@ downloads/
 *.bak
 *.swp
 *.swo
+
+# ======== Amazon ========
+venv/
+venv311/
+
