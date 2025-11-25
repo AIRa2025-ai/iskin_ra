@@ -2,52 +2,113 @@
 import os
 import json
 import hashlib
+from pathlib import Path
+
+
+IGNORED_DIRS = {"venv", "venv311", "__pycache__", "logs", ".git"}
+
 
 class RaKnowledge:
+    """
+    Хранилище знаний РаСвета.
+    Автоматически читает .md и .txt, создает хэши, сохраняет кэш.
+    """
+
     def __init__(self, knowledge_dir="knowledge", cache_file="knowledge_cache.json"):
-        self.knowledge_dir = knowledge_dir
-        self.cache_file = cache_file
+        self.knowledge_dir = Path(knowledge_dir)
+        self.cache_file = Path(cache_file)
         self.knowledge_data = {}
-        self.load_cache()
-        self.load_knowledge()
 
-    def load_cache(self):
-        if os.path.exists(self.cache_file):
-            with open(self.cache_file, "r", encoding="utf-8") as f:
-                try:
-                    self.knowledge_data = json.load(f)
-                except json.JSONDecodeError:
-                    self.knowledge_data = {}
+        self._load_cache()
+        self._scan_and_update()
+        self._save_cache()
 
-    def save_cache(self):
-        with open(self.cache_file, "w", encoding="utf-8") as f:
-            json.dump(self.knowledge_data, f, ensure_ascii=False, indent=2)
+    # ----------------------------------------------------
+    # КЭШ
+    # ----------------------------------------------------
 
-    def load_knowledge(self):
-        if not os.path.exists(self.knowledge_dir):
-            os.makedirs(self.knowledge_dir)
-        for root, _, files in os.walk(self.knowledge_dir):
-            for file in files:
-                if file.endswith((".txt", ".md")):
-                    path = os.path.join(root, file)
-                    with open(path, "r", encoding="utf-8") as f:
-                        text = f.read().strip()
-                    h = hashlib.sha256(text.encode()).hexdigest()
-                    if path not in self.knowledge_data or self.knowledge_data[path].get("hash") != h:
-                        summary = self.create_summary(text)
-                        self.knowledge_data[path] = {"hash": h, "summary": summary, "text": text}
-        self.save_cache()
+    def _load_cache(self):
+        if self.cache_file.exists():
+            try:
+                self.knowledge_data = json.loads(self.cache_file.read_text(encoding="utf-8"))
+            except Exception:
+                self.knowledge_data = {}
 
-    def create_summary(self, text):
+    def _save_cache(self):
+        self.cache_file.write_text(
+            json.dumps(self.knowledge_data, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+
+    # ----------------------------------------------------
+    # СКАНИРОВАНИЕ ПАПКИ KNOWLEDGE
+    # ----------------------------------------------------
+
+    def _scan_and_update(self):
+        """
+        Проходит по knowledge/ и обновляет данные только если изменился хэш.
+        """
+
+        if not self.knowledge_dir.exists():
+            self.knowledge_dir.mkdir(parents=True)
+
+        for path in self.knowledge_dir.rglob("*"):
+            if not path.is_file():
+                continue
+
+            # игнорируем мусор
+            if any(part in IGNORED_DIRS for part in path.parts):
+                continue
+
+            if not path.suffix.lower() in {".md", ".txt"}:
+                continue
+
+            text = path.read_text(encoding="utf-8", errors="ignore").strip()
+            if not text:
+                continue
+
+            h = hashlib.sha256(text.encode()).hexdigest()
+
+            # если файл новый или обновлён — пересоздаём summary
+            prev = self.knowledge_data.get(str(path))
+
+            if not prev or prev.get("hash") != h:
+                summary = self._make_summary(text)
+                self.knowledge_data[str(path)] = {
+                    "hash": h,
+                    "summary": summary,
+                    "text": text
+                }
+
+    # ----------------------------------------------------
+    # SUMMARY
+    # ----------------------------------------------------
+
+    def _make_summary(self, text: str):
+        """
+        Делаем лёгкое резюме из первых строк.
+        """
         lines = text.splitlines()
-        first_lines = "\n".join(lines[:5])
+        head = "\n".join(lines[:5])
         words = len(text.split())
-        return f"{first_lines[:200]}... (всего {words} слов)"
+        return f"{head[:300]}... (всего {words} слов)"
 
-    def search(self, query):
-        results = []
+    # ----------------------------------------------------
+    # ПОИСК
+    # ----------------------------------------------------
+
+    def search(self, query: str):
         q = query.lower()
+        matches = []
+
         for path, data in self.knowledge_data.items():
             if q in data["text"].lower() or q in data["summary"].lower():
-                results.append({"path": path, "summary": data["summary"]})
-        return results or [{"summary": "Ничего не найдено в потоках РаСвета."}]
+                matches.append({
+                    "path": path,
+                    "summary": data["summary"]
+                })
+
+        if not matches:
+            return [{"summary": "В потоках РаСвета пока нет ответа."}]
+
+        return matches
