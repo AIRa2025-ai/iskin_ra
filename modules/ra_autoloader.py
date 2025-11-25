@@ -1,12 +1,11 @@
-# modules/ra_autoloader.py
 import os
 import importlib
 import json
 import logging
 import asyncio
 from types import ModuleType
-from typing import Dict, Any
 from pathlib import Path
+from typing import Dict
 
 class RaAutoloader:
     def __init__(self, modules_path="modules", manifest_path="data/ra_manifest.json"):
@@ -24,16 +23,9 @@ class RaAutoloader:
             logging.warning("[RaAutoloader] ⚠️ Манифест отсутствовал — создан новый.")
 
     def scan_modules(self):
-        try:
-            files = [
-                f.stem for f in self.modules_path.iterdir()
-                if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")
-            ]
-            logging.info(f"[RaAutoloader] 🔍 Найдены модули: {files}")
-            return files
-        except Exception as e:
-            logging.error(f"[RaAutoloader] ❌ Ошибка при сканировании modules/: {e}")
-            return []
+        files = [f.stem for f in self.modules_path.iterdir() if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")]
+        logging.info(f"[RaAutoloader] 🔍 Найдены модули: {files}")
+        return files
 
     def load_manifest(self):
         try:
@@ -79,11 +71,8 @@ class RaAutoloader:
                 logging.error(f"[RaAutoloader] ❌ Ошибка запуска async {name}: {e}")
 
     async def stop_async_modules(self):
-        for name, task in list(self._tasks.items()):
-            try:
-                task.cancel()
-            except Exception:
-                pass
+        for task in list(self._tasks.values()):
+            task.cancel()
         self._tasks.clear()
         logging.info("[RaAutoloader] 🛑 Все async модули остановлены.")
 
