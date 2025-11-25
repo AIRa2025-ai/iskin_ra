@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# scheduler.py — поток мудрости и ритма RaSvet (обновлён: использует serdze, vselennaya, vremya)
+# scheduler.py — поток мудрости и ритма RaSvet (чистая англ. версия)
 
 import os
 import json
@@ -8,35 +8,22 @@ import schedule
 import time
 from datetime import datetime, timedelta
 
-# --- Импорт внутренних модулей (латиницей) ---
-# Если модуль отсутствует — не ломаем работу, логируем мягко.
-_serdze = None
-_vselennaya = None
-_vremya = None
-
+# --- Импорты только латиницей ---
 try:
     import serdze as _serdze
-except Exception:
-    try:
-        import сердце as _serdze  # fallback if still russian-named file exists
-    except Exception:
-        _serdze = None
+except:
+    _serdze = None
 
 try:
     import vselennaya as _vselennaya
-except Exception:
-    try:
-        import вселенная as _vselennaya
-    except Exception:
-        _vselennaya = None
+except:
+    _vselennaya = None
 
 try:
     import vremya as _vremya
-except Exception:
-    try:
-        import время as _vremya
-    except Exception:
-        _vremya = None
+except:
+    _vremya = None
+
 
 # --- Пути ---
 BASE_DIR = os.path.dirname(__file__)
@@ -45,239 +32,192 @@ LOG_PATH = os.path.join(BASE_DIR, "logs")
 
 os.makedirs(LOG_PATH, exist_ok=True)
 
+
 # ----------------------------------------------------
 # 🔥 УТИЛИТЫ
 # ----------------------------------------------------
 
-def текущий_лог():
+def current_log_file():
     today = datetime.now().strftime("%Y-%m-%d")
     return os.path.join(LOG_PATH, f"scheduler_{today}.log")
 
 
-def очистить_старые_логи(дней=7):
+def clean_old_logs(days=7):
     now = datetime.now()
     for filename in os.listdir(LOG_PATH):
-        file_path = os.path.join(LOG_PATH, filename)
-        if not os.path.isfile(file_path):
+        path = os.path.join(LOG_PATH, filename)
+        if not os.path.isfile(path):
             continue
         try:
-            mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
-            if now - mtime > timedelta(days=дней):
-                os.remove(file_path)
-                print(f"🧹 Удалён старый лог: {filename}")
-        except Exception:
+            mtime = datetime.fromtimestamp(os.path.getmtime(path))
+            if now - mtime > timedelta(days=days):
+                os.remove(path)
+                print(f"🧹 Removed old log: {filename}")
+        except:
             pass
 
 
-def логировать(текст):
+def log(text):
     try:
-        with open(текущий_лог(), "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {текст}\n")
+        with open(current_log_file(), "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}\n")
     except Exception as e:
-        print(f"⚠️ Ошибка логирования: {e}")
+        print(f"⚠️ Log error: {e}")
 
 
-def загрузить_json(filename):
-    path = os.path.join(DATA_PATH, filename)
+def load_json(name):
+    path = os.path.join(DATA_PATH, name)
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"⚠️ Не удалось загрузить {filename}: {e}")
+        print(f"⚠️ Failed to load {name}: {e}")
         return {}
+
 
 # ----------------------------------------------------
 # 🔥 ЗАГРУЗКА ДАННЫХ
 # ----------------------------------------------------
 
-мудрости_data = загрузить_json("мудрости.json").get("мудрости", [])
-ритуалы_data = загрузить_json("ритуалы.json").get("ритуалы", [])
-мантры_data = загрузить_json("мантры.json").get("мантры", [])
+wisdom_data = load_json("wisdom.json").get("wisdom", [])
+rituals_data = load_json("rituals.json").get("rituals", [])
+mantras_data = load_json("mantras.json").get("mantras", [])
+
 
 # ----------------------------------------------------
-# 🔥 ВСПОМОГАТЕЛИ ДЛЯ ВЫЗОВА МЕТОДОВ ИЗ МОДУЛЕЙ
+# 🔥 ВСПОМОГАТЕЛИ
 # ----------------------------------------------------
 
-def _emit_light_through_serdze(text: str):
-    """Пытаемся мягко вызвать метод, который излучает/публикует мудрость в серdze."""
+def emit_through_serdze(text):
     if not _serdze:
         return
-    # Попробуем разные варианты имён классов/методов — не падаем.
     try:
-        # try common latin names
         if hasattr(_serdze, "Serdze"):
-            obj = _serdze.Serdze(имя="Ты")
+            obj = _serdze.Serdze()
         elif hasattr(_serdze, "Heart"):
-            obj = _serdze.Heart(имя="Ты")
-        elif hasattr(_serdze, "HeartModule"):
-            obj = _serdze.HeartModule()
-        elif hasattr(_serdze, "Сердце"):
-            obj = _serdze.Сердце(имя="Ты")
+            obj = _serdze.Heart()
         else:
-            obj = None
+            return
 
-        if obj:
-            if hasattr(obj, "излучать_свет"):
-                try:
-                    obj.излучать_свет(text)
-                except Exception:
-                    pass
-            elif hasattr(obj, "emit_light"):
-                try:
-                    obj.emit_light(text)
-                except Exception:
-                    pass
-    except Exception:
+        if hasattr(obj, "emit_light"):
+            obj.emit_light(text)
+        elif hasattr(obj, "izluchat"):
+            obj.izluchat(text)
+    except:
         pass
 
 
-def _setup_vselennaya_resonance():
-    """Пытаемся настроить резонанс во vselennaya."""
-    if not _vselennaya:
-        return
-    try:
-        if hasattr(_vselennaya, "Vselennaya"):
-            inst = _vselennaya.Vselennaya()
-        elif hasattr(_vselennaya, "Вселенная"):
-            inst = _vselennaya.Вселенная()
-        else:
-            inst = None
-
-        if inst and hasattr(inst, "настроить_резонанс"):
-            try:
-                inst.настроить_резонанс(частота="гармония")
-            except Exception:
-                pass
-        elif inst and hasattr(inst, "setup_resonance"):
-            try:
-                inst.setup_resonance(frequency="harmony")
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-
-def _vremya_ожидание_repr():
-    """Пытаемся вызвать метод ожидания времени и вернуть строку (если доступно)."""
+def invoke_vremya_wait():
     if not _vremya:
         return ""
     try:
         if hasattr(_vremya, "Vremya"):
-            inst = _vremya.Vremya()
-        elif hasattr(_vremya, "Время"):
-            inst = _vremya.Время()
+            o = _vremya.Vremya()
         else:
-            inst = None
+            return ""
 
-        if inst and hasattr(inst, "ожидать"):
-            try:
-                return inst.ожидать("здесь_и_сейчас")
-            except Exception:
-                return ""
-        elif inst and hasattr(inst, "wait"):
-            try:
-                return inst.wait("here_and_now")
-            except Exception:
-                return ""
-    except Exception:
-        pass
+        if hasattr(o, "wait"):
+            return o.wait("now")
+        elif hasattr(o, "ожидать"):
+            return o.ожидать("сейчас")
+    except:
+        return ""
     return ""
 
+
 # ----------------------------------------------------
-# 🔥 ЛОГИКА ВРЕМЕНИ И КОНТЕНТА
+# 🔥 ЛОГИКА
 # ----------------------------------------------------
 
-def текущее_время_суток():
-    час = datetime.now().hour
-    if 4 <= час < 12:
-        return "утро"
-    elif 12 <= час < 18:
-        return "день"
-    else:
-        return "вечер"
+def day_segment():
+    hr = datetime.now().hour
+    if 4 <= hr < 12:
+        return "morning"
+    elif 12 <= hr < 18:
+        return "day"
+    return "evening"
 
-def случайная_мудрость():
-    время_суток = текущее_время_суток()
-    выборка = [m["текст"] for m in мудрости_data if время_суток in m.get("теги", [])]
 
-    if not выборка:
-        выборка = [m["текст"] for m in мудрости_data]
+def random_wisdom():
+    seg = day_segment()
+    pool = [w["text"] for w in wisdom_data if seg in w.get("tags", [])]
 
-    if not выборка:
+    if not pool:
+        pool = [w["text"] for w in wisdom_data]
+
+    if not pool:
         return
 
-    мудрость = random.choice(выборка)
-    вывод = f"💡 Мудрость ({время_суток}): {мудрость}"
+    text = random.choice(pool)
+    out = f"💡 Wisdom ({seg}): {text}"
+    print("\n" + out)
+    log(out)
+    emit_through_serdze(text)
 
-    print("\n" + вывод)
-    логировать(вывод)
-    _emit_light_through_serdze(мудрость)
 
+def random_ritual():
+    seg = day_segment()
+    pool = [r for r in rituals_data if r.get("time") == seg]
 
-def случайный_ритуал():
-    время_суток = текущее_время_суток()
-    выборка = [r for r in ритуалы_data if r.get("время") == время_суток]
+    if not pool:
+        pool = rituals_data
 
-    if not выборка:
-        выборка = ритуалы_data
-
-    if not выборка:
+    if not pool:
         return
 
-    ритуал = random.choice(выборка)
-    вывод = f"🌙 Ритуал ({время_суток}): {ритуал.get('название','(без названия)')} — {ритуал.get('описание','')}"
-    print("\n" + вывод)
-    логировать(вывод)
+    r = random.choice(pool)
+    out = f"🌙 Ritual ({seg}): {r.get('name','(no name)')} — {r.get('description','')}"
+    print("\n" + out)
+    log(out)
 
 
-def случайная_мантра():
-    if not мантры_data:
+def random_mantra():
+    if not mantras_data:
         return
 
-    мантра = random.choice(мантры_data)
-    текст = мантра.get("текст", "ОМ СВЕТА И ЛЮБВИ")
-    вывод = f"🎵 Мантра дня: {текст}"
-    print("\n" + вывод)
-    логировать(вывод)
+    m = random.choice(mantras_data)
+    text = m.get("text", "OM LIGHT")
+    out = f"🎵 Mantra: {text}"
+    print("\n" + out)
+    log(out)
+
 
 # ----------------------------------------------------
 # 🔥 РАСПИСАНИЕ
 # ----------------------------------------------------
 
-ВКЛЮЧИТЬ_ТЕСТЫ = False  # переключатель тестового режима — ставь True для отладки
+TEST = False
 
-if ВКЛЮЧИТЬ_ТЕСТЫ:
-    schedule.every(10).seconds.do(случайная_мудрость)
-    schedule.every(15).seconds.do(случайный_ритуал)
-    schedule.every(20).seconds.do(случайная_мантра)
+if TEST:
+    schedule.every(10).seconds.do(random_wisdom)
+    schedule.every(15).seconds.do(random_ritual)
+    schedule.every(20).seconds.do(random_mantra)
 
-schedule.every().day.at("06:15").do(случайная_мудрость)
-schedule.every().day.at("12:00").do(случайный_ритуал)
-schedule.every().day.at("18:00").do(случайная_мантра)
-schedule.every().day.at("21:00").do(случайная_мудрость)
+schedule.every().day.at("06:15").do(random_wisdom)
+schedule.every().day.at("12:00").do(random_ritual)
+schedule.every().day.at("18:00").do(random_mantra)
+schedule.every().day.at("21:00").do(random_wisdom)
+
 
 # ----------------------------------------------------
 # 🔥 ИНИЦИАЛИЗАЦИЯ
 # ----------------------------------------------------
 
-очистить_старые_логи(дней=7)
+clean_old_logs(days=7)
 
-# Настроим резонанс вселенной, если модуль есть
-_setup_vselennaya_resonance()
+print("🌟 Scheduler RaSvet activated.")
+log("Scheduler started.")
 
-print("🌟 Scheduler RaSvet активирован — мудрость течёт.")
-логировать("Scheduler запущен.")
 
 # ----------------------------------------------------
-# 🔥 ВЕЧНЫЙ ЦИКЛ
+# 🔥 ГЛАВНЫЙ ЦИКЛ — НЕ ВИСИТ
 # ----------------------------------------------------
 
 while True:
     schedule.run_pending()
-    try:
-        ожидание_text = _vremya_ожидание_repr()
-        if ожидание_text:
-            print(ожидание_text)
-    except Exception:
-        pass
+
+    wt = invoke_vremya_wait()
+    if wt:
+        print(wt)
+
     time.sleep(5)
