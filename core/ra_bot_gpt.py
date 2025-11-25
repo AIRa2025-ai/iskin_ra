@@ -49,6 +49,7 @@ try:
 except Exception:
     RaPolice = None
 
+# Импорт класса загрузчика — НО не создаём экземпляр на уровне модуля!
 try:
     from modules.ra_downloader_async import RaSvetDownloaderAsync
 except Exception:
@@ -101,7 +102,11 @@ ensure_module_exists(MODULES_DIR / "сердце.py", "class HeartModule:\n    a
 autoloader = RaAutoloader() if RaAutoloader else None
 self_master = RaSelfMaster() if RaSelfMaster else None
 police = None
-rasvet_downloader = RaSvetDownloaderAsync() if RaSvetDownloaderAsync else None
+
+# ВНИМАНИЕ: rasvet_downloader не создаём здесь — сделаем в main() чтобы не запускать работу при импорте модуля
+rasvet_downloader = None  # will be RaSvetDownloaderAsync() in main()
+
+# ra_knowledge и ra_mirolub оставляем как классы/экземпляры — можно инициализировать в main если нужно
 ra_knowledge = RaKnowledge() if RaKnowledge else None
 ra_mirolub = RaCoreMirolub() if RaCoreMirolub else None  # 🌞 добавлено
 
@@ -139,25 +144,62 @@ def notify_telegram(chat_id: str, text: str):
 
 # --- Инициализация знаний ---
 async def initialize_rasvet():
+    """
+    Безопасная и идемпотентная инициализация знаний RaSvet.
+    Логика:
+    - Если загрузчик не инициализирован — пропускаем.
+    - Если знания уже загружены в объекте загрузчика — ничего не делаем.
+    - Иначе: запускаем download_async() (он сам защищён через lock) и загружаем папку data/RaSvet.
+    """
+    global rasvet_downloader
+
     if not rasvet_downloader:
-        logging.warning("RaSvetDownloaderAsync не доступен — пропускаем загрузку знаний")
+        logging.warning("RaSvetDownloaderAsync не доступен/не инициализирован — пропускаем загрузку знаний")
         return
-    logging.info("🌞 Инициализация РаСвет-знаний...")
+
+    logger = logging.getLogger("RaBot.InitRasvet")
+    logger.info("🌞 Инициализация РаСвет-знаний...")
+
+    # Если знания уже в памяти загрузчика — пропускаем скачивание
+    try:
+        kb = getattr(rasvet_downloader, "knowledge", None)
+        if kb and getattr(kb, "documents", None):
+            logger.info("ℹ️ Знания уже загружены в памяти загрузчика — пропускаем повторную инициализацию")
+            return
+    except Exception:
+        pass
+
+    # Проверяем, есть ли уже распакованная папка на диске
+    data_dir = Path(os.getenv("RA_DATA_DIR", "data"))
+    extract_dir = data_dir / "RaSvet"
+    if extract_dir.exists():
+        # если в папке есть хотя бы несколько текстовых файлов — считаем, что база есть и загружаем её
+        found = any(p.suffix.lower() in (".txt", ".md", ".json") for p in extract_dir.rglob("*") if p.is_file())
+        if found:
+            logger.info("ℹ️ Папка знаний уже присутствует на диске — загрузим из неё и пропустим скачивание.")
+            try:
+                await rasvet_downloader.knowledge.load_from_folder(extract_dir)
+                logger.info(f"📚 Загружено знаний: {len(getattr(rasvet_downloader.knowledge, 'documents', {}))} файлов (из {extract_dir})")
+                return
+            except Exception as e:
+                logger.warning(f"Ошибка при загрузке знаний с диска: {e} — попробуем скачать/распаковать заново.")
+
+    # Идём на скачивание/распаковку — метод download_async() сделан идемпотентным и использует lock.
     try:
         await rasvet_downloader.download_async()
     except Exception as e:
-        logging.error(f"Ошибка при скачивании знаний: {e}")
+        logger.error(f"Ошибка при скачивании знаний: {e}")
+
+    # После попытки скачивания — явно грузим папку (если существует)
     try:
-        await rasvet_downloader.knowledge.load_from_folder(rasvet_downloader.EXTRACT_DIR if hasattr(rasvet_downloader, 'EXTRACT_DIR') else Path('data/RaSvet'))
-    except Exception:
-        try:
-            if hasattr(rasvet_downloader, "knowledge") and hasattr(rasvet_downloader.knowledge, "load_from_folder"):
-                await rasvet_downloader.knowledge.load_from_folder(Path("data/RaSvet"))
-        except Exception as e:
-            logging.error(f"Ошибка загрузки знаний в knowledge: {e}")
+        await rasvet_downloader.knowledge.load_from_folder(extract_dir)
+    except Exception as e:
+        logger.error(f"Ошибка загрузки знаний в knowledge: {e}")
+
     total = getattr(rasvet_downloader.knowledge, "documents", {})
-    logging.info(f"📚 Загружено знаний: {len(total)} файлов")
-    logging.info("🌞 РаСвет готов к ответам!")
+    logger.info(f"📚 Загружено знаний: {len(total)} файлов")
+    logger.info("🌞 РаСвет готов к ответам!")
+
 
 # --- Основной обработчик сообщений ---
 async def process_user_message(message: Message):
@@ -182,12 +224,14 @@ async def process_user_message(message: Message):
         memory_context.append({"role": "user", "content": text})
 
         response = None
+        # пробуем сначала локальную базу знаний (через загрузчик, если он есть)
         if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
             try:
                 response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
             except Exception:
                 response = None
 
+        # затем — GPT/OpenRouter
         if not response and safe_ask_openrouter:
             try:
                 response = await safe_ask_openrouter(user_id, memory_context[-20:])
@@ -283,10 +327,24 @@ async def on_text(message: Message):
 
 # --- Запуск ---
 async def main():
+    global rasvet_downloader, ra_knowledge, ra_mirolub
+
     load_dotenv()
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
         raise RuntimeError("❌ Не найден BOT_TOKEN в окружении")
+
+    # создаём экземпляр загрузчика один раз (если доступен класс)
+    if RaSvetDownloaderAsync and rasvet_downloader is None:
+        try:
+            rasvet_downloader = RaSvetDownloaderAsync()
+            logging.info("ℹ️ RaSvetDownloaderAsync инициализирован")
+            # Если у нас нет ra_knowledge экземпляра — используем загрузчик's knowledge
+            if not ra_knowledge and hasattr(rasvet_downloader, "knowledge"):
+                ra_knowledge = rasvet_downloader.knowledge
+        except Exception as e:
+            logging.error(f"Ошибка инициализации RaSvetDownloaderAsync: {e}")
+            rasvet_downloader = None
 
     bot = Bot(token=BOT_TOKEN)
     if self_master:
