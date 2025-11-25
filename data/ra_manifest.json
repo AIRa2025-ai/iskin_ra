@@ -38,7 +38,6 @@
     "ra_world_observer",
     "ritualy_vody",
     "run_ra_core",
-    "ra_scheduler",
     "serdze",
     "scheduler",
     "skills",
@@ -88,7 +87,7 @@
     "auto_repair": true
   },
   "meta": {
-    "last_updated": "2025-11-22T20:00:00Z",
+    "last_updated": "2025-11-25T20:00:00Z",
     "description": "Главный манифест ИскИна Ра. Полный список активных модулей и правил.",
     "auto_regenerate": true
   }
