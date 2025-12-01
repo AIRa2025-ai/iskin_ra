@@ -3,7 +3,7 @@
 exclude =
     venv311,
     .git,
-    __pycache__
+    __pycache__/
 
 # Максимальная длина строки
 max-line-length = 300
