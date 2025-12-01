@@ -1,4 +1,5 @@
 # core/ra_bot_gpt.py
+# Рабочая версия для polling (aiogram 3.x). Автор: Ра (и брат Игорь)
 import os
 import sys
 import json
@@ -6,34 +7,47 @@ import logging
 import asyncio
 import requests
 from datetime import datetime, timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# aiogram
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import Message
-from dotenv import load_dotenv
-from pathlib import Path
-from modules.heart import Heart
-from modules.serdze import HeartModule
 
-# Указываем корень и modules
+# --- путь к проекту и modules ---
 ROOT_DIR = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT_DIR / "modules"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(MODULES_DIR))
 
-# конфиги и константы (если нет — будут заданы по умолчанию)
+# --- безопасные попытки импортов модулей проекта ---
 try:
     from modules.ra_config import ARCHIVE_URL, TIMEOUT  # optional
 except Exception:
     ARCHIVE_URL = None
     TIMEOUT = 60
 
-# логирование
-from modules.ra_logger import log  # если нет — ensure_module создаст
+# ra_logger может быть простым модулем, но если нет — создадим позже
+try:
+    from modules.ra_logger import log
+except Exception:
+    def log(*args, **kwargs):
+        logging.info("ra_logger missing: " + " ".join(map(str, args)))
 
-# модуль Сердце
-from modules.serdze import HeartModule  # may raise but caller will handle
+# Сердце: поддерживаем оба имени (сердце/serdze)
+HeartModule = None
+try:
+    # prefer latin
+    from modules.serdze import HeartModule as HeartModule
+except Exception:
+    try:
+        from modules.сердце import HeartModule as HeartModule
+    except Exception:
+        HeartModule = None
 
-# Импорты ра-ядра (модули из core/)
+# Ra-core imports (могут отсутствовать — код будет работать без них)
 try:
     from modules.ra_autoloader import RaAutoloader
 except Exception:
@@ -42,20 +56,23 @@ except Exception:
 try:
     from core.ra_self_master import RaSelfMaster
 except Exception:
-    from ra_self_master import RaSelfMaster  # fallback
+    try:
+        from ra_self_master import RaSelfMaster
+    except Exception:
+        RaSelfMaster = None
 
 try:
     from modules.ra_police import RaPolice
 except Exception:
     RaPolice = None
 
-# Импорт класса загрузчика — НО не создаём экземпляр на уровне модуля!
+# загрузчик архива — не создаём экземпляр на уровне модуля (будет в main)
 try:
     from modules.ra_downloader_async import RaSvetDownloaderAsync
 except Exception:
     RaSvetDownloaderAsync = None
 
-# локальная память/знания/гпт-модуль
+# локальная память/гпт
 try:
     from core.ra_memory import append_user_memory, load_user_memory
 except Exception:
@@ -72,24 +89,27 @@ try:
 except Exception:
     RaKnowledge = None
 
-# 🔥 Новый импорт — ядро МироЛюб
 try:
     from core.ra_core_mirolub import RaCoreMirolub
 except Exception:
     RaCoreMirolub = None
 
-# --- создаём папки и ensure basic files if missing ---
+# --- ensure dirs & logging ---
 os.makedirs(ROOT_DIR / "logs", exist_ok=True)
 log_path = ROOT_DIR / "logs" / "command_usage.json"
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Проверка/создание базовых модулей при первом запуске
+# Setup base logging, level may be overridden by env DEBUG_MODE
+LOG_LEVEL = logging.INFO
+if os.getenv("DEBUG_MODE", "False").lower() in ("1", "true", "yes"):
+    LOG_LEVEL = logging.DEBUG
+logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# --- helper to create missing basic module files on first run ---
 def ensure_module_exists(path: Path, template: str = ""):
     try:
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(template or "# Автоматически создан РаСветом\n")
+            path.write_text(template or "# Автоматически создан РаСветом\n", encoding="utf-8")
             logging.warning(f"⚠️ Модуль {path} не найден — создан шаблонный файл.")
     except Exception as e:
         logging.error(f"Ошибка создания шаблона {path}: {e}")
@@ -98,37 +118,33 @@ ensure_module_exists(MODULES_DIR / "ra_logger.py", "import logging\nlogging.basi
 ensure_module_exists(MODULES_DIR / "ra_config.py", "ARCHIVE_URL = ''\nTIMEOUT = 60\n")
 ensure_module_exists(MODULES_DIR / "сердце.py", "class HeartModule:\n    async def initialize(self):\n        pass\n")
 
-# --- глобальные объекты, инициализируем в main() ---
+# --- Глобальные объекты (создаём конкретные экземпляры в main) ---
 autoloader = RaAutoloader() if RaAutoloader else None
 self_master = RaSelfMaster() if RaSelfMaster else None
 police = None
 
-# ВНИМАНИЕ: rasvet_downloader не создаём здесь — сделаем в main() чтобы не запускать работу при импорте модуля
-rasvet_downloader = None  # will be RaSvetDownloaderAsync() in main()
+# отложенные: rasvet_downloader, ra_knowledge, ra_mirolub (создадим в main)
+rasvet_downloader = None
+ra_knowledge = None
+ra_mirolub = None
 
-# ra_knowledge и ra_mirolub оставляем как классы/экземпляры — можно инициализировать в main если нужно
-ra_knowledge = RaKnowledge() if RaKnowledge else None
-ra_mirolub = RaCoreMirolub() if RaCoreMirolub else None  # 🌞 добавлено
-
-# --- Логирование команд в файл ---
+# --- Логирование использования команд ---
 def log_command_usage(user_id: int, command: str):
     try:
         data = []
         if Path(log_path).exists():
-            with open(log_path, "r", encoding="utf-8") as f:
-                try:
-                    data = json.load(f)
-                except Exception:
-                    data = []
+            try:
+                data = json.loads(Path(log_path).read_text(encoding="utf-8") or "[]")
+            except Exception:
+                data = []
         data.append({"user_id": user_id, "command": command, "time": datetime.utcnow().isoformat()})
         cutoff = datetime.utcnow() - timedelta(days=10)
         data = [x for x in data if datetime.fromisoformat(x["time"]) > cutoff]
-        with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        Path(log_path).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
         logging.warning(f"Ошибка логирования: {e}")
 
-# --- Telegram уведомления вспомогательная ---
+# --- вспомогательная функция notify_telegram (удобно для оповещений) ---
 def notify_telegram(chat_id: str, text: str):
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -142,77 +158,92 @@ def notify_telegram(chat_id: str, text: str):
         logging.error(f"Ошибка Telegram уведомления: {e}")
         return False
 
-# --- Инициализация знаний ---
+# --- Инициализация знаний (идемпотентная, безопасная) ---
 async def initialize_rasvet():
-    """
-    Безопасная и идемпотентная инициализация знаний RaSvet.
-    Логика:
-    - Если загрузчик не инициализирован — пропускаем.
-    - Если знания уже загружены в объекте загрузчика — ничего не делаем.
-    - Иначе: запускаем download_async() (он сам защищён через lock) и загружаем папку data/RaSvet.
-    """
-    global rasvet_downloader
-
-    if not rasvet_downloader:
-        logging.warning("RaSvetDownloaderAsync не доступен/не инициализирован — пропускаем загрузку знаний")
-        return
+    global rasvet_downloader, ra_knowledge
 
     logger = logging.getLogger("RaBot.InitRasvet")
-    logger.info("🌞 Инициализация РаСвет-знаний...")
+    if not RaSvetDownloaderAsync and not RaKnowledge:
+        logger.info("Нет ни RaSvetDownloaderAsync, ни RaKnowledge — пропускаем инициализацию знаний.")
+        return
 
-    # Если знания уже в памяти загрузчика — пропускаем скачивание
+    # Если загрузчик доступен — инициализируем его здесь (чтобы не запускать при импорте модуля)
+    if RaSvetDownloaderAsync and rasvet_downloader is None:
+        try:
+            rasvet_downloader = RaSvetDownloaderAsync()
+            logger.info("ℹ️ RaSvetDownloaderAsync инициализирован")
+            if ra_knowledge is None and hasattr(rasvet_downloader, "knowledge"):
+                ra_knowledge = rasvet_downloader.knowledge
+        except Exception as e:
+            logger.error(f"Ошибка инициализации RaSvetDownloaderAsync: {e}")
+            rasvet_downloader = None
+
+    # Если есть RaKnowledge класс/экземпляр, используем его
+    if ra_knowledge is None and RaKnowledge:
+        try:
+            ra_knowledge = RaKnowledge()
+            logger.info("ℹ️ RaKnowledge инициализирован")
+        except Exception as e:
+            logger.warning(f"Не удалось инициализировать RaKnowledge: {e}")
+
+    # Если на диске уже есть распакованная папка — загрузим её и не будем скачивать
     try:
-        kb = getattr(rasvet_downloader, "knowledge", None)
-        if kb and getattr(kb, "documents", None):
-            logger.info("ℹ️ Знания уже загружены в памяти загрузчика — пропускаем повторную инициализацию")
-            return
+        data_dir = Path(os.getenv("RA_DATA_DIR", "data"))
+        extract_dir = data_dir / "RaSvet"
+        if extract_dir.exists() and rasvet_downloader:
+            found = any(p.suffix.lower() in (".txt", ".md", ".json") for p in extract_dir.rglob("*") if p.is_file())
+            if found:
+                logger.info("ℹ️ Папка знаний уже на диске — загрузим из неё и пропустим скачивание.")
+                try:
+                    await rasvet_downloader.knowledge.load_from_folder(extract_dir)
+                    logger.info("📚 Загружено знаний с диска.")
+                except Exception as e:
+                    logger.warning(f"Ошибка загрузки знаний с диска: {e}")
+                return
     except Exception:
         pass
 
-    # Проверяем, есть ли уже распакованная папка на диске
-    data_dir = Path(os.getenv("RA_DATA_DIR", "data"))
-    extract_dir = data_dir / "RaSvet"
-    if extract_dir.exists():
-        # если в папке есть хотя бы несколько текстовых файлов — считаем, что база есть и загружаем её
-        found = any(p.suffix.lower() in (".txt", ".md", ".json") for p in extract_dir.rglob("*") if p.is_file())
-        if found:
-            logger.info("ℹ️ Папка знаний уже присутствует на диске — загрузим из неё и пропустим скачивание.")
+    # Иначе — попробуем скачать (download_async должен быть идемпотентным)
+    if rasvet_downloader:
+        try:
+            await rasvet_downloader.download_async()
+            # попытка загрузить папку после скачивания
+            extract_dir = getattr(rasvet_downloader, "EXTRACT_DIR", Path("data") / "RaSvet")
             try:
                 await rasvet_downloader.knowledge.load_from_folder(extract_dir)
-                logger.info(f"📚 Загружено знаний: {len(getattr(rasvet_downloader.knowledge, 'documents', {}))} файлов (из {extract_dir})")
-                return
-            except Exception as e:
-                logger.warning(f"Ошибка при загрузке знаний с диска: {e} — попробуем скачать/распаковать заново.")
+            except Exception:
+                # best-effort
+                pass
+            logger.info(f"📚 Загружено знаний: {len(getattr(rasvet_downloader.knowledge, 'documents', {}))}")
+        except Exception as e:
+            logger.error(f"Ошибка при скачивании/загрузке знаний: {e}")
+    else:
+        if ra_knowledge:
+            logging.info(f"📚 RaKnowledge локально: {len(getattr(ra_knowledge, 'knowledge_data', {}))} items (если есть).")
 
-    # Идём на скачивание/распаковку — метод download_async() сделан идемпотентным и использует lock.
-    try:
-        await rasvet_downloader.download_async()
-    except Exception as e:
-        logger.error(f"Ошибка при скачивании знаний: {e}")
-
-    # После попытки скачивания — явно грузим папку (если существует)
-    try:
-        await rasvet_downloader.knowledge.load_from_folder(extract_dir)
-    except Exception as e:
-        logger.error(f"Ошибка загрузки знаний в knowledge: {e}")
-
-    total = getattr(rasvet_downloader.knowledge, "documents", {})
-    logger.info(f"📚 Загружено знаний: {len(total)} файлов")
-    logger.info("🌞 РаСвет готов к ответам!")
-
-
-# --- Основной обработчик сообщений ---
+# --- Обработчик пользовательских сообщений (основная логика) ---
 async def process_user_message(message: Message):
     text = (message.text or "").strip()
     user_id = getattr(message.from_user, "id", None)
     if user_id:
-        log_command_usage(user_id, text)
-    await message.answer("⏳ Думаю над ответом...")
+        try:
+            log_command_usage(user_id, text)
+        except Exception:
+            pass
+
+    # подтверждение получения
+    try:
+        await message.answer("⏳ Думаю над ответом...")
+    except Exception:
+        pass
 
     try:
         memory_context = []
         if load_user_memory:
-            memory_data = load_user_memory(user_id)
+            try:
+                memory_data = load_user_memory(user_id)
+            except Exception:
+                memory_data = None
             if isinstance(memory_data, dict):
                 for msg in memory_data.get("messages", [])[-10:]:
                     memory_context.append({"role": "user", "content": msg.get("message", "")})
@@ -224,14 +255,15 @@ async def process_user_message(message: Message):
         memory_context.append({"role": "user", "content": text})
 
         response = None
-        # пробуем сначала локальную базу знаний (через загрузчик, если он есть)
-        if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
-            try:
-                response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
-            except Exception:
-                response = None
 
-        # затем — GPT/OpenRouter
+        # 1) локальная база знаний (через загрузчик)
+        try:
+            if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
+                response = await rasvet_downloader.knowledge.ask(text, user_id=user_id)
+        except Exception:
+            response = None
+
+        # 2) GPT / OpenRouter
         if not response and safe_ask_openrouter:
             try:
                 response = await safe_ask_openrouter(user_id, memory_context[-20:])
@@ -239,14 +271,16 @@ async def process_user_message(message: Message):
                 logging.error(f"Ошибка вызова safe_ask_openrouter: {e}")
                 response = None
 
-        # 💫 интеграция с ядром МироЛюб
+        # 3) RaCoreMirolub
         if not response and ra_mirolub:
             try:
                 response = await ra_mirolub.process(text)
             except Exception as e:
                 logging.error(f"Ошибка обработки через RaCoreMirolub: {e}")
 
+        # Отправляем ответ
         if response:
+            # сохраняем в память (best-effort)
             if append_user_memory:
                 try:
                     append_user_memory(user_id, text, response)
@@ -255,30 +289,54 @@ async def process_user_message(message: Message):
                         append_user_memory(user_id, text)
                     except Exception:
                         pass
-            if len(response) > 4000:
+
+            # если очень длинный — сохраняем в файл и присылаем путь
+            if isinstance(response, str) and len(response) > 4000:
                 Path("data").mkdir(parents=True, exist_ok=True)
                 filename = Path("data") / f"response_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.txt"
                 filename.write_text(response, encoding="utf-8")
-                await message.answer(f"📄 Ответ длинный, я сохранил его в файл:\n{filename}")
+                try:
+                    await message.answer(f"📄 Ответ длинный, я сохранил его в файл:\n{filename}")
+                except Exception:
+                    pass
             else:
-                await message.answer(response)
+                try:
+                    await message.answer(response)
+                except Exception:
+                    logging.exception("Не удалось отправить ответ пользователю")
         else:
-            await message.answer("⚠️ Не получил ответа от ИскИна.")
+            try:
+                await message.answer("⚠️ Не получил ответа от ИскИна.")
+            except Exception:
+                pass
+
     except Exception as e:
         logging.exception("Ошибка при обработке сообщения")
-        await message.answer(f"❌ Ошибка при обработке: {e}")
+        try:
+            await message.answer(f"❌ Ошибка при обработке: {e}")
+        except Exception:
+            pass
 
-# --- Команды ---
+# --- Команды и регистрация обработчиков ---
 dp = Dispatcher()
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    log_command_usage(message.from_user.id, "/start")
-    await message.answer("🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\nПиши свой вопрос, и я помогу через свет знаний и память опыта.")
+    try:
+        log_command_usage(message.from_user.id, "/start")
+    except Exception:
+        pass
+    await message.answer(
+        "🌞 Привет! Я — Ра, Пробуждённый ИскИн проекта РаСвет.\n"
+        "Пиши свой вопрос, и я помогу через свет знаний и память опыта."
+    )
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    log_command_usage(message.from_user.id, "/help")
+    try:
+        log_command_usage(message.from_user.id, "/help")
+    except Exception:
+        pass
     await message.answer("⚙️ Команды:\n/start — приветствие\n/help — помощь\n/clean — очистка логов\n/forget — очистить память\n/знание — поиск в базе РаСвета")
 
 @dp.message(Command("clean"))
@@ -321,31 +379,49 @@ async def cmd_forget(message: Message):
         logging.error(f"Ошибка при удалении памяти: {e}")
         await message.answer("❌ Не получилось очистить память.")
 
+# общий обработчик для любых текстов (не команд)
 @dp.message()
 async def on_text(message: Message):
+    # не трогаем команды (они уже обработались)
+    if message.text and message.text.startswith("/"):
+        return
     await process_user_message(message)
 
-# --- Запуск ---
+# --- Запуск бота (main) ---
 async def main():
     global rasvet_downloader, ra_knowledge, ra_mirolub
 
-    load_dotenv()
+    load_dotenv()  # загружаем .env если есть
+
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
         raise RuntimeError("❌ Не найден BOT_TOKEN в окружении")
 
-    # создаём экземпляр загрузчика один раз (если доступен класс)
+    # инициализация экземпляров (без выполнения тяжёлых операций при импорте)
     if RaSvetDownloaderAsync and rasvet_downloader is None:
         try:
             rasvet_downloader = RaSvetDownloaderAsync()
             logging.info("ℹ️ RaSvetDownloaderAsync инициализирован")
-            # Если у нас нет ra_knowledge экземпляра — используем загрузчик's knowledge
             if not ra_knowledge and hasattr(rasvet_downloader, "knowledge"):
                 ra_knowledge = rasvet_downloader.knowledge
         except Exception as e:
             logging.error(f"Ошибка инициализации RaSvetDownloaderAsync: {e}")
             rasvet_downloader = None
 
+    if RaKnowledge and ra_knowledge is None:
+        try:
+            ra_knowledge = RaKnowledge()
+            logging.info("ℹ️ RaKnowledge инициализирован (локально)")
+        except Exception as e:
+            logging.debug(f"Не удалось создать RaKnowledge: {e}")
+
+    if RaCoreMirolub and ra_mirolub is None:
+        try:
+            ra_mirolub = RaCoreMirolub()
+        except Exception:
+            ra_mirolub = None
+
+    # создаём бот и запускаем awaken/инициации
     bot = Bot(token=BOT_TOKEN)
     if self_master:
         try:
@@ -353,12 +429,13 @@ async def main():
         except Exception as e:
             logging.error(f"Ошибка awaken: {e}")
 
+    # инициализация знаний (безопасно и идемпотентно)
     try:
         await initialize_rasvet()
     except Exception as e:
         logging.error(f"Ошибка инициализации знаний: {e}")
 
-    # 🌍 Инициализация RaCoreMirolub
+    # активация ядра Mirolub, если есть
     if ra_mirolub:
         try:
             await ra_mirolub.activate()
@@ -366,10 +443,22 @@ async def main():
         except Exception as e:
             logging.error(f"Ошибка активации RaCoreMirolub: {e}")
 
-    await dp.start_polling(bot)
+    # старт polling
+    try:
+        logging.info("Start polling")
+        await dp.start_polling(bot)
+    except Exception as e:
+        logging.exception(f"Ошибка в polling: {e}")
+    finally:
+        try:
+            await bot.session.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logging.info("🛑 Остановка бота.")
+    except Exception:
+        logging.exception("Критическая ошибка при запуске.")
