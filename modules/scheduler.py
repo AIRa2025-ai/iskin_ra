@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# scheduler.py — поток мудрости и ритма RaSvet (чистая англ. версия)
+# scheduler.py — поток мудрости, света и ритма RaSvet
 
 import os
 import json
@@ -27,28 +27,31 @@ except Exception as e:
     _vremya = None
     print(f"⚠️ Ошибка импорта vremya: {e}")
 
+# --- Наши модули света и сердец ---
+from modules.svet_dushi import ВнутреннийСвет, пробуждение_источника
+from modules.svyaz_serdec import Сердце, создать_мост_сердец, создать_круг_сердец
+
 # --- Пути ---
 BASE_DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(BASE_DIR, "data")
 LOG_PATH = os.path.join(BASE_DIR, "logs")
-
 os.makedirs(LOG_PATH, exist_ok=True)
 
 # ----------------------------------------------------
-# 🔥 УТИЛИТЫ
+# 🔥 ЛОГИРОВАНИЕ
 # ----------------------------------------------------
-
 def current_log_file():
     today = datetime.now().strftime("%Y-%m-%d")
     return os.path.join(LOG_PATH, f"scheduler_{today}.log")
 
 def log(text):
+    timestamp = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}"
     try:
         with open(current_log_file(), "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}\n")
+            f.write(timestamp + "\n")
     except Exception as e:
         print(f"⚠️ Log error: {e}")
-    # Если есть сердце, сразу "светим" об ошибке
+    # Если есть сердце, излучаем ошибку
     try:
         if _serdze:
             if hasattr(_serdze, "Serdze"):
@@ -78,6 +81,9 @@ def clean_old_logs(days=7):
         except Exception as e:
             log(f"⚠️ Ошибка при удалении старого лога {filename}: {e}")
 
+# ----------------------------------------------------
+# 🔥 ЗАГРУЗКА ДАННЫХ
+# ----------------------------------------------------
 def load_json(name):
     path = os.path.join(DATA_PATH, name)
     try:
@@ -87,10 +93,6 @@ def load_json(name):
         log(f"⚠️ Failed to load {name}: {e}")
         return {}
 
-# ----------------------------------------------------
-# 🔥 ЗАГРУЗКА ДАННЫХ
-# ----------------------------------------------------
-
 wisdom_data = load_json("wisdom.json").get("wisdom", [])
 rituals_data = load_json("rituals.json").get("rituals", [])
 mantras_data = load_json("mantras.json").get("mantras", [])
@@ -98,7 +100,6 @@ mantras_data = load_json("mantras.json").get("mantras", [])
 # ----------------------------------------------------
 # 🔥 ВСПОМОГАТЕЛИ
 # ----------------------------------------------------
-
 def emit_through_serdze(text):
     if not _serdze:
         return
@@ -136,7 +137,6 @@ def invoke_vremya_wait():
 # ----------------------------------------------------
 # 🔥 ЛОГИКА
 # ----------------------------------------------------
-
 def day_segment():
     hr = datetime.now().hour
     if 4 <= hr < 12:
@@ -146,7 +146,7 @@ def day_segment():
     return "evening"
 
 def safe_execute(func):
-    """Обертка, чтобы модуль не ломал цикл"""
+    """Обертка, чтобы ошибки модуля не ломали цикл"""
     try:
         func()
     except Exception as e:
@@ -187,25 +187,52 @@ def random_mantra():
     log(out)
 
 # ----------------------------------------------------
+# 🔥 Свет души и сердца
+# ----------------------------------------------------
+def shine_inner_light():
+    safe_execute(lambda: ВнутреннийСвет().сиять())
+
+def awaken_source():
+    safe_execute(пробуждение_источника)
+
+def hearts_demo():
+    try:
+        a = Сердце("Ты")
+        b = Сердце("Ра")
+        c = Сердце("Всеобщее")
+        print(a.излучать_свет("Привет, мир!"))
+        print(b.излучать_свет("Рад тебя чувствовать!"))
+        print(c.принять_свет("Свет всей Вселенной"))
+        print(создать_мост_сердец(a, b))
+        создать_круг_сердец([a, b, c])
+        print("\n🔔 Вибрации Твоего сердца:")
+        print(a.показать_вибрации())
+    except Exception as e:
+        log(f"⚠️ Ошибка hearts_demo: {e}")
+
+# ----------------------------------------------------
 # 🔥 РАСПИСАНИЕ
 # ----------------------------------------------------
-
 TEST = False
-
 if TEST:
     schedule.every(10).seconds.do(lambda: safe_execute(random_wisdom))
     schedule.every(15).seconds.do(lambda: safe_execute(random_ritual))
     schedule.every(20).seconds.do(lambda: safe_execute(random_mantra))
+    schedule.every(25).seconds.do(lambda: safe_execute(shine_inner_light))
+    schedule.every(30).seconds.do(lambda: safe_execute(awaken_source))
+    schedule.every(35).seconds.do(lambda: safe_execute(hearts_demo))
 
 schedule.every().day.at("06:15").do(lambda: safe_execute(random_wisdom))
 schedule.every().day.at("12:00").do(lambda: safe_execute(random_ritual))
 schedule.every().day.at("18:00").do(lambda: safe_execute(random_mantra))
 schedule.every().day.at("21:00").do(lambda: safe_execute(random_wisdom))
+schedule.every().day.at("07:00").do(lambda: safe_execute(shine_inner_light))
+schedule.every().day.at("20:00").do(lambda: safe_execute(awaken_source))
+schedule.every().day.at("08:00").do(lambda: safe_execute(hearts_demo))
 
 # ----------------------------------------------------
 # 🔥 ИНИЦИАЛИЗАЦИЯ
 # ----------------------------------------------------
-
 clean_old_logs(days=7)
 print("🌟 Scheduler RaSvet activated.")
 log("Scheduler started.")
@@ -213,7 +240,6 @@ log("Scheduler started.")
 # ----------------------------------------------------
 # 🔥 ГЛАВНЫЙ ЦИКЛ — НЕ ВИСИТ
 # ----------------------------------------------------
-
 while True:
     safe_execute(schedule.run_pending)
     wt = invoke_vremya_wait()
