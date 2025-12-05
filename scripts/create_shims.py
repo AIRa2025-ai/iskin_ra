@@ -1,4 +1,4 @@
-# scripts/create_shims_todo.py
+# scripts/create_shims_dynamic.py
 # -*- coding: utf-8 -*-
 import re
 import os  # noqa: F401
@@ -8,24 +8,21 @@ from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT / "modules"
-LOG_TXT = ROOT / "scripts" / "create_shims.log"
-LOG_JSON = ROOT / "scripts" / "create_shims.json"
+LOG_TXT = ROOT / "scripts" / "create_shims_dynamic.log"
+LOG_JSON = ROOT / "scripts" / "create_shims_dynamic.json"
 
+# Находим все импорты модулей
 imports_pattern = re.compile(
     r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import|import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)'
 )
 
-# Алиасы и известные методы для TODO
+# Находим вызовы методов: module.foo(...)
+method_call_pattern = re.compile(r'([A-Za-z0-9_А-Яа-яёЁ]+)\.([A-Za-z0-9_А-Яа-яёЁ]+)\(')
+
 KNOWN_ALIASES = {
     "сердце": ["heart", "сердце"],
     "ra_downloader": ["ra_downloader_async", "ra_downloader"],
     "heart": ["сердце", "heart"],
-}
-
-KNOWN_METHODS = {
-    "сердце": ["излучать_свет", "принять_свет", "показать_вибрации"],
-    "ra_downloader": ["download", "fetch_async"],
-    "heart": ["emit_light", "accept_light", "show_vibes"],
 }
 
 TEMPLATE_CLASS = """# Автоматически созданный shim для: {modname}
@@ -89,8 +86,24 @@ def try_find_existing(alias_list):
             return candidate.name[:-3]
     return None
 
-def generate_methods_stub(modname):
-    methods = KNOWN_METHODS.get(modname, [])
+def extract_methods_usage(module_name: str):
+    """Сканирует весь проект и собирает методы, вызываемые для module_name."""
+    methods = set()
+    for p in ROOT.rglob("*.py"):
+        if any(x in str(p) for x in ("site-packages", ".venv", "venv")):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        for m in method_call_pattern.finditer(text):
+            mod, meth = m.groups()
+            if mod == module_name:
+                methods.add(meth)
+    return sorted(methods)
+
+def generate_methods_stub_dynamic(modname):
+    methods = extract_methods_usage(modname)
     stub_lines = []
     for m in methods:
         stub_lines.append(f"    def {m}(self, *args, **kwargs):")
@@ -106,7 +119,7 @@ def create_shim(modname):
         content = TEMPLATE_SIMPLE.format(modname=modname)
     else:
         class_name = sanitize_class_name(modname)
-        methods_stub = generate_methods_stub(modname)
+        methods_stub = generate_methods_stub_dynamic(modname)
         content = TEMPLATE_CLASS.format(modname=modname, class_name=class_name, methods_stub=methods_stub)
     target.write_text(content, encoding="utf-8")
     return True
@@ -154,7 +167,7 @@ def main():
         else:
             notes.append(f"Already exists: {name}.py")
 
-    summary_txt = ["=== create_shims_todo.py summary ==="]
+    summary_txt = ["=== create_shims_dynamic.py summary ==="]
     summary_txt += [f"Created shim: {x}" for x in created] or ["No shims created"]
     summary_txt += [f"Created wrapper: {x}" for x in wrapped]
     if notes:
