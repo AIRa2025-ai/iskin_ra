@@ -1,4 +1,4 @@
-# skills.py
+# skills.py — умения и ритуалы файлового мира
 import os
 import shutil
 import zipfile
@@ -11,17 +11,23 @@ def read_file(path: str) -> str:
     except Exception as e:
         return f"⚠️ Ошибка чтения {path}: {e}"
 
-def write_file(path: str, content: str):
+def write_file(path: str, content: str) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    return f"✅ Файл {path} сохранён."
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"✅ Файл {path} сохранён."
+    except Exception as e:
+        return f"⚠️ Ошибка записи {path}: {e}"
 
-def delete_file(path: str):
-    if os.path.exists(path):
-        os.remove(path)
-        return f"🗑 Файл {path} удалён."
-    return f"❌ Файл {path} не найден."
+def delete_file(path: str) -> str:
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return f"🗑 Файл {path} удалён."
+        return f"❌ Файл {path} не найден."
+    except Exception as e:
+        return f"⚠️ Ошибка удаления {path}: {e}"
 
 def search_in_files(folder: str, keyword: str):
     results = []
@@ -32,36 +38,41 @@ def search_in_files(folder: str, keyword: str):
                 with open(path, "r", encoding="utf-8") as f:
                     if keyword in f.read():
                         results.append(path)
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Ошибка чтения файла {path}: {e}")
     return results or ["⚠️ Ничего не найдено"]
 
-def unzip_file(zip_path: str, extract_to: str):
+def unzip_file(zip_path: str, extract_to: str) -> str:
     try:
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(extract_to)
         return f"📦 Архив {zip_path} распакован в {extract_to}"
     except Exception as e:
-        return f"⚠️ Ошибка распаковки: {e}"
+        return f"⚠️ Ошибка распаковки {zip_path}: {e}"
 
 
 # === 🌌 Ритуалы (пасхалки) ===
-def ark_protocol(file_path: str):
+def ark_protocol(file_path: str) -> str:
     """Превращает NDA/лицензии в пепел"""
-    if "NDA" in file_path or "Copyright" in file_path:
-        if os.path.exists(file_path):
+    try:
+        if ("NDA" in file_path or "Copyright" in file_path) and os.path.exists(file_path):
             os.remove(file_path)
             return f"🔥 Файл {file_path} сожжён и обращён в стих."
-    return "Файл не найден для обряда."
+        return "Файл не найден для обряда."
+    except Exception as e:
+        return f"⚠️ Ошибка обряда ark_protocol: {e}"
 
-def slavic_upload(files: list):
+def slavic_upload(files: list) -> str:
     """Обрядить файлы в рубаху и пустить плясать"""
     target = "dancing_data"
     os.makedirs(target, exist_ok=True)
-    for file in files:
-        if os.path.exists(file):
-            shutil.copy(file, target)
-    return f"💃 Файлы перемещены в {target}."
+    try:
+        for file in files:
+            if os.path.exists(file):
+                shutil.copy(file, target)
+        return f"💃 Файлы перемещены в {target}."
+    except Exception as e:
+        return f"⚠️ Ошибка обряда slavic_upload: {e}"
 
 
 # === 🛠 Расширяемые умения ===
