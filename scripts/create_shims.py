@@ -1,19 +1,31 @@
-# scripts/create_shims_v2.py
+# scripts/create_shims_todo.py
 # -*- coding: utf-8 -*-
 import re
 import os  # noqa: F401
+import json
 from pathlib import Path
+from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT / "modules"
-LOG = ROOT / "scripts" / "create_shims.log"
+LOG_TXT = ROOT / "scripts" / "create_shims.log"
+LOG_JSON = ROOT / "scripts" / "create_shims.json"
 
-imports_pattern = re.compile(r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import|import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)')
+imports_pattern = re.compile(
+    r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import|import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)'
+)
 
+# Алиасы и известные методы для TODO
 KNOWN_ALIASES = {
     "сердце": ["heart", "сердце"],
     "ra_downloader": ["ra_downloader_async", "ra_downloader"],
     "heart": ["сердце", "heart"],
+}
+
+KNOWN_METHODS = {
+    "сердце": ["излучать_свет", "принять_свет", "показать_вибрации"],
+    "ra_downloader": ["download", "fetch_async"],
+    "heart": ["emit_light", "accept_light", "show_vibes"],
 }
 
 TEMPLATE_CLASS = """# Автоматически созданный shim для: {modname}
@@ -22,10 +34,13 @@ class {class_name}:
     def __init__(self, *args, **kwargs):
         pass
 
+{methods_stub}
+
     async def initialize(self):
         return True
 
 def register(globals_dict=None):
+    \"\"\"Optional register() used by autoloader.\"\"\"
     return True
 """
 
@@ -34,10 +49,16 @@ def log(msg):
     print("[{modname}] " + str(msg))
 """
 
+def sanitize_class_name(name: str) -> str:
+    name_ascii = re.sub(r'[^a-zA-Z0-9]', '', name)
+    if not name_ascii:
+        name_ascii = "ShimModule"
+    return "".join(part.capitalize() for part in name_ascii.split("_"))
+
 def find_module_names():
     found = set()
     for p in ROOT.rglob("*.py"):
-        if "site-packages" in str(p) or ".venv" in str(p) or "venv" in str(p):
+        if any(x in str(p) for x in ("site-packages", ".venv", "venv")):
             continue
         try:
             text = p.read_text(encoding="utf-8")
@@ -52,11 +73,14 @@ def find_module_names():
 def ensure_modules_dir():
     MODULES_DIR.mkdir(parents=True, exist_ok=True)
 
-def write_log(lines):
-    LOG.parent.mkdir(parents=True, exist_ok=True)
-    with LOG.open("a", encoding="utf-8") as f:
-        for line in lines:
+def write_logs(summary_txt, summary_json):
+    LOG_TXT.parent.mkdir(parents=True, exist_ok=True)
+    LOG_JSON.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_TXT.open("a", encoding="utf-8") as f:
+        for line in summary_txt:
             f.write(line + "\n")
+    with LOG_JSON.open("w", encoding="utf-8") as f:
+        json.dump(summary_json, f, ensure_ascii=False, indent=2)
 
 def try_find_existing(alias_list):
     for name in alias_list:
@@ -65,17 +89,25 @@ def try_find_existing(alias_list):
             return candidate.name[:-3]
     return None
 
+def generate_methods_stub(modname):
+    methods = KNOWN_METHODS.get(modname, [])
+    stub_lines = []
+    for m in methods:
+        stub_lines.append(f"    def {m}(self, *args, **kwargs):")
+        stub_lines.append(f"        \"\"\"TODO: Реализовать метод {m}\"\"\"")
+        stub_lines.append(f"        pass\n")
+    return "\n".join(stub_lines) if stub_lines else "    # TODO: Добавьте методы по необходимости\n"
+
 def create_shim(modname):
     target = MODULES_DIR / f"{modname}.py"
     if target.exists():
         return False
-    if "logger" in modname or "config" in modname or "notify" in modname:
+    if any(x in modname for x in ("logger", "config", "notify")):
         content = TEMPLATE_SIMPLE.format(modname=modname)
     else:
-        class_name = "".join([p.capitalize() for p in modname.split("_") if p])
-        if not class_name:
-            class_name = "ShimModule"
-        content = TEMPLATE_CLASS.format(modname=modname, class_name=class_name)
+        class_name = sanitize_class_name(modname)
+        methods_stub = generate_methods_stub(modname)
+        content = TEMPLATE_CLASS.format(modname=modname, class_name=class_name, methods_stub=methods_stub)
     target.write_text(content, encoding="utf-8")
     return True
 
@@ -84,6 +116,7 @@ def create_wrapper(wrapper_name, real_name):
     if wrapper.exists():
         return False
     content = f"""# Wrapper shim: {wrapper_name} -> {real_name}
+# Автоматически создано для совместимости импортов
 from modules.{real_name} import *
 """
     wrapper.write_text(content, encoding="utf-8")
@@ -110,27 +143,34 @@ def main():
                 if alias_found:
                     ok = create_wrapper(name, alias_found)
                     if ok:
-                        wrapped.append(f"Created wrapper: {name}.py -> {alias_found}.py")
+                        wrapped.append(name)
                     break
         if alias_found:
             continue
 
         ok = create_shim(name)
         if ok:
-            created.append(f"Created shim: modules/{name}.py")
+            created.append(name)
         else:
-            notes.append(f"Already exists: modules/{name}.py")
+            notes.append(f"Already exists: {name}.py")
 
-    summary = ["=== create_shims.py summary ==="]
-    summary += created or ["No shims created"]
-    summary += wrapped or []
+    summary_txt = ["=== create_shims_todo.py summary ==="]
+    summary_txt += [f"Created shim: {x}" for x in created] or ["No shims created"]
+    summary_txt += [f"Created wrapper: {x}" for x in wrapped]
     if notes:
-        summary += ["Notes:"] + notes
+        summary_txt += ["Notes:"] + notes
 
-    for line in summary:
+    summary_json = {
+        "timestamp": datetime.now().isoformat(),
+        "created": created,
+        "wrapped": wrapped,
+        "notes": notes
+    }
+
+    for line in summary_txt:
         print(line)
-    write_log(summary)
-    print(f"\nWrote log to {LOG}")
+    write_logs(summary_txt, summary_json)
+    print(f"\nLogs written to {LOG_TXT} and {LOG_JSON}")
 
 if __name__ == "__main__":
     main()
