@@ -1,52 +1,62 @@
-# run_ra_core.py
+# run_ra_core.py — Динамический автопилот для Ра с автолоадером и async модулями
 import asyncio
 import logging
-
 from modules.ra_self_master import RaSelfMaster
-from modules.ra_autoloader import RaAutoloader # noqa: F401
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
+async def monitor_new_modules(autoloader, interval=30):
+    """Проверка новых модулей каждые interval секунд и запуск их, если есть start()"""
+    known_modules = set(autoloader.modules.keys())
+    while True:
+        await asyncio.sleep(interval)
+        current_modules = set(autoloader.modules.keys())
+        new_modules = current_modules - known_modules
+        for name in new_modules:
+            mod = autoloader.modules[name]
+            if mod:
+                logging.info(f"[CORE] Новый модуль {name} найден и готов к работе.")
+                if hasattr(mod, "start") and asyncio.iscoroutinefunction(mod.start):
+                    asyncio.create_task(mod.start())
+        known_modules = current_modules
+
 async def main():
-    # 1️⃣ Инициализируем самоконтроль Ра
+    # 1️⃣ Инициализация самоконтроля Ра
     ra = RaSelfMaster()
 
-    # 2️⃣ Пробуждение (активируем автолоадер, загружаем манифест, старт полиции)
-    ra.awaken()
+    # 2️⃣ Пробуждение (автолоадер, манифест, полиция)
+    await ra.awaken() if asyncio.iscoroutinefunction(ra.awaken) else ra.awaken()
 
     # 3️⃣ Получаем автолоадер и активируем все модули
-    autoloader = ra.autoloader
+    autoloader = getattr(ra, "autoloader", None)
     if autoloader:
         autoloader.activate_modules()
         await autoloader.start_async_modules()
 
-    # 4️⃣ Специальная инициализация ключевых модулей
-    modules_to_check = [
-        "market_watcher",
-        "ra_world_navigator",
-        "ra_scheduler",
-        "ra_self_learning"
-    ]
-    for name in modules_to_check:
-        mod = autoloader.get_module(name)
-        if mod:
-            logging.info(f"[CORE] Модуль {name} готов к работе.")
-            # Если есть start() coroutine — запускаем
-            if hasattr(mod, "start") and asyncio.iscoroutinefunction(mod.start):
+        # Запускаем существующие модули
+        for name, mod in autoloader.modules.items():
+            if mod and hasattr(mod, "start") and asyncio.iscoroutinefunction(mod.start):
                 asyncio.create_task(mod.start())
 
-    # 5️⃣ Основной цикл — можно добавить наблюдение, анализ, сигналы
+        # 4️⃣ Старт динамического мониторинга новых модулей
+        asyncio.create_task(monitor_new_modules(autoloader))
+
+    # 5️⃣ Основной цикл наблюдения и логирования
     try:
         while True:
-            # Периодический лог статуса модулей
-            status = autoloader.status()
-            logging.info(f"[CORE] Status: {status}")
-            await asyncio.sleep(60)  # проверка каждую минуту
+            if autoloader:
+                status = autoloader.status()
+                logging.info(f"[CORE] Status: {status}")
+            await asyncio.sleep(60)
     except asyncio.CancelledError:
-        # Остановка всех async модулей при завершении
+        logging.info("[CORE] Завершение работы Ра...")
         if autoloader:
             await autoloader.stop_async_modules()
-        logging.info("[CORE] Ра завершает работу.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logging.info("🛑 Остановка run_ra_core")
+    except Exception:
+        logging.exception("Критическая ошибка при запуске run_ra_core")
