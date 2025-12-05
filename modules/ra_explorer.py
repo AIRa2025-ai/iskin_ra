@@ -1,5 +1,5 @@
 import aiohttp
-import asyncio
+import asyncio # noqa: F401
 import json
 import logging
 from bs4 import BeautifulSoup
