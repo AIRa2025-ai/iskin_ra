@@ -220,10 +220,68 @@ async def initialize_rasvet():
     else:
         if ra_knowledge:
             logging.info(f"📚 RaKnowledge локально: {len(getattr(ra_knowledge, 'knowledge_data', {}))} items (если есть).")
+# --- Фильтрация мусора---
+# --- Фильтрация мусора (интеллектуальный "чистильщик") ---
+def ra_clean_input(text: str) -> str:
+    """
+    Мягкая духовно-техническая фильтрация входящих сообщений.
+    Возвращает очищенный текст (если возможно) или пустую строку, если сплошной мусор.
+    """
 
+    if not text or not isinstance(text, str):
+        return ""
+
+    original = text.strip().lower()
+
+    # 1. Явный мусор: огромные повторяющиеся символы, бессмысленные цепочки
+    if len(original) > 5000:
+        return ""
+
+    # 2. Подозрительные паттерны (фишинг, трекинг, вирусные линки)
+    bad_patterns = [
+        "free-money",
+        "click here",
+        "win iphone",
+        "sex",
+        "porn",
+        "viagra",
+        "xxx",
+        "earn $",
+        "crypto giveaway",
+        "airdrop claim",
+        "metamask verification",
+        ".scr",
+        ".exe",
+        "redirect=",
+        "bit.ly/",
+        "goo.gl/",
+    ]
+
+    for bad in bad_patterns:
+        if bad in original:
+            return ""
+
+    # 3. Очистка HTML-мусора
+    import re
+    text = re.sub(r"<[^>]+>", " ", text)
+
+    # 4. Очистка множественных пробелов
+    text = re.sub(r"\s{2,}", " ", text).strip()
+
+    # 5. Если после чистки осталось мало смысла
+    if len(text) < 2:
+        return ""
+
+    return text
+    
 # --- Обработчик пользовательских сообщений (основная логика) ---
 async def process_user_message(message: Message):
     text = (message.text or "").strip()
+        cleaned = ra_clean_input(text)
+    if not cleaned:
+        await message.answer("✨ Брат, сообщение оказалось пустым или мусорным. Попробуй формулировку по-другому.")
+        return
+    text = cleaned
     user_id = getattr(message.from_user, "id", None)
     if user_id:
         try:
