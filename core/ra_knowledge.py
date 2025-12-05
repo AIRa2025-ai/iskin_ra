@@ -1,5 +1,5 @@
 # /core/ra_knowledge.py
-import os
+import os # noqa: F401
 import json
 import hashlib
 from pathlib import Path
