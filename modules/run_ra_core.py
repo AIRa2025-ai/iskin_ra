@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from modules.ra_self_master import RaSelfMaster
-from modules.ra_autoloader import RaAutoloader
+from modules.ra_autoloader import RaAutoloader # noqa: F401
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
