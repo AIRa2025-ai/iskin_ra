@@ -23,12 +23,12 @@ except Exception:
 
 # Если используете aiogram в модуле — импортируем Router/Message и т.д.
 try:
-    from aiogram import Router, types
-    from aiogram.filters import Command
+    from aiogram import Router, types  # noqa: F401
+    from aiogram.filters import Command  # noqa: F401
     has_aiogram = True
 except Exception:
     has_aiogram = False
-
+    
 # --- Настройки ---
 MANIFEST_PATH = os.getenv("RA_MANIFEST_PATH", "data/ra_manifest.json")
 BACKUP_FOLDER = os.getenv("RA_BACKUP_FOLDER", "ra_backups")
