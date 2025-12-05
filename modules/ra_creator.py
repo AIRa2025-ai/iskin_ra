@@ -2,7 +2,7 @@ import os
 import datetime
 import random
 import textwrap
-import logging
+import logging # noqa: F401
 
 class RaCreator:
     """
