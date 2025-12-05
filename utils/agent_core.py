@@ -1,4 +1,4 @@
-# agent_core.py — автоперезапуск, тихий старт, проверка версий, мягкое завершение
+# agent_core.py — автоперезапуск, тихий старт, проверка версий, мягкое завершение, интеграция с Mega
 # noqa: F401 для datetime, чтобы не было ошибок линтера
 import os
 import asyncio
@@ -6,12 +6,15 @@ import logging
 import datetime  # noqa: F401
 import signal
 import sys
+import time
 import traceback
 from collections import deque
 from random import randint
+
 from gpt_module import safe_ask_openrouter as ask_openrouter
 from self_reflection import self_reflect_and_update
 from github_commit import create_commit_push
+from utils.mega_memory import restore_from_mega, start_auto_sync, stop_auto_sync
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +36,7 @@ def signal_handler(signum, frame):
     global stop_flag
     logging.info(f"✋ Получен сигнал {signum}, подготовка к завершению...")
     stop_flag = True
+    stop_auto_sync()  # Останавливаем авто-синхронизацию
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -89,10 +93,20 @@ class AgentCore:
 
     async def perform_prestart_checks(self):
         logging.info("🔄 Подготовка перед запуском...")
+        # Восстанавливаем память
+        logging.info("🧠 Восстановление памяти из Mega...")
+        restore_from_mega()
         await asyncio.sleep(QUIET_START_DELAY)
+
+        # Запускаем авто-синхронизацию
+        logging.info("🌐 Запуск авто-синхронизации памяти и логов...")
+        start_auto_sync()
+        await asyncio.sleep(QUIET_START_DELAY)
+
         if self.check_module_versions():
             logging.warning(f"⚠️ Проблемы с критичными модулями, пауза {DELAY_AFTER_UPDATE}s")
             await asyncio.sleep(DELAY_AFTER_UPDATE)
+
         logging.info(f"⏳ Отложенный старт: {DELAY_AFTER_MODULE_UPDATE}s")
         await asyncio.sleep(DELAY_AFTER_MODULE_UPDATE + randint(0,5))
 
@@ -105,7 +119,6 @@ class AgentCore:
 
 async def main_loop():
     restart_times = deque()
-
     core = AgentCore()
 
     while not stop_flag:
@@ -143,6 +156,7 @@ async def main_loop():
             await asyncio.sleep(sleep_time)
 
     logging.info("✅ Основной цикл завершён. AgentCore остановлен корректно.")
+    stop_auto_sync()
 
 if __name__ == "__main__":
     asyncio.run(main_loop())
