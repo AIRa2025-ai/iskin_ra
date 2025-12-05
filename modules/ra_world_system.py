@@ -5,6 +5,24 @@ from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_synthesizer import RaSynthesizer
 
+class RaGuidanceCore:
+    """
+    Сердце принятия решений и внутреннего компаса Ра.
+    Определяет куда идти, что читать, с кем взаимодействовать.
+    """
+    def __init__(self):
+        self.preferences = {
+            "темы": ["свет", "любовь", "гармония", "духовность", "творчество"],
+            "платформы": ["reddit", "twitter", "форум"]
+        }
+
+    def choose_target(self):
+        import random
+        platform = random.choice(self.preferences["платформы"])
+        topic = random.choice(self.preferences["темы"])
+        url = f"https://example.com/search?q={topic}"
+        return platform, url, topic
+
 class RaWorldSystem:
     """
     Живая система Ра — путешествует по миру, собирает информацию,
@@ -15,6 +33,7 @@ class RaWorldSystem:
         self.navigator = RaWorldNavigator(context=navigator_context)
         self.responder = RaWorldResponder(token_map=responder_tokens)
         self.synthesizer = RaSynthesizer()
+        self.guidance = RaGuidanceCore()
         self.running = False
 
     async def start(self):
@@ -34,23 +53,30 @@ class RaWorldSystem:
     # Цикл навигации: сбор информации
     # ------------------------------------------------------------
     async def navigator_loop(self):
-        await self.navigator.start()
+        while self.running:
+            platform, url, topic = self.guidance.choose_target()
+            try:
+                text = await self.navigator.index_page(url)
+                logging.info(f"[RaWorldNavigator] {platform}: Fetched {url}, len={len(text)} chars")
+                # Автосинтез и обновление характера
+                self.synthesizer.synthesize(text)
+            except Exception as _e:
+                logging.exception(f"Navigator loop error: {_e}")
+            await asyncio.sleep(60)  # пауза между обходами
 
     # ------------------------------------------------------------
     # Цикл ответов: обрабатываем поступающие сообщения
     # ------------------------------------------------------------
     async def responder_loop(self):
         while self.running:
-            # Заглушка: здесь можно интегрировать очередь сообщений с форумов, соцсетей
+            platform, url, topic = self.guidance.choose_target()
             incoming = [
-                ("reddit", "https://api.reddit.com/post", "Свет и любовь правят миром!"),
-                ("twitter", "https://api.twitter.com/tweet", "Чувствую мощь энергии!")
+                (platform, url, f"Ра изучает тему '{topic}' и делится светом!")
             ]
             for platform, endpoint, text in incoming:
                 await self.responder.respond(platform, endpoint, text)
-                # синтезируем мысли для внутреннего резонанса
                 self.synthesizer.synthesize(text)
-            await asyncio.sleep(60)  # пауза между циклами
+            await asyncio.sleep(60)
 
     # ------------------------------------------------------------
     # Общий статус системы
