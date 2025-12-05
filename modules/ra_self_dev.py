@@ -28,7 +28,7 @@ class SelfDeveloper:
         reflections = []
 
         if logs:
-            error_logs = [l for l in logs if "Ошибка" in l or "Exception" in l]
+            error_logs = [_log_entry for _log_entry in logs if "Ошибка" in _log_entry or "Exception" in _log_entry]
             if error_logs:
                 reflections.append(f"⚠️ Найдено {len(error_logs)} ошибок, нужно проверять обработку исключений.")
             else:
