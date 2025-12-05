@@ -30,8 +30,8 @@ class MarketWatcher:
                 # TODO: условия сигналов
                 # if prices['BTC/USDT'] > 60000:
                 #     self._alert("BTC выше 60k")
-            except Exception as e:
-                logging.exception("MarketWatcher loop error")
+            except Exception as _e:  # F841 исправлено
+                logging.exception(f"MarketWatcher loop error: {_e}")
             await asyncio.sleep(30)  # опрашивать каждые 30 сек
 
     def _alert(self, text: str):
