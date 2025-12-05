@@ -14,8 +14,7 @@ from dotenv import load_dotenv
 # aiogram
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message
-from aiogram.types import Update
+from aiogram.types import Message, Update
 from aiohttp import web
 
 # --- путь к проекту и modules ---
@@ -35,7 +34,7 @@ try:
     from modules.ra_logger import log
 except Exception:
     def log(*args, **kwargs):
-        logging.info("ra_logger missing: " + " ".join(map(str, args)))
+        logging.info("ra_logger missing: " + " ".join(map(str, args)))  # noqa: F841
 
 HeartModule = None
 try:
