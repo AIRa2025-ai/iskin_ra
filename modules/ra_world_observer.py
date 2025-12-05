@@ -8,7 +8,7 @@ import aiohttp
 import zipfile
 from pathlib import Path
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse  # noqa: F401
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import hashlib
@@ -79,7 +79,7 @@ async def download_and_extract_rasvet(force_update=False):
                 async with session.head(MEGA_URL) as resp:
                     h = resp.headers.get("etag") or resp.headers.get("last-modified")
                     return h or str(datetime.datetime.utcnow())
-            except:
+            except Exception:  # E722
                 return str(datetime.datetime.utcnow())
 
         # Проверка: если уже есть флаг и не запрошено обновление — не качаем
@@ -90,7 +90,7 @@ async def download_and_extract_rasvet(force_update=False):
         # Загружаем архив
         log(f"⬇️ Скачиваю архив РаСвет: {MEGA_URL}")
         async with aiohttp.ClientSession() as session:
-            remote_hash = await get_remote_hash(session)
+            _remote_hash = await get_remote_hash(session)  # F841
             async with session.get(MEGA_URL) as resp:
                 if resp.status != 200:
                     log(f"Ошибка загрузки: {resp.status}")
@@ -113,7 +113,7 @@ async def download_and_extract_rasvet(force_update=False):
                 if item.is_file():
                     try:
                         item.unlink()
-                    except:
+                    except Exception:  # E722
                         pass
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(KNOWLEDGE_FOLDER)
@@ -123,7 +123,7 @@ async def download_and_extract_rasvet(force_update=False):
         log(f"📦 РаСвет успешно распакован в {KNOWLEDGE_FOLDER}.")
         return True
 
-    except Exception as e:
+    except Exception as e:  # E722
         log(f"Ошибка при загрузке RaSvet: {e}")
         return False
 
@@ -152,7 +152,7 @@ async def _cancel_bg_tasks():
     for t in list(_bg_tasks):
         try:
             t.cancel()
-        except:
+        except Exception:  # E722
             pass
     await asyncio.gather(*_bg_tasks, return_exceptions=True)
     _bg_tasks.clear()
@@ -200,7 +200,7 @@ async def write_connect():
             f.write(content)
         loaded = await auto_load_modules()
         return {"status": "ok", "created": filename, "loaded_modules": loaded}
-    except Exception as e:
+    except Exception as e:  # E722
         log(f"Ошибка write_connect: {e}")
         return {"status": "error", "error": str(e)}
 
@@ -247,7 +247,7 @@ async def auto_load_modules():
                 mod.register(globals())
             loaded.append(mod_name)
             log(f"🧩 Модуль загружен: {mod_name}")
-        except Exception as e:
+        except Exception as e:  # E722
             log(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
     return loaded
 
@@ -260,7 +260,7 @@ async def observer_loop():
             await asyncio.sleep(3600)
         except asyncio.CancelledError:
             break
-        except Exception as e:
+        except Exception as e:  # E722
             log(f"Ошибка observer_loop: {e}")
             await asyncio.sleep(60)
 
@@ -279,7 +279,7 @@ async def module_watcher():
             await asyncio.sleep(10)
         except asyncio.CancelledError:
             break
-        except Exception as e:
+        except Exception as e:  # E722
             log(f"Ошибка module_watcher: {e}")
             await asyncio.sleep(5)
 
