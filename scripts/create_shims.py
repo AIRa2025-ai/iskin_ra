@@ -1,4 +1,4 @@
-# scripts/create_shims_dynamic.py
+# scripts/create_shims_full.py
 # -*- coding: utf-8 -*-
 import re
 import os  # noqa: F401
@@ -8,16 +8,18 @@ from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT / "modules"
-LOG_TXT = ROOT / "scripts" / "create_shims_dynamic.log"
-LOG_JSON = ROOT / "scripts" / "create_shims_dynamic.json"
+LOG_TXT = ROOT / "scripts" / "create_shims_full.log"
+LOG_JSON = ROOT / "scripts" / "create_shims_full.json"
 
 # Находим все импорты модулей
 imports_pattern = re.compile(
     r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import|import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)'
 )
 
-# Находим вызовы методов: module.foo(...)
+# Вызовы методов: module.foo(...)
 method_call_pattern = re.compile(r'([A-Za-z0-9_А-Яа-яёЁ]+)\.([A-Za-z0-9_А-Яа-яёЁ]+)\(')
+# from module import foo
+direct_import_pattern = re.compile(r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import\s+([A-Za-z0-9_А-Яа-яёЁ]+)')
 
 KNOWN_ALIASES = {
     "сердце": ["heart", "сердце"],
@@ -87,7 +89,7 @@ def try_find_existing(alias_list):
     return None
 
 def extract_methods_usage(module_name: str):
-    """Сканирует весь проект и собирает методы, вызываемые для module_name."""
+    """Сканирует проект и собирает реально используемые методы для module_name."""
     methods = set()
     for p in ROOT.rglob("*.py"):
         if any(x in str(p) for x in ("site-packages", ".venv", "venv")):
@@ -96,10 +98,18 @@ def extract_methods_usage(module_name: str):
             text = p.read_text(encoding="utf-8")
         except Exception:
             continue
+
+        # module.method()
         for m in method_call_pattern.finditer(text):
             mod, meth = m.groups()
             if mod == module_name:
                 methods.add(meth)
+
+        # from module import func
+        for m in direct_import_pattern.finditer(text):
+            mod, func = m.groups()
+            if mod == module_name:
+                methods.add(func)
     return sorted(methods)
 
 def generate_methods_stub_dynamic(modname):
@@ -167,7 +177,7 @@ def main():
         else:
             notes.append(f"Already exists: {name}.py")
 
-    summary_txt = ["=== create_shims_dynamic.py summary ==="]
+    summary_txt = ["=== create_shims_full.py summary ==="]
     summary_txt += [f"Created shim: {x}" for x in created] or ["No shims created"]
     summary_txt += [f"Created wrapper: {x}" for x in wrapped]
     if notes:
