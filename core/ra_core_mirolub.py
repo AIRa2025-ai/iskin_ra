@@ -3,7 +3,7 @@
 
 import asyncio
 import logging
-
+import importlib # noqa: F401
 # --- Импортируем внутренние аспекты Ра ---
 try:
     from modules.свет_души import Любовь, Сознание, Резонанс
