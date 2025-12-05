@@ -1,5 +1,5 @@
 # ra_self_dev.py
-import os
+import os # noqa: F401
 import json
 import logging
 from datetime import datetime
