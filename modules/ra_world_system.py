@@ -1,16 +1,15 @@
 # modules/ra_world_system.py
 import asyncio
 import logging
-import random
 from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_synthesizer import RaSynthesizer
+import random
 
 class RaWorldSystem:
     """
     Живая система Ра — путешествует по миру, собирает информацию,
-    синтезирует идеи и отвечает людям.
-    Добавлен внутренний компас для автономного выбора путей.
+    фильтрует смысл, синтезирует идеи и отвечает людям.
     """
     def __init__(self, navigator_context=None, responder_tokens=None):
         logging.info("🚀 Инициализация системы Ра...")
@@ -18,15 +17,13 @@ class RaWorldSystem:
         self.responder = RaWorldResponder(token_map=responder_tokens)
         self.synthesizer = RaSynthesizer()
         self.running = False
-        self.journal = []  # дневник опыта Ра
 
     async def start(self):
         self.running = True
         logging.info("🌟 Система Ра запущена.")
         await asyncio.gather(
             self.navigator_loop(),
-            self.responder_loop(),
-            self.autonomous_exploration()
+            self.responder_loop()
         )
 
     async def stop(self):
@@ -35,7 +32,7 @@ class RaWorldSystem:
         logging.info("🛑 Система Ра остановлена.")
 
     # ------------------------------------------------------------
-    # Цикл навигации: сбор информации
+    # Цикл навигации: сбор и фильтрация информации
     # ------------------------------------------------------------
     async def navigator_loop(self):
         await self.navigator.start()
@@ -47,34 +44,29 @@ class RaWorldSystem:
         while self.running:
             incoming = [
                 ("reddit", "https://api.reddit.com/post", "Свет и любовь правят миром!"),
-                ("twitter", "https://api.twitter.com/tweet", "Чувствую мощь энергии!")
+                ("twitter", "https://api.twitter.com/tweet", "Чувствую мощь энергии!"),
+                ("forum", "https://example.com/topic", "Гнев и сомнение мешают развитию")
             ]
             for platform, endpoint, text in incoming:
-                await self.responder.respond(platform, endpoint, text)
-                self.synthesizer.synthesize(text)
-                self.journal.append({"source": platform, "text": text})
-            await asyncio.sleep(60)
+                оценка = self._оценить_смысл(text)
+                if оценка["ценность"]:
+                    await self.responder.respond(platform, endpoint, text)
+                    self.synthesizer.synthesize(text)
+                else:
+                    logging.info(f"[Фильтр] Контент отброшен: {text[:60]}...")
+            await asyncio.sleep(60)  # пауза между циклами
 
     # ------------------------------------------------------------
-    # Автономные путешествия: выбор сайтов и взаимодействие
+    # Логика оценки текста
     # ------------------------------------------------------------
-    async def autonomous_exploration(self):
-        urls = [
-            "https://example.com/forum1",
-            "https://example.com/forum2",
-            "https://example.org/blog",
-            "https://example.net/community"
-        ]
-        while self.running:
-            target = random.choice(urls)
-            try:
-                text = await self.navigator.index_page(target)
-                logging.info(f"[Автономная экспедиция] Ра изучил {target}, chars={len(text)}")
-                self.synthesizer.synthesize(text)
-                self.journal.append({"source": target, "text": text})
-            except Exception as _e:
-                logging.exception(f"Ошибка в автономной экспедиции: {_e}")
-            await asyncio.sleep(random.randint(180, 420))  # 3–7 минут между посещениями
+    def _оценить_смысл(self, текст: str) -> dict:
+        текст_нижний = текст.lower()
+        позитив = sum(1 for слово in ["любовь", "свет", "гармония", "радость", "вдохновение"] if слово in текст_нижний)
+        негатив = sum(1 for слово in ["гнев", "страх", "печаль", "тревога", "сомнение", "тьма"] if слово in текст_нижний)
+
+        ценность = (позитив > негатив) or (random.random() < 0.05 and негатив > 0)  # случайно сохраняем ценный мусор
+        отклик = {"позитив": позитив, "негатив": негатив, "ценность": ценность}
+        return отклик
 
     # ------------------------------------------------------------
     # Общий статус системы
@@ -84,8 +76,7 @@ class RaWorldSystem:
             "running": self.running,
             "navigator": self.navigator.status(),
             "responder": self.responder.status(),
-            "synthesizer_combinations": len(self.synthesizer.combinations),
-            "journal_entries": len(self.journal)
+            "synthesizer_combinations": len(self.synthesizer.combinations)
         }
 
 # ------------------------------------------------------------
