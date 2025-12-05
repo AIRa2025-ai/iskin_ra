@@ -1,25 +1,24 @@
 # scripts/create_shims_full.py
 # -*- coding: utf-8 -*-
 import re
-import os  # noqa: F401
+import os
 import json
 from pathlib import Path
 from datetime import datetime
+import ast
 
 ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = ROOT / "modules"
 LOG_TXT = ROOT / "scripts" / "create_shims_full.log"
 LOG_JSON = ROOT / "scripts" / "create_shims_full.json"
+ERROR_LOG = ROOT / "scripts" / "create_shims_full_errors.log"
 
-# Находим все импорты модулей
 imports_pattern = re.compile(
     r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import|import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)'
 )
-
-# Вызовы методов: module.foo(...)
 method_call_pattern = re.compile(r'([A-Za-z0-9_А-Яа-яёЁ]+)\.([A-Za-z0-9_А-Яа-яёЁ]+)\(')
-# from module import foo
-direct_import_pattern = re.compile(r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import\s+([A-Za-z0-9_А-Яа-яёЁ]+)')
+direct_import_pattern = re.compile(r'from\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+import\s+(.+)')
+alias_import_pattern = re.compile(r'import\s+modules\.([A-Za-z0-9_А-Яа-яёЁ]+)\s+as\s+([A-Za-z0-9_А-Яа-яёЁ]+)')
 
 KNOWN_ALIASES = {
     "сердце": ["heart", "сердце"],
@@ -54,21 +53,6 @@ def sanitize_class_name(name: str) -> str:
         name_ascii = "ShimModule"
     return "".join(part.capitalize() for part in name_ascii.split("_"))
 
-def find_module_names():
-    found = set()
-    for p in ROOT.rglob("*.py"):
-        if any(x in str(p) for x in ("site-packages", ".venv", "venv")):
-            continue
-        try:
-            text = p.read_text(encoding="utf-8")
-        except Exception:
-            continue
-        for m in imports_pattern.finditer(text):
-            name = m.group(1) or m.group(2)
-            if name:
-                found.add(name)
-    return sorted(found)
-
 def ensure_modules_dir():
     MODULES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -81,41 +65,71 @@ def write_logs(summary_txt, summary_json):
     with LOG_JSON.open("w", encoding="utf-8") as f:
         json.dump(summary_json, f, ensure_ascii=False, indent=2)
 
-def try_find_existing(alias_list):
-    for name in alias_list:
-        candidate = MODULES_DIR / f"{name}.py"
-        if candidate.exists():
-            return candidate.name[:-3]
-    return None
+def log_error(msg):
+    ERROR_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with ERROR_LOG.open("a", encoding="utf-8") as f:
+        f.write(f"{datetime.now().isoformat()} - {msg}\n")
+
+def extract_methods_from_ast(file_path):
+    """Попытка извлечь все функции и async функции через AST (для from module import *)."""
+    methods = set()
+    try:
+        tree = ast.parse(file_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+                methods.add(node.name)
+    except Exception as e:
+        log_error(f"AST parse failed for {file_path}: {e}")
+    return methods
 
 def extract_methods_usage(module_name: str):
-    """Сканирует проект и собирает реально используемые методы для module_name."""
+    """Сканирует проект и собирает реально используемые методы для module_name, учитывая alias и from *."""
     methods = set()
+    aliases = {module_name: module_name}
+
     for p in ROOT.rglob("*.py"):
         if any(x in str(p) for x in ("site-packages", ".venv", "venv")):
             continue
         try:
             text = p.read_text(encoding="utf-8")
         except Exception:
+            log_error(f"Cannot read file: {p}")
             continue
 
         # module.method()
         for m in method_call_pattern.finditer(text):
             mod, meth = m.groups()
-            if mod == module_name:
+            if mod in aliases:
                 methods.add(meth)
 
-        # from module import func
+        # from module import foo, bar, baz
         for m in direct_import_pattern.finditer(text):
-            mod, func = m.groups()
+            mod, funcs = m.groups()
             if mod == module_name:
-                methods.add(func)
+                funcs_list = [f.strip() for f in funcs.split(",")]
+                methods.update(funcs_list)
+            elif funcs.strip() == '*':
+                # импорт через *
+                file_path = MODULES_DIR / f"{mod}.py"
+                if file_path.exists():
+                    methods.update(extract_methods_from_ast(file_path))
+
+        # import module as m
+        for m in alias_import_pattern.finditer(text):
+            mod, alias = m.groups()
+            if mod == module_name:
+                aliases[alias] = module_name
+
     return sorted(methods)
 
 def generate_methods_stub_dynamic(modname):
     methods = extract_methods_usage(modname)
+    seen = set()
     stub_lines = []
     for m in methods:
+        if m in seen:
+            continue
+        seen.add(m)
         stub_lines.append(f"    def {m}(self, *args, **kwargs):")
         stub_lines.append(f"        \"\"\"TODO: Реализовать метод {m}\"\"\"")
         stub_lines.append(f"        pass\n")
@@ -147,7 +161,12 @@ from modules.{real_name} import *
 
 def main():
     ensure_modules_dir()
-    module_names = find_module_names()
+    module_names = set()
+    try:
+        module_names.update(find_module_names())
+    except Exception as e:
+        log_error(f"find_module_names failed: {e}")
+
     created = []
     wrapped = []
     notes = []
@@ -193,7 +212,7 @@ def main():
     for line in summary_txt:
         print(line)
     write_logs(summary_txt, summary_json)
-    print(f"\nLogs written to {LOG_TXT} and {LOG_JSON}")
+    print(f"\nLogs written to {LOG_TXT}, {LOG_JSON}, errors in {ERROR_LOG}")
 
 if __name__ == "__main__":
     main()
