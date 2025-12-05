@@ -277,10 +277,12 @@ def ra_clean_input(text: str) -> str:
 # --- Обработчик пользовательских сообщений (основная логика) ---
 async def process_user_message(message: Message):
     text = (message.text or "").strip()
-        cleaned = ra_clean_input(text)
+    cleaned = ra_clean_input(text)
+
     if not cleaned:
         await message.answer("✨ Брат, сообщение оказалось пустым или мусорным. Попробуй формулировку по-другому.")
         return
+
     text = cleaned
     user_id = getattr(message.from_user, "id", None)
     if user_id:
