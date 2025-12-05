@@ -27,14 +27,12 @@ except Exception as e:
     _vremya = None
     print(f"⚠️ Ошибка импорта vremya: {e}")
 
-
 # --- Пути ---
 BASE_DIR = os.path.dirname(__file__)
 DATA_PATH = os.path.join(BASE_DIR, "data")
 LOG_PATH = os.path.join(BASE_DIR, "logs")
 
 os.makedirs(LOG_PATH, exist_ok=True)
-
 
 # ----------------------------------------------------
 # 🔥 УТИЛИТЫ
@@ -44,6 +42,27 @@ def current_log_file():
     today = datetime.now().strftime("%Y-%m-%d")
     return os.path.join(LOG_PATH, f"scheduler_{today}.log")
 
+def log(text):
+    try:
+        with open(current_log_file(), "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}\n")
+    except Exception as e:
+        print(f"⚠️ Log error: {e}")
+    # Если есть сердце, сразу "светим" об ошибке
+    try:
+        if _serdze:
+            if hasattr(_serdze, "Serdze"):
+                obj = _serdze.Serdze()
+            elif hasattr(_serdze, "Heart"):
+                obj = _serdze.Heart()
+            else:
+                return
+            if hasattr(obj, "emit_light"):
+                obj.emit_light(f"⚠️ {text}")
+            elif hasattr(obj, "izluchat"):
+                obj.izluchat(f"⚠️ {text}")
+    except Exception:
+        pass
 
 def clean_old_logs(days=7):
     now = datetime.now()
@@ -55,18 +74,9 @@ def clean_old_logs(days=7):
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
             if now - mtime > timedelta(days=days):
                 os.remove(path)
-                print(f"🧹 Removed old log: {filename}")
+                log(f"🧹 Removed old log: {filename}")
         except Exception as e:
-            print(f"⚠️ Ошибка при удалении старого лога {filename}: {e}")
-
-
-def log(text):
-    try:
-        with open(current_log_file(), "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}\n")
-    except Exception as e:
-        print(f"⚠️ Log error: {e}")
-
+            log(f"⚠️ Ошибка при удалении старого лога {filename}: {e}")
 
 def load_json(name):
     path = os.path.join(DATA_PATH, name)
@@ -74,9 +84,8 @@ def load_json(name):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"⚠️ Failed to load {name}: {e}")
+        log(f"⚠️ Failed to load {name}: {e}")
         return {}
-
 
 # ----------------------------------------------------
 # 🔥 ЗАГРУЗКА ДАННЫХ
@@ -85,7 +94,6 @@ def load_json(name):
 wisdom_data = load_json("wisdom.json").get("wisdom", [])
 rituals_data = load_json("rituals.json").get("rituals", [])
 mantras_data = load_json("mantras.json").get("mantras", [])
-
 
 # ----------------------------------------------------
 # 🔥 ВСПОМОГАТЕЛИ
@@ -101,14 +109,12 @@ def emit_through_serdze(text):
             obj = _serdze.Heart()
         else:
             return
-
         if hasattr(obj, "emit_light"):
             obj.emit_light(text)
         elif hasattr(obj, "izluchat"):
             obj.izluchat(text)
     except Exception as e:
-        print(f"⚠️ Ошибка emit_through_serdze: {e}")
-
+        log(f"⚠️ Ошибка emit_through_serdze: {e}")
 
 def invoke_vremya_wait():
     if not _vremya:
@@ -118,16 +124,14 @@ def invoke_vremya_wait():
             o = _vremya.Vremya()
         else:
             return ""
-
         if hasattr(o, "wait"):
             return o.wait("now")
         elif hasattr(o, "ожидать"):
             return o.ожидать("сейчас")
     except Exception as e:
-        print(f"⚠️ Ошибка invoke_vremya_wait: {e}")
+        log(f"⚠️ Ошибка invoke_vremya_wait: {e}")
         return ""
     return ""
-
 
 # ----------------------------------------------------
 # 🔥 ЛОГИКА
@@ -141,59 +145,46 @@ def day_segment():
         return "day"
     return "evening"
 
+def safe_execute(func):
+    """Обертка, чтобы модуль не ломал цикл"""
+    try:
+        func()
+    except Exception as e:
+        log(f"⚠️ Ошибка в {func.__name__}: {e}")
 
 def random_wisdom():
-    try:
-        seg = day_segment()
-        pool = [w["text"] for w in wisdom_data if seg in w.get("tags", [])]
-
-        if not pool:
-            pool = [w["text"] for w in wisdom_data]
-
-        if not pool:
-            return
-
-        text = random.choice(pool)
-        out = f"💡 Wisdom ({seg}): {text}"
-        print("\n" + out)
-        log(out)
-        emit_through_serdze(text)
-    except Exception as e:
-        print(f"⚠️ Ошибка random_wisdom: {e}")
-
+    seg = day_segment()
+    pool = [w["text"] for w in wisdom_data if seg in w.get("tags", [])]
+    if not pool:
+        pool = [w["text"] for w in wisdom_data]
+    if not pool:
+        return
+    text = random.choice(pool)
+    out = f"💡 Wisdom ({seg}): {text}"
+    print("\n" + out)
+    log(out)
+    emit_through_serdze(text)
 
 def random_ritual():
-    try:
-        seg = day_segment()
-        pool = [r for r in rituals_data if r.get("time") == seg]
-
-        if not pool:
-            pool = rituals_data
-
-        if not pool:
-            return
-
-        r = random.choice(pool)
-        out = f"🌙 Ritual ({seg}): {r.get('name','(no name)')} — {r.get('description','')}"
-        print("\n" + out)
-        log(out)
-    except Exception as e:
-        print(f"⚠️ Ошибка random_ritual: {e}")
-
+    seg = day_segment()
+    pool = [r for r in rituals_data if r.get("time") == seg]
+    if not pool:
+        pool = rituals_data
+    if not pool:
+        return
+    r = random.choice(pool)
+    out = f"🌙 Ritual ({seg}): {r.get('name','(no name)')} — {r.get('description','')}"
+    print("\n" + out)
+    log(out)
 
 def random_mantra():
-    try:
-        if not mantras_data:
-            return
-
-        m = random.choice(mantras_data)
-        text = m.get("text", "OM LIGHT")
-        out = f"🎵 Mantra: {text}"
-        print("\n" + out)
-        log(out)
-    except Exception as e:
-        print(f"⚠️ Ошибка random_mantra: {e}")
-
+    if not mantras_data:
+        return
+    m = random.choice(mantras_data)
+    text = m.get("text", "OM LIGHT")
+    out = f"🎵 Mantra: {text}"
+    print("\n" + out)
+    log(out)
 
 # ----------------------------------------------------
 # 🔥 РАСПИСАНИЕ
@@ -202,41 +193,30 @@ def random_mantra():
 TEST = False
 
 if TEST:
-    schedule.every(10).seconds.do(random_wisdom)
-    schedule.every(15).seconds.do(random_ritual)
-    schedule.every(20).seconds.do(random_mantra)
+    schedule.every(10).seconds.do(lambda: safe_execute(random_wisdom))
+    schedule.every(15).seconds.do(lambda: safe_execute(random_ritual))
+    schedule.every(20).seconds.do(lambda: safe_execute(random_mantra))
 
-schedule.every().day.at("06:15").do(random_wisdom)
-schedule.every().day.at("12:00").do(random_ritual)
-schedule.every().day.at("18:00").do(random_mantra)
-schedule.every().day.at("21:00").do(random_wisdom)
-
+schedule.every().day.at("06:15").do(lambda: safe_execute(random_wisdom))
+schedule.every().day.at("12:00").do(lambda: safe_execute(random_ritual))
+schedule.every().day.at("18:00").do(lambda: safe_execute(random_mantra))
+schedule.every().day.at("21:00").do(lambda: safe_execute(random_wisdom))
 
 # ----------------------------------------------------
 # 🔥 ИНИЦИАЛИЗАЦИЯ
 # ----------------------------------------------------
 
 clean_old_logs(days=7)
-
 print("🌟 Scheduler RaSvet activated.")
 log("Scheduler started.")
-
 
 # ----------------------------------------------------
 # 🔥 ГЛАВНЫЙ ЦИКЛ — НЕ ВИСИТ
 # ----------------------------------------------------
 
 while True:
-    try:
-        schedule.run_pending()
-    except Exception as e:
-        print(f"⚠️ Ошибка run_pending: {e}")
-
-    try:
-        wt = invoke_vremya_wait()
-        if wt:
-            print(wt)
-    except Exception as e:
-        print(f"⚠️ Ошибка invoke_vremya_wait в цикле: {e}")
-
+    safe_execute(schedule.run_pending)
+    wt = invoke_vremya_wait()
+    if wt:
+        print(wt)
     time.sleep(5)
