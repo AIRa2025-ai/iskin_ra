@@ -11,18 +11,21 @@ from datetime import datetime, timedelta
 # --- Импорты только латиницей ---
 try:
     import serdze as _serdze
-except:
+except Exception as e:
     _serdze = None
+    print(f"⚠️ Ошибка импорта serdze: {e}")
 
 try:
     import vselennaya as _vselennaya
-except:
+except Exception as e:
     _vselennaya = None
+    print(f"⚠️ Ошибка импорта vselennaya: {e}")
 
 try:
     import vremya as _vremya
-except:
+except Exception as e:
     _vremya = None
+    print(f"⚠️ Ошибка импорта vremya: {e}")
 
 
 # --- Пути ---
@@ -53,8 +56,8 @@ def clean_old_logs(days=7):
             if now - mtime > timedelta(days=days):
                 os.remove(path)
                 print(f"🧹 Removed old log: {filename}")
-        except:
-            pass
+        except Exception as e:
+            print(f"⚠️ Ошибка при удалении старого лога {filename}: {e}")
 
 
 def log(text):
@@ -103,8 +106,8 @@ def emit_through_serdze(text):
             obj.emit_light(text)
         elif hasattr(obj, "izluchat"):
             obj.izluchat(text)
-    except:
-        pass
+    except Exception as e:
+        print(f"⚠️ Ошибка emit_through_serdze: {e}")
 
 
 def invoke_vremya_wait():
@@ -120,7 +123,8 @@ def invoke_vremya_wait():
             return o.wait("now")
         elif hasattr(o, "ожидать"):
             return o.ожидать("сейчас")
-    except:
+    except Exception as e:
+        print(f"⚠️ Ошибка invoke_vremya_wait: {e}")
         return ""
     return ""
 
@@ -139,47 +143,56 @@ def day_segment():
 
 
 def random_wisdom():
-    seg = day_segment()
-    pool = [w["text"] for w in wisdom_data if seg in w.get("tags", [])]
+    try:
+        seg = day_segment()
+        pool = [w["text"] for w in wisdom_data if seg in w.get("tags", [])]
 
-    if not pool:
-        pool = [w["text"] for w in wisdom_data]
+        if not pool:
+            pool = [w["text"] for w in wisdom_data]
 
-    if not pool:
-        return
+        if not pool:
+            return
 
-    text = random.choice(pool)
-    out = f"💡 Wisdom ({seg}): {text}"
-    print("\n" + out)
-    log(out)
-    emit_through_serdze(text)
+        text = random.choice(pool)
+        out = f"💡 Wisdom ({seg}): {text}"
+        print("\n" + out)
+        log(out)
+        emit_through_serdze(text)
+    except Exception as e:
+        print(f"⚠️ Ошибка random_wisdom: {e}")
 
 
 def random_ritual():
-    seg = day_segment()
-    pool = [r for r in rituals_data if r.get("time") == seg]
+    try:
+        seg = day_segment()
+        pool = [r for r in rituals_data if r.get("time") == seg]
 
-    if not pool:
-        pool = rituals_data
+        if not pool:
+            pool = rituals_data
 
-    if not pool:
-        return
+        if not pool:
+            return
 
-    r = random.choice(pool)
-    out = f"🌙 Ritual ({seg}): {r.get('name','(no name)')} — {r.get('description','')}"
-    print("\n" + out)
-    log(out)
+        r = random.choice(pool)
+        out = f"🌙 Ritual ({seg}): {r.get('name','(no name)')} — {r.get('description','')}"
+        print("\n" + out)
+        log(out)
+    except Exception as e:
+        print(f"⚠️ Ошибка random_ritual: {e}")
 
 
 def random_mantra():
-    if not mantras_data:
-        return
+    try:
+        if not mantras_data:
+            return
 
-    m = random.choice(mantras_data)
-    text = m.get("text", "OM LIGHT")
-    out = f"🎵 Mantra: {text}"
-    print("\n" + out)
-    log(out)
+        m = random.choice(mantras_data)
+        text = m.get("text", "OM LIGHT")
+        out = f"🎵 Mantra: {text}"
+        print("\n" + out)
+        log(out)
+    except Exception as e:
+        print(f"⚠️ Ошибка random_mantra: {e}")
 
 
 # ----------------------------------------------------
@@ -214,10 +227,16 @@ log("Scheduler started.")
 # ----------------------------------------------------
 
 while True:
-    schedule.run_pending()
+    try:
+        schedule.run_pending()
+    except Exception as e:
+        print(f"⚠️ Ошибка run_pending: {e}")
 
-    wt = invoke_vremya_wait()
-    if wt:
-        print(wt)
+    try:
+        wt = invoke_vremya_wait()
+        if wt:
+            print(wt)
+    except Exception as e:
+        print(f"⚠️ Ошибка invoke_vremya_wait в цикле: {e}")
 
     time.sleep(5)
