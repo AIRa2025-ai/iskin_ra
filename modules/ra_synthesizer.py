@@ -1,5 +1,5 @@
 # modules/ra_synthesizer.py
-import json
+import json # noqa: F401
 import logging
 
 class RaSynthesizer:
