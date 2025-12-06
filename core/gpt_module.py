@@ -1,4 +1,4 @@
-# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра
+# core/gpt_module_pro.py — интеллектуальная версия GPT-модуля для Ра
 import os
 import aiohttp
 import logging
@@ -16,7 +16,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     raise RuntimeError("❌ Не задан OPENROUTER_API_KEY")
 
-# Список моделей для перебора
+# Список моделей
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
     "deepseek/deepseek-chat-v3.1:free",
@@ -77,6 +77,14 @@ async def ask_openrouter_single(session, user_id, messages, model):
             raise Exception(f"Модель {model} не вернула choices")
         return data["choices"][0]["message"]["content"].strip()
 
+# === Функция очистки истёкших исключений ===
+def refresh_excluded_models():
+    now = datetime.now()
+    to_remove = [m for m, until in excluded_models.items() if until <= now]
+    for m in to_remove:
+        logging.info(f"♻️ Модель {m} снова доступна после cooldown")
+        excluded_models.pop(m)
+
 # === Безопасный запрос с кэшем и fallback ===
 async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
     global last_working_model
@@ -86,9 +94,10 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
         logging.info("💾 Используем кэшированный ответ")
         return cached
 
+    refresh_excluded_models()  # обновляем пул доступных моделей
+
     async with aiohttp.ClientSession() as session:
-        now = datetime.now()
-        usable_models = [m for m in MODELS if m not in excluded_models or excluded_models[m] <= now]
+        usable_models = [m for m in MODELS if m not in excluded_models]
 
         # сначала пробуем последнюю рабочую модель
         if last_working_model and last_working_model in usable_models:
