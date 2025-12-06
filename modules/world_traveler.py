@@ -3,10 +3,13 @@
 # Для проекта «РаСвет»
 
 import aiohttp
-import asyncio
+import random
 from bs4 import BeautifulSoup
 from textblob import TextBlob
-import random
+from colorama import init, Fore, Style
+
+# инициализация цвета
+init(autoreset=True)
 
 class WorldTraveler:
     def __init__(self, logs, insight_engine, perception_engine):
@@ -28,7 +31,6 @@ class WorldTraveler:
         Ра выбирает маршрут сам.
         """
         route = random.sample(self.trusted_sources, k=3)
-
         results = []
 
         async with aiohttp.ClientSession() as session:
@@ -36,13 +38,19 @@ class WorldTraveler:
                 try:
                     async with session.get(url, timeout=20) as resp:
                         html = await resp.text()
-
-                        clean_text = self._clean(html)
+                        text, negative_flag = self._clean(html)
                         insight = self._extract(html)
+
+                        if negative_flag:
+                            label = f"{Fore.RED}🔴{Style.RESET_ALL}"
+                        else:
+                            label = f"{Fore.GREEN}🌟{Style.RESET_ALL}"
 
                         results.append({
                             "url": url,
-                            "insight": insight
+                            "insight": insight,
+                            "text_preview": f"{label} {text[:100]}",
+                            "negative": negative_flag
                         })
 
                 except Exception as e:
@@ -57,17 +65,18 @@ class WorldTraveler:
         # мягкое очищение мусора
         text = BeautifulSoup(html, "html.parser").get_text()
         sentiment = TextBlob(text).sentiment.polarity
+        negative_flag = False
         if sentiment < -0.6:
-            return ""  # токсичная вибрация
-        return text
+            negative_flag = True
+            # часть текста для анализа плохой вибрации
+            text = text[:200]
+        return text, negative_flag
 
     def _extract(self, html):
         # поиск редких идей
         soup = BeautifulSoup(html, "html.parser")
         words = soup.get_text().split()
-
         rare_words = [w for w in words if len(w) > 10][:5]
-
         sample = " ".join(words[:60])
 
         return {
