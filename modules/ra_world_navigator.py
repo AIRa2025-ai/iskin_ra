@@ -1,7 +1,7 @@
 # modules/ra_world_navigator.py
 import asyncio
 import logging
-import math
+import math # noqa: F401 — оставляем для будущих математических операций
 import random
 from bs4 import BeautifulSoup
 import httpx
