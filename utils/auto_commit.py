@@ -1,6 +1,6 @@
 # utils/auto_commit.py — автокоммит с тихим стартом, проверками, мягким завершением и автоперезапуском
 # noqa: F401 для os
-import os
+import os # noqa: F401
 import subprocess
 import time
 import signal
