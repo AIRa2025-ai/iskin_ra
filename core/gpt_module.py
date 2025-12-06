@@ -1,4 +1,4 @@
-# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра с умным приоритетом моделей
+# core/gpt_module_pro.py — умная версия GPT-модуля для Ра с авто-переключением модели
 import os
 import aiohttp
 import logging
@@ -107,7 +107,7 @@ def refresh_excluded_models():
         logging.info(f"♻️ Модель {m} снова доступна после cooldown")
         excluded_models.pop(m)
 
-# === Безопасный запрос с кэшем и fallback и приоритетом скорости ===
+# === Безопасный запрос с кэшем, fallback, приоритетом скорости и авто-переключением модели ===
 async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
     global last_working_model
     text_message = messages_payload[-1]["content"]
@@ -133,6 +133,7 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
             logging.error("⚠️ Все модели временно недоступны.")
             return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
+        answer = None
         for model in usable_models:
             try:
                 logging.info(f"💡 Пробуем модель {model}")
@@ -143,9 +144,17 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
             except Exception as e:
                 logging.warning(f"⚠️ Модель {model} временно исключена: {e}")
                 excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
+                if model == last_working_model:
+                    # авто-переключение: берем следующую доступную модель
+                    remaining = [m for m in usable_models if m != model and m not in excluded_models]
+                    if remaining:
+                        logging.info(f"🔄 Переключаемся на следующую модель: {remaining[0]}")
+                        last_working_model = remaining[0]
         else:
-            return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
+            if not answer:
+                return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
+        # фоновые кэш-запросы для остальных моделей
         async def background_cache(model):
             try:
                 ans = await ask_openrouter_single(session, user_id, messages_payload, model)
