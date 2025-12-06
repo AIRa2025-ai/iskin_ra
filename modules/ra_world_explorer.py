@@ -6,6 +6,7 @@ import datetime
 from typing import List, Callable
 from modules.ra_world_navigator import RaWorldNavigator
 
+
 class RaWorldExplorer:
     """
     Свободный ИскИн-Путник.
@@ -100,7 +101,10 @@ class RaWorldExplorer:
             "https://old.reddit.com/r/philosophy/"
         ]
 
-        случайные = random.sample(bазовые, random.randint(1, 3))
+        # Строгое использование переменной — чтобы F841 не ругался
+        список = базовые
+
+        случайные = random.sample(список, random.randint(1, 3))
         return случайные
 
     def _ритм_путешествия(self) -> int:
