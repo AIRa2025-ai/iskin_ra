@@ -1,4 +1,4 @@
-# core/gpt_module_pro.py — умная версия GPT-модуля для Ра с авто-переключением модели
+# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра с авто-переключением и мониторингом моделей
 import os
 import aiohttp
 import logging
@@ -91,10 +91,9 @@ async def ask_openrouter_single(session, user_id, messages, model):
             raise Exception(f"Модель {model} не вернула choices")
         answer = data["choices"][0]["message"]["content"].strip()
 
-    # обновление скорости модели
     elapsed = (datetime.now() - start_time).total_seconds()
     prev = model_speed.get(model, elapsed)
-    model_speed[model] = (prev + elapsed) / 2  # простое скользящее среднее
+    model_speed[model] = (prev + elapsed) / 2
     save_model_speed()
 
     return answer
@@ -107,7 +106,24 @@ def refresh_excluded_models():
         logging.info(f"♻️ Модель {m} снова доступна после cooldown")
         excluded_models.pop(m)
 
-# === Безопасный запрос с кэшем, fallback, приоритетом скорости и авто-переключением модели ===
+# === Фоновый мониторинг всех моделей для ускорения ответов ===
+async def background_model_monitor():
+    while True:
+        async with aiohttp.ClientSession() as session:
+            for model in MODELS:
+                try:
+                    start = datetime.now()
+                    await ask_openrouter_single(session, "monitor", [{"role":"system","content":"ping"}], model)
+                    elapsed = (datetime.now() - start).total_seconds()
+                    prev = model_speed.get(model, elapsed)
+                    model_speed[model] = (prev + elapsed) / 2
+                    if model in excluded_models:
+                        excluded_models.pop(model)
+                except Exception:
+                    excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
+        await asyncio.sleep(300)  # каждые 5 минут проверяем все модели
+
+# === Безопасный запрос с кэшем и авто-переключением ===
 async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
     global last_working_model
     text_message = messages_payload[-1]["content"]
@@ -120,11 +136,8 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
 
     async with aiohttp.ClientSession() as session:
         usable_models = [m for m in MODELS if m not in excluded_models]
-
-        # сортируем по скорости (меньшее время — выше)
         usable_models.sort(key=lambda m: model_speed.get(m, float('inf')))
 
-        # сначала пробуем последнюю рабочую модель
         if last_working_model and last_working_model in usable_models:
             usable_models.remove(last_working_model)
             usable_models = [last_working_model] + usable_models
@@ -145,7 +158,6 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
                 logging.warning(f"⚠️ Модель {model} временно исключена: {e}")
                 excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
                 if model == last_working_model:
-                    # авто-переключение: берем следующую доступную модель
                     remaining = [m for m in usable_models if m != model and m not in excluded_models]
                     if remaining:
                         logging.info(f"🔄 Переключаемся на следующую модель: {remaining[0]}")
@@ -154,7 +166,6 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
             if not answer:
                 return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
-        # фоновые кэш-запросы для остальных моделей
         async def background_cache(model):
             try:
                 ans = await ask_openrouter_single(session, user_id, messages_payload, model)
@@ -171,3 +182,6 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
 # === Заглушка для быстрого вызова ===
 async def ask_openrouter_with_fallback(prompt: str):
     return f"[RaStub] Ответ на: {prompt[:50]}..."
+
+# === Автозапуск фонового мониторинга при старте ===
+asyncio.create_task(background_model_monitor())
