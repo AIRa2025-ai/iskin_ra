@@ -5,7 +5,7 @@
 import time  # noqa: F401
 import math
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # noqa: F401
 from random import uniform
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -14,9 +14,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 class ИсконнаяМера:
     def __init__(self):
         self.ритмы_тела: dict[str, float] = {
-            "дыхание": 4.0,  
-            "пульс": 1.0,    
-            "циклы_сна": 90.0  
+            "дыхание": 4.0,
+            "пульс": 1.0,
+            "циклы_сна": 90.0
         }
         self.стихии: dict[str, float] = {
             "Огонь": 1.0,
@@ -30,7 +30,7 @@ class ИсконнаяМера:
     def вычислить_гармонию(self, текущее_время: datetime = None) -> float | str:
         if текущее_время is None:
             текущее_время = datetime.now()
-        
+
         час = текущее_время.hour
         фаза_луны = self.получить_фазу_луны(текущее_время)
 
@@ -38,10 +38,16 @@ class ИсконнаяМера:
             базовая = math.sin(час * math.pi / 12) * 100
 
             # Коэффициенты ритмов тела
-            ритмы_коэф = sum(uniform(0.9, 1.1) * v for v in self.ритмы_тела.values()) / len(self.ритмы_тела)
+            ритмы_коэф = (
+                sum(uniform(0.9, 1.1) * v for v in self.ритмы_тела.values())
+                / len(self.ритмы_тела)
+            )
 
             # Коэффициенты стихий
-            стихии_коэф = sum(uniform(0.85, 1.15) * v for v in self.стихии.values()) / len(self.стихии)
+            стихии_коэф = (
+                sum(uniform(0.85, 1.15) * v for v in self.стихии.values())
+                / len(self.стихии)
+            )
 
             гармония = базовая * ритмы_коэф * стихии_коэф
 
@@ -52,6 +58,7 @@ class ИсконнаяМера:
                 f"стихии_коэф: {стихии_коэф:.3f}"
             )
             return round(гармония, 2)
+
         else:
             msg = "⚠️ Используй только в 'тишине утра' (4-6 часов) или при полной луне!"
             logging.warning(msg)
@@ -61,9 +68,11 @@ class ИсконнаяМера:
         """Рассчитывает фазу луны по дате."""
         synodic_month = 29.53058867
         known_new_moon = datetime(2000, 1, 6, 18, 14)
+
         days_since_known = (дата - known_new_moon).total_seconds() / 86400.0
         new_moons = days_since_known / synodic_month
         phase_index = (new_moons % 1) * 4
+
         phases = ["новая", "растущая", "полная", "убывающая"]
         return phases[int(phase_index) % 4]
 
