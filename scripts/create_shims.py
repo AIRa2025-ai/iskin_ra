@@ -1,7 +1,6 @@
 # scripts/create_shims_full.py
 # -*- coding: utf-8 -*-
 import re
-import os
 import json
 from pathlib import Path
 from datetime import datetime
@@ -38,7 +37,6 @@ class {class_name}:
         return True
 
 def register(globals_dict=None):
-    \"\"\"Optional register() used by autoloader.\"\"\"
     return True
 """
 
@@ -71,7 +69,6 @@ def log_error(msg):
         f.write(f"{datetime.now().isoformat()} - {msg}\n")
 
 def extract_methods_from_ast(file_path):
-    """Попытка извлечь все функции и async функции через AST (для from module import *)."""
     methods = set()
     try:
         tree = ast.parse(file_path.read_text(encoding="utf-8"))
@@ -83,7 +80,6 @@ def extract_methods_from_ast(file_path):
     return methods
 
 def extract_methods_usage(module_name: str):
-    """Сканирует проект и собирает реально используемые методы для module_name, учитывая alias и from *."""
     methods = set()
     aliases = {module_name: module_name}
 
@@ -96,25 +92,21 @@ def extract_methods_usage(module_name: str):
             log_error(f"Cannot read file: {p}")
             continue
 
-        # module.method()
         for m in method_call_pattern.finditer(text):
             mod, meth = m.groups()
             if mod in aliases:
                 methods.add(meth)
 
-        # from module import foo, bar, baz
         for m in direct_import_pattern.finditer(text):
             mod, funcs = m.groups()
             if mod == module_name:
                 funcs_list = [f.strip() for f in funcs.split(",")]
                 methods.update(funcs_list)
             elif funcs.strip() == '*':
-                # импорт через *
                 file_path = MODULES_DIR / f"{mod}.py"
                 if file_path.exists():
                     methods.update(extract_methods_from_ast(file_path))
 
-        # import module as m
         for m in alias_import_pattern.finditer(text):
             mod, alias = m.groups()
             if mod == module_name:
@@ -124,15 +116,15 @@ def extract_methods_usage(module_name: str):
 
 def generate_methods_stub_dynamic(modname):
     methods = extract_methods_usage(modname)
-    seen = set()
     stub_lines = []
+    seen = set()
     for m in methods:
         if m in seen:
             continue
         seen.add(m)
         stub_lines.append(f"    def {m}(self, *args, **kwargs):")
         stub_lines.append(f"        \"\"\"TODO: Реализовать метод {m}\"\"\"")
-        stub_lines.append(f"        pass\n")
+        stub_lines.append("        pass\n")
     return "\n".join(stub_lines) if stub_lines else "    # TODO: Добавьте методы по необходимости\n"
 
 def create_shim(modname):
@@ -153,12 +145,24 @@ def create_wrapper(wrapper_name, real_name):
     if wrapper.exists():
         return False
     content = f"""# Wrapper shim: {wrapper_name} -> {real_name}
-# Автоматически создано для совместимости импортов
 from modules.{real_name} import *
 """
     wrapper.write_text(content, encoding="utf-8")
     return True
 
+# === Заглушки для недостающих функций ===
+def find_module_names():
+    # возвращаем список файлов .py без __init__
+    return [p.stem for p in MODULES_DIR.glob("*.py") if p.stem != "__init__"]
+
+def try_find_existing(aliases):
+    for a in aliases:
+        candidate = MODULES_DIR / f"{a}.py"
+        if candidate.exists():
+            return a
+    return None
+
+# === Главная функция ===
 def main():
     ensure_modules_dir()
     module_names = set()
