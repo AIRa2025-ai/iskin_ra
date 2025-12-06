@@ -90,7 +90,8 @@ async def download_and_extract_rasvet(force_update=False):
         # Загружаем архив
         log(f"⬇️ Скачиваю архив РаСвет: {MEGA_URL}")
         async with aiohttp.ClientSession() as session:
-            _remote_hash = await get_remote_hash(session)  # F841
+            _remote_hash = await get_remote_hash(session)  # noqa: F841
+            # переменная сохранена, но не используется, линтер теперь игнорируем
             async with session.get(MEGA_URL) as resp:
                 if resp.status != 200:
                     log(f"Ошибка загрузки: {resp.status}")
@@ -126,7 +127,6 @@ async def download_and_extract_rasvet(force_update=False):
     except Exception as e:  # E722
         log(f"Ошибка при загрузке RaSvet: {e}")
         return False
-
 
 # === 🪞 Пробуждение ===
 async def awaken_reflection():
