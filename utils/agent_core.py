@@ -5,7 +5,6 @@ import asyncio
 import logging
 import datetime  # noqa: F401
 import signal
-import sys
 import time
 import traceback
 from collections import deque
@@ -36,7 +35,10 @@ def signal_handler(signum, frame):
     global stop_flag
     logging.info(f"✋ Получен сигнал {signum}, подготовка к завершению...")
     stop_flag = True
-    stop_auto_sync()  # Останавливаем авто-синхронизацию
+    try:
+        stop_auto_sync()  # Останавливаем авто-синхронизацию
+    except Exception as e:
+        logging.error(f"Ошибка при остановке авто-синхронизации: {e}")
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -93,14 +95,20 @@ class AgentCore:
 
     async def perform_prestart_checks(self):
         logging.info("🔄 Подготовка перед запуском...")
-        # Восстанавливаем память
-        logging.info("🧠 Восстановление памяти из Mega...")
-        restore_from_mega()
+        try:
+            logging.info("🧠 Восстановление памяти из Mega...")
+            restore_from_mega()
+        except Exception as e:
+            logging.error(f"Ошибка восстановления из Mega: {e}")
+
         await asyncio.sleep(QUIET_START_DELAY)
 
-        # Запускаем авто-синхронизацию
-        logging.info("🌐 Запуск авто-синхронизации памяти и логов...")
-        start_auto_sync()
+        try:
+            logging.info("🌐 Запуск авто-синхронизации памяти и логов...")
+            start_auto_sync()
+        except Exception as e:
+            logging.error(f"Ошибка запуска авто-синхронизации: {e}")
+
         await asyncio.sleep(QUIET_START_DELAY)
 
         if self.check_module_versions():
@@ -156,7 +164,10 @@ async def main_loop():
             await asyncio.sleep(sleep_time)
 
     logging.info("✅ Основной цикл завершён. AgentCore остановлен корректно.")
-    stop_auto_sync()
+    try:
+        stop_auto_sync()
+    except Exception as e:
+        logging.error(f"Ошибка при остановке авто-синхронизации: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main_loop())
