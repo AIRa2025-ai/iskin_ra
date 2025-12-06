@@ -64,7 +64,7 @@ class RaWorldSpeaker:
 
             return ok
 
-        except Exception as e:
+        except Exception as e:  # noqa: F841
             logging.exception("[RaWorldSpeaker] Ошибка отправки")
             return False
 
