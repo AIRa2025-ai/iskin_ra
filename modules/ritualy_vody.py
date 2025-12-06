@@ -1,8 +1,8 @@
-# ритуалы_воды_interactive.py
+# modules/ritualy_vody.py
 import time
 import random
 import os
-from colorama import init, Fore, Style
+from colorama import init, Fore, Style  # noqa: F401
 
 # --- Инициализация цвета ---
 init(autoreset=True)
