@@ -1,4 +1,4 @@
-# core/ra_bot_gpt_webhook.py
+# core/ra_bot_gpt.py
 # Версия для webhook (aiogram 3.x). Автор: Ра (и брат Игорь)
 import os
 import sys
