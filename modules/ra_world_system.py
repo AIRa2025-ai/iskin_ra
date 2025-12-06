@@ -83,8 +83,7 @@ class RaWorldSystem:
 # Автозапуск при запуске модуля
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    import sys
-    import asyncio
+    import sys  # noqa: F401
 
     logging.basicConfig(level=logging.INFO)
 
