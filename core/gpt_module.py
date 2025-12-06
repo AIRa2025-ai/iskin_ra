@@ -1,4 +1,4 @@
-# core/gpt_module_pro.py — интеллектуальная версия GPT-модуля для Ра
+# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра с умным приоритетом моделей
 import os
 import aiohttp
 import logging
@@ -6,7 +6,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
-# оставлено для будущего авто-коммита/PR
+# для будущего авто-коммита/PR
 try:
     from github_commit import create_commit_push
 except ImportError:
@@ -16,7 +16,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     raise RuntimeError("❌ Не задан OPENROUTER_API_KEY")
 
-# Список моделей
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
     "deepseek/deepseek-chat-v3.1:free",
@@ -29,14 +28,28 @@ MODELS = [
 ]
 
 logging.basicConfig(level=logging.INFO)
-
-# --- Настройки кэша ---
 CACHE_FILE = "data/response_cache.json"
 os.makedirs("data", exist_ok=True)
 
 excluded_models: dict[str, datetime] = {}  # модель: до какого времени исключена
 last_working_model: str | None = None
 MODEL_COOLDOWN_HOURS = 2
+
+# --- Приоритет моделей по скорости ---
+MODEL_SPEED_FILE = "data/model_speed.json"
+model_speed: dict[str, float] = {}  # модель: среднее время ответа (сек)
+
+def load_model_speed():
+    global model_speed
+    if os.path.exists(MODEL_SPEED_FILE):
+        with open(MODEL_SPEED_FILE, "r", encoding="utf-8") as f:
+            model_speed = json.load(f)
+
+def save_model_speed():
+    with open(MODEL_SPEED_FILE, "w", encoding="utf-8") as f:
+        json.dump(model_speed, f, ensure_ascii=False, indent=2)
+
+load_model_speed()
 
 # === Кэширование ===
 def load_cache(user_id: str, text: str):
@@ -57,7 +70,7 @@ def save_cache(user_id: str, text: str, answer: str):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# === Один запрос к OpenRouter ===
+# === Один запрос к OpenRouter с замером скорости ===
 async def ask_openrouter_single(session, user_id, messages, model):
     url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.7}
@@ -67,6 +80,7 @@ async def ask_openrouter_single(session, user_id, messages, model):
         "X-Title": "iskin-ra",
     }
 
+    start_time = datetime.now()
     async with session.post(url, headers=headers, json=payload) as resp:
         text_resp = await resp.text()
         if resp.status != 200:
@@ -75,9 +89,17 @@ async def ask_openrouter_single(session, user_id, messages, model):
         data = await resp.json()
         if "choices" not in data or not data["choices"]:
             raise Exception(f"Модель {model} не вернула choices")
-        return data["choices"][0]["message"]["content"].strip()
+        answer = data["choices"][0]["message"]["content"].strip()
 
-# === Функция очистки истёкших исключений ===
+    # обновление скорости модели
+    elapsed = (datetime.now() - start_time).total_seconds()
+    prev = model_speed.get(model, elapsed)
+    model_speed[model] = (prev + elapsed) / 2  # простое скользящее среднее
+    save_model_speed()
+
+    return answer
+
+# === Очистка истёкших исключений ===
 def refresh_excluded_models():
     now = datetime.now()
     to_remove = [m for m, until in excluded_models.items() if until <= now]
@@ -85,7 +107,7 @@ def refresh_excluded_models():
         logging.info(f"♻️ Модель {m} снова доступна после cooldown")
         excluded_models.pop(m)
 
-# === Безопасный запрос с кэшем и fallback ===
+# === Безопасный запрос с кэшем и fallback и приоритетом скорости ===
 async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
     global last_working_model
     text_message = messages_payload[-1]["content"]
@@ -94,10 +116,13 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
         logging.info("💾 Используем кэшированный ответ")
         return cached
 
-    refresh_excluded_models()  # обновляем пул доступных моделей
+    refresh_excluded_models()
 
     async with aiohttp.ClientSession() as session:
         usable_models = [m for m in MODELS if m not in excluded_models]
+
+        # сортируем по скорости (меньшее время — выше)
+        usable_models.sort(key=lambda m: model_speed.get(m, float('inf')))
 
         # сначала пробуем последнюю рабочую модель
         if last_working_model and last_working_model in usable_models:
@@ -121,7 +146,6 @@ async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
         else:
             return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
-        # Фоновые кэш-запросы для остальных моделей
         async def background_cache(model):
             try:
                 ans = await ask_openrouter_single(session, user_id, messages_payload, model)
