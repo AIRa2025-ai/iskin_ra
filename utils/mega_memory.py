@@ -7,6 +7,7 @@ from datetime import datetime
 from mega import Mega
 import threading
 import signal
+from collections import deque
 from utils.notify import notify
 
 # === Конфигурация ===
@@ -24,6 +25,7 @@ QUIET_START_DELAY = 3
 
 stop_flag = False  # флаг мягкого завершения
 
+# === Сигналы для мягкого завершения ===
 def signal_handler(signum, frame):
     global stop_flag
     log(f"✋ Получен сигнал {signum}, подготовка к завершению...")
@@ -32,7 +34,7 @@ def signal_handler(signum, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-# === Подготовка окружения ===
+# === Вспомогательные функции ===
 def ensure_dirs():
     for d in [LOCAL_MEMORY_DIR, LOCAL_LOGS_DIR]:
         os.makedirs(d, exist_ok=True)
@@ -75,7 +77,7 @@ def get_directory_checksum(directory):
                 continue
     return hash_md5.hexdigest()
 
-# === Создание архива ===
+# === Архивирование папки ===
 def create_zip(directory, archive_name):
     ensure_dirs()
     archive_path = f"/app/{archive_name}"
@@ -111,7 +113,7 @@ def upload_to_mega(archive_name, archive_path):
         return
     m = connect_to_mega()
     if not m:
-        log(f"⚠️ Пропускаем загрузку {archive_name} — Mega недоступна.")
+        log(f"⚠️ Пропуск загрузки {archive_name} — Mega недоступна.")
         notify(f"⚠️ Пропуск загрузки {archive_name} — Mega недоступна")
         return
     try:
@@ -193,7 +195,7 @@ def archive_old_logs(days=7):
             except Exception as e:
                 log(f"⚠️ Ошибка архивирования старого лога {f}: {e}")
 
-# === Автоматическая синхронизация памяти и логов с авто-перезапуском ===
+# === Авто-синхронизация памяти и логов ===
 def start_auto_sync():
     ensure_dirs()
     def sync_loop():
@@ -221,9 +223,11 @@ def start_auto_sync():
             except Exception as e:
                 log(f"⚠️ Ошибка авто-синхронизации: {e}")
                 notify(f"⚠️ Ошибка авто-синхронизации: {e}")
+
             for _ in range(SYNC_INTERVAL):
                 if stop_flag:
                     break
                 time.sleep(1)
+
     threading.Thread(target=sync_loop, daemon=True).start()
     log("🌐 Авто-синхронизация Mega запущена.")
