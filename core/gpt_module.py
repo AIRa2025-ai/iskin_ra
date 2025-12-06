@@ -1,16 +1,22 @@
-# core/gpt_module.py
+# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра
 import os
 import aiohttp
 import logging
 import asyncio
 import json
 from datetime import datetime, timedelta
-from github_commit import create_commit_push  # оставлено для будущего автоматического апдейта
+
+# оставлено для будущего авто-коммита/PR
+try:
+    from github_commit import create_commit_push
+except ImportError:
+    create_commit_push = None
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
     raise RuntimeError("❌ Не задан OPENROUTER_API_KEY")
 
+# Список моделей для перебора
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
     "deepseek/deepseek-chat-v3.1:free",
@@ -24,22 +30,23 @@ MODELS = [
 
 logging.basicConfig(level=logging.INFO)
 
-# --- Настройки кэша и исключения моделей ---
+# --- Настройки кэша ---
 CACHE_FILE = "data/response_cache.json"
 os.makedirs("data", exist_ok=True)
 
-excluded_models = {}  # модель: datetime, до которого не использовать
-last_working_model = None
+excluded_models: dict[str, datetime] = {}  # модель: до какого времени исключена
+last_working_model: str | None = None
 MODEL_COOLDOWN_HOURS = 2
 
-def load_cache(user_id, text):
+# === Кэширование ===
+def load_cache(user_id: str, text: str):
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get(user_id, {}).get(text)
     return None
 
-def save_cache(user_id, text, answer):
+def save_cache(user_id: str, text: str, answer: str):
     data = {}
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
@@ -50,7 +57,7 @@ def save_cache(user_id, text, answer):
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# --- Один запрос к OpenRouter ---
+# === Один запрос к OpenRouter ===
 async def ask_openrouter_single(session, user_id, messages, model):
     url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.7}
@@ -65,16 +72,14 @@ async def ask_openrouter_single(session, user_id, messages, model):
         if resp.status != 200:
             logging.error(f"❌ Ошибка API {resp.status}: {text_resp}")
             raise Exception(f"{resp.status}: {text_resp}")
-
         data = await resp.json()
         if "choices" not in data or not data["choices"]:
             raise Exception(f"Модель {model} не вернула choices")
-
         return data["choices"][0]["message"]["content"].strip()
 
-# --- Обёртка с перебором моделей и кэшированием ---
-async def safe_ask_openrouter(user_id, messages_payload):
-    global excluded_models, last_working_model
+# === Безопасный запрос с кэшем и fallback ===
+async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
+    global last_working_model
     text_message = messages_payload[-1]["content"]
     cached = load_cache(user_id, text_message)
     if cached:
@@ -107,20 +112,20 @@ async def safe_ask_openrouter(user_id, messages_payload):
         else:
             return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
 
-        # фоновые запросы для кэша остальных моделей
+        # Фоновые кэш-запросы для остальных моделей
         async def background_cache(model):
             try:
                 ans = await ask_openrouter_single(session, user_id, messages_payload, model)
                 save_cache(user_id, text_message, ans)
-            except Exception as e:
+            except Exception:
                 excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
-                logging.warning(f"⚠️ Фоновая модель {model} исключена: {e}")
 
         for model in usable_models:
             if model != last_working_model:
                 asyncio.create_task(background_cache(model))
+
         return answer
 
+# === Заглушка для быстрого вызова ===
 async def ask_openrouter_with_fallback(prompt: str):
-    # временный заглушечный вариант
     return f"[RaStub] Ответ на: {prompt[:50]}..."
