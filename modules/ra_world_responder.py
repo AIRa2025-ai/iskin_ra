@@ -57,7 +57,7 @@ class RaWorldResponder:
             self.remember_dialog(platform, incoming_text, reply_text)
             return ok
 
-        except Exception as _e:
+        except Exception as _e:  # noqa: F841
             logging.exception("[RaWorldResponder] Ошибка ответа")
             return False
 
