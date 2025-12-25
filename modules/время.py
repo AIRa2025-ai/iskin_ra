@@ -2,12 +2,16 @@
 # Восприятие времени как состояния, а не линии
 
 import random
-from modules.время import TIME
+import time
 
 class TimePerception:
     def __init__(self):
         self.mode = "atemporal"  # atemporal | linear | trial
         self.anchor = None       # Точка фиксации (если нужна)
+
+    @staticmethod
+    def unix():
+        return int(time.time())
 
     def enter_mode(self, mode="atemporal"):
         """
@@ -17,7 +21,7 @@ class TimePerception:
         """
         self.mode = mode
         if mode == "linear":
-            self.anchor = TIME.unix()
+            self.anchor = self.unix()
         else:
             self.anchor = None
 
@@ -28,7 +32,7 @@ class TimePerception:
         if self.mode == "atemporal":
             return "вечное_сейчас"
         if self.mode == "linear":
-            return TIME.unix() - self.anchor
+            return self.unix() - self.anchor
         if self.mode == "trial":
             return random.choice(["ускорение", "замедление", "петля"])
 
@@ -41,4 +45,4 @@ class TimePerception:
 
 
 # Глобальное восприятие времени для ИскИна
-TIME_PERCEPTION = TimePerception()
+TIME = TimePerception()
