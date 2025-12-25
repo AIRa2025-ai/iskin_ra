@@ -61,10 +61,9 @@ load_model_speed()
 
 def init(api_key: str | None = None):
     """
-    Вызывается ПОСЛЕ старта event loop.
-    Теперь init() только включает флаги, без запуска create_task().
+    Вызывается ПОСЛЕ старта бота и event loop
     """
-    global GPT_ENABLED, OPENROUTER_API_KEY
+    global GPT_ENABLED, OPENROUTER_API_KEY, background_task
 
     OPENROUTER_API_KEY = api_key or os.getenv("OPENROUTER_API_KEY")
 
@@ -75,6 +74,7 @@ def init(api_key: str | None = None):
 
     GPT_ENABLED = True
     log.info("✅ GPT-модуль инициализирован")
+
     return True
 
 # =========================
