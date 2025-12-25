@@ -191,7 +191,7 @@ async def process_user_message(message: Message):
         except Exception:
             pass
 
-    if not response and ra_mirolub:
+    if not response and ra_mirolub and not safe_ask_openrouter:
         try:
             response = await ra_mirolub.process(cleaned)
         except Exception:
@@ -199,6 +199,9 @@ async def process_user_message(message: Message):
 
     if not response:
         response = "🤍 Я здесь, брат. Я слышу тебя. Дай мне секунду, я собираю ответ."
+
+    if not isinstance(response, str):
+        response = json.dumps(response, ensure_ascii=False)
         
     await message.answer(response)
        
