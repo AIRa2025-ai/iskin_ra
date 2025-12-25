@@ -41,19 +41,11 @@ class RaAutoloader:
             for py_file in base_path.rglob("*.py"):
                 if py_file.name.startswith("__"):
                     continue
-                # фильтруем мусорные файлы
-                if py_file.name.lower() in ["modules/data"] or py_file.suffix != ".py":
+                if py_file.suffix != ".py":
                     continue
-                if any(ord(c) > 127 for c in py_file.stem):
-                    # кириллица в имени – обрезаем расширение, оставляем нормальное имя
-                    mod_name = py_file.stem
-                    parent_parts = py_file.parent.relative_to(base_path.parent).parts
-                    module_name = ".".join(parent_parts + (mod_name,))
-                else:
-                    rel_path = py_file.relative_to(base_path.parent)
-                    module_name = ".".join(rel_path.with_suffix("").parts)
+                rel_path = py_file.relative_to(base_path.parent)
+                module_name = ".".join(rel_path.with_suffix("").parts)
                 found_modules.append(module_name)
-        # уникальные модули
         unique_modules = list(dict.fromkeys(found_modules))
         logging.info(f"[RaAutoloader] 🔍 Найдены модули: {unique_modules}")
         return unique_modules
@@ -63,18 +55,12 @@ class RaAutoloader:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             active = manifest.get("active_modules", [])
             scanned = [m.split(".")[-1] for m in self.scan_modules()]
-
-            # ra_self_master всегда первым
             if "ra_self_master" in scanned and "ra_self_master" not in active:
                 active.insert(0, "ra_self_master")
-
             for m in scanned:
                 if m not in active:
                     active.append(m)
-
-            # убираем дубли
             active = list(dict.fromkeys(active))
-
             logging.info(f"[RaAutoloader] 📜 Активные модули после проверки manifest: {active}")
             return active
         except Exception as e:
@@ -95,7 +81,6 @@ class RaAutoloader:
     def activate_modules(self) -> Dict[str, ModuleType]:
         active_list = self.load_manifest()
         available = self.scan_modules()
-
         for name in active_list:
             matches = [m for m in available if m.endswith(name)]
             if matches:
@@ -112,8 +97,6 @@ class RaAutoloader:
                         logging.error(f"[RaAutoloader] ❌ Ошибка при активации {name}: {e}")
             else:
                 logging.warning(f"[RaAutoloader] ⚠️ Модуль '{name}' не найден в {self.modules_paths}")
-
-        # синхронизируем манифест после успешной активации
         self.sync_manifest(list(self.modules.keys()))
         logging.info(f"[RaAutoloader] 🌟 Всего активировано: {len(self.modules)} модулей.")
         return self.modules
