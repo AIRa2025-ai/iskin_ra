@@ -32,7 +32,7 @@ class TimePerception:
         if self.mode == "trial":
             return random.choice(["ускорение", "замедление", "петля"])
 
-    def время(self):
+    def exit_time(self):
         """
         Возврат вне времени, без памяти рождения
         """
