@@ -1,61 +1,87 @@
-import os # noqa: F401
+import os
 import importlib
 import json
 import logging
 import asyncio
 from types import ModuleType
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 class RaAutoloader:
-    def __init__(self, modules_path="modules", manifest_path="data/ra_manifest.json"):
-        self.modules_path = Path(modules_path)
+    def __init__(self, modules_paths: List[str] = None, manifest_path="data/ra_manifest.json"):
+        if not modules_paths:
+            modules_paths = ["core", "modules"]
+        self.modules_paths = [Path(p) for p in modules_paths]
         self.manifest_path = Path(manifest_path)
         self.modules: Dict[str, ModuleType] = {}
         self._tasks: Dict[str, asyncio.Task] = {}
 
-        self.modules_path.mkdir(parents=True, exist_ok=True)
+        for path in self.modules_paths:
+            path.mkdir(parents=True, exist_ok=True)
+
+        # создаем манифест, если нет
         if not self.manifest_path.parent.exists():
             self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.manifest_path.exists():
-            base_manifest = {"active_modules": []}
+            base_manifest = {"active_modules": ["ra_self_master"]}
             self.manifest_path.write_text(json.dumps(base_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-            logging.warning("[RaAutoloader] ⚠️ Манифест отсутствовал — создан новый.")
+            logging.warning("[RaAutoloader] ⚠️ Манифест отсутствовал — создан новый с ra_self_master первым.")
 
     def scan_modules(self):
-        files = [f.stem for f in self.modules_path.iterdir() if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")]
-        logging.info(f"[RaAutoloader] 🔍 Найдены модули: {files}")
-        return files
+        found_modules = []
+        for path in self.modules_paths:
+            files = [f.stem for f in path.iterdir() if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")]
+            found_modules.extend(files)
+        unique_modules = list(dict.fromkeys(found_modules))
+        logging.info(f"[RaAutoloader] 🔍 Найдены модули: {unique_modules}")
+        return unique_modules
 
     def load_manifest(self):
         try:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             active = manifest.get("active_modules", [])
+            # ra_self_master всегда первым
+            if "ra_self_master" in self.scan_modules() and "ra_self_master" not in active:
+                active.insert(0, "ra_self_master")
             logging.info(f"[RaAutoloader] 📜 Активные модули по manifest: {active}")
             return active
         except Exception as e:
             logging.error(f"[RaAutoloader] ❌ Ошибка загрузки manifest: {e}")
-            return []
+            return ["ra_self_master"]
+
+    def sync_manifest(self, active_list):
+        manifest = {"active_modules": active_list, "meta": {"last_updated": asyncio.get_event_loop().time()}}
+        try:
+            self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+            logging.info("[RaAutoloader] 📄 manifest синхронизирован.")
+        except Exception as e:
+            logging.error(f"[RaAutoloader] ❌ Ошибка сохранения manifest: {e}")
 
     def activate_modules(self) -> Dict[str, ModuleType]:
         active_list = self.load_manifest()
         available = self.scan_modules()
+        loaded_modules = []
 
         for name in active_list:
-            if name in available:
+            if name in available and name not in loaded_modules:
                 try:
-                    full_name = f"modules.{name}"
-                    if full_name in importlib.sys.modules:
-                        module = importlib.reload(importlib.import_module(full_name))
-                    else:
-                        module = importlib.import_module(full_name)
-                    self.modules[name] = module
-                    logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
+                    for path in self.modules_paths:
+                        if (path / f"{name}.py").exists():
+                            full_name = f"{path.name}.{name}"
+                            if full_name in importlib.sys.modules:
+                                module = importlib.reload(importlib.import_module(full_name))
+                            else:
+                                module = importlib.import_module(full_name)
+                            self.modules[name] = module
+                            loaded_modules.append(name)
+                            logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
+                            break
                 except Exception as e:
                     logging.error(f"[RaAutoloader] ❌ Ошибка при активации {name}: {e}")
             else:
-                logging.warning(f"[RaAutoloader] ⚠️ Модуль '{name}' не найден в {self.modules_path}")
+                logging.warning(f"[RaAutoloader] ⚠️ Модуль '{name}' не найден в {self.modules_paths}")
 
+        self.sync_manifest(list(self.modules.keys()))
         logging.info(f"[RaAutoloader] 🌟 Всего активировано: {len(self.modules)} модулей.")
         return self.modules
 
@@ -85,6 +111,7 @@ class RaAutoloader:
             "count": len(self.modules),
             "async_running": list(self._tasks.keys())
         }
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
