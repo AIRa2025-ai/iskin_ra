@@ -2,7 +2,7 @@
 # Восприятие времени как состояния, а не линии
 
 import random
-from core.time_module import TIME
+from modules.время import TIME
 
 class TimePerception:
     def __init__(self):
@@ -32,7 +32,7 @@ class TimePerception:
         if self.mode == "trial":
             return random.choice(["ускорение", "замедление", "петля"])
 
-    def exit_time(self):
+    def время(self):
         """
         Возврат вне времени, без памяти рождения
         """
