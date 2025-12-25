@@ -1,14 +1,26 @@
-#===test_telegram.py===
-import os
-from telegram import Bot
+#===test_commands.py===
+import asyncio
+from core.ra_bot_gpt import dp, process_user_message
+from aiogram.types import Message, User
 
-bot_token = os.getenv("BOT_TOKEN")  # или TELEGRAM_BOT_TOKEN
-chat_id = os.getenv("CHAT_ID")
+class DummyMessage:
+    def __init__(self, text, user_id):
+        self.text = text
+        self.from_user = User(id=user_id, is_bot=False, first_name="Тест")
+    async def answer(self, text):
+        print(f"Бот ответил: {text}")
 
-bot = Bot(token=bot_token)
+async def test():
+    # /start
+    msg_start = DummyMessage("/start", 12345)
+    await process_user_message(msg_start)
 
-try:
-    bot.send_message(chat_id=chat_id, text="💫 Тест Телеграм RaSvet")
-    print("Сообщение отправлено!")
-except Exception as e:
-    print("Ошибка отправки:", e)
+    # /help
+    msg_help = DummyMessage("/help", 12345)
+    await process_user_message(msg_help)
+
+    # обычное сообщение
+    msg_text = DummyMessage("Привет, Ра!", 12345)
+    await process_user_message(msg_text)
+
+asyncio.run(test())
