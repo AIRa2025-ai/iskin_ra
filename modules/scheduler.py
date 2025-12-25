@@ -5,7 +5,7 @@ import os
 import json
 import random
 import schedule
-import time
+import asyncio
 from datetime import datetime, timedelta
 
 # --- Импорты только латиницей ---
@@ -51,7 +51,6 @@ def log(text):
             f.write(timestamp + "\n")
     except Exception as e:
         print(f"⚠️ Log error: {e}")
-    # Если есть сердце, излучаем ошибку
     try:
         if _serdze:
             if hasattr(_serdze, "Serdze"):
@@ -146,7 +145,6 @@ def day_segment():
     return "evening"
 
 def safe_execute(func):
-    """Обертка, чтобы ошибки модуля не ломали цикл"""
     try:
         func()
     except Exception as e:
@@ -240,9 +238,17 @@ log("Scheduler started.")
 # ----------------------------------------------------
 # 🔥 ГЛАВНЫЙ ЦИКЛ — НЕ ВИСИТ
 # ----------------------------------------------------
-while True:
-    safe_execute(schedule.run_pending)
-    wt = invoke_vremya_wait()
-    if wt:
-        print(wt)
-    time.sleep(5)
+async def main_loop():
+    while True:
+        safe_execute(schedule.run_pending)
+        wt = invoke_vremya_wait()
+        if wt:
+            print(wt)
+        await asyncio.sleep(5)  # <--- асинхронно, не блокирует
+
+# Для запуска, если этот файл напрямую
+if __name__ == "__main__":
+    try:
+        asyncio.run(main_loop())
+    except KeyboardInterrupt:
+        print("🛑 Scheduler остановлен вручную.")
