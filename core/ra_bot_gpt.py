@@ -189,14 +189,15 @@ async def process_user_message(message: Message):
         try:
             response = await safe_ask_openrouter(user_id, [{"role": "user", "content": cleaned}])
         except Exception:
+            logging.warning(f"GPT RESPONSE RAW: {response!r}")
             pass
 
-    if not response and ra_mirolub and not safe_ask_openrouter:
+    if not response and ra_mirolub:
         try:
             response = await ra_mirolub.process(cleaned)
         except Exception:
             pass
-
+            
     if not response:
         response = "🤍 Я здесь, брат. Я слышу тебя. Дай мне секунду, я собираю ответ."
 
