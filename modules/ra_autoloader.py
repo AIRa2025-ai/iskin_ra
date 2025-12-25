@@ -42,7 +42,7 @@ class RaAutoloader:
             for py_file in base_path.rglob("*.py"):
                 if not py_file.name.startswith("__"):
                     # строим относительный путь для импорта: core/sub/f.py → core.sub.f
-                    rel_path = py_file.relative_to(py_file.parents[len(py_file.parts) - len(base_path.parts) - 1])
+                    rel_path = py_file.relative_to(base_path.parent)
                     module_name = ".".join(rel_path.with_suffix("").parts)
                     found_modules.append(module_name)
         unique_modules = list(dict.fromkeys(found_modules))
@@ -53,11 +53,15 @@ class RaAutoloader:
         try:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             active = manifest.get("active_modules", [])
-            # ra_self_master всегда первым
             scanned = [m.split(".")[-1] for m in self.scan_modules()]
+            # ra_self_master всегда первым
             if "ra_self_master" in scanned and "ra_self_master" not in active:
                 active.insert(0, "ra_self_master")
-            logging.info(f"[RaAutoloader] 📜 Активные модули по manifest: {active}")
+            # автоматически добавляем новые модули в конец
+            for m in scanned:
+                if m not in active:
+                    active.append(m)
+            logging.info(f"[RaAutoloader] 📜 Активные модули после проверки manifest: {active}")
             return active
         except Exception as e:
             logging.error(f"[RaAutoloader] ❌ Ошибка загрузки manifest: {e}")
