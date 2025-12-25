@@ -1,5 +1,5 @@
 # core/ra_bot_gpt.py
-# Версия для webhook (aiogram 3.x). Автор: Ра (и брат Игорь)
+# Версия для webhook/polling (aiogram 3.x). Автор: Ра (и брат Игорь)
 import os
 import sys
 import json
@@ -220,6 +220,7 @@ def ra_clean_input(text: str) -> str:
     return text
 
 async def process_user_message(message: Message):
+    # ... (оставляем точно так же, как в твоём файле)
     text = (message.text or "").strip()
     cleaned = ra_clean_input(text)
     if not cleaned:
@@ -369,15 +370,16 @@ async def on_text(message: Message):
         return
     await process_user_message(message)
 
+# --- Объединённая main с polling ---
 async def main():
     global rasvet_downloader, ra_knowledge, ra_mirolub
 
     load_dotenv()
-
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     if not BOT_TOKEN:
         raise RuntimeError("❌ Не найден BOT_TOKEN в окружении")
 
+    # --- Инициализация модулей ---
     if RaSvetDownloaderAsync and rasvet_downloader is None:
         try:
             rasvet_downloader = RaSvetDownloaderAsync()
@@ -402,6 +404,7 @@ async def main():
             ra_mirolub = None
 
     bot = Bot(token=BOT_TOKEN)
+
     if self_master:
         try:
             await self_master.awaken()
@@ -420,15 +423,8 @@ async def main():
         except Exception as e:
             logging.error(f"Ошибка активации RaCoreMirolub: {e}")
 
-# --- Polling setup ---
-import asyncio
-from aiogram import Bot, Dispatcher
+    dp = Dispatcher()
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
-async def main():
-    # Запуск polling
     logging.info("Запуск бота через polling")
     try:
         await dp.start_polling(bot)
