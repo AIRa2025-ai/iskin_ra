@@ -162,25 +162,32 @@ async def process_user_message(message: Message):
 
     user_id = message.from_user.id
     log_command_usage(user_id, text)
-    await message.answer("⏳ Думаю…")
 
     response = None
 
-    if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
-        response = await try_with_timeout(
-            rasvet_downloader.knowledge.ask(text, user_id=user_id)
-        )
+    gpt_ready = gpt_module and getattr(gpt_module, "GPT_ENABLED", False)
+    logging.info(f"[RaGPT Check] GPT_ENABLED={gpt_ready} safe_ask_openrouter={safe_ask_openrouter}")
 
-    if not response and safe_ask_openrouter:
-        response = await try_with_timeout(
-            safe_ask_openrouter(user_id, [{"role": "user", "content": text}])
-        )
+    if gpt_ready and safe_ask_openrouter:
+        await message.answer("⏳ Думаю…")
+        try:
+            response = await try_with_timeout(
+                safe_ask_openrouter(user_id, [{"role": "user", "content": text}])
+            )
+        except Exception as e:
+            logging.warning(f"[RaGPT] Ошибка запроса к GPT: {e}")
+            response = None
 
     if not response and ra_mirolub:
-        response = await try_with_timeout(ra_mirolub.process(text))
+        await message.answer("⏳ Работаю через поток…")
+        try:
+            response = await try_with_timeout(ra_mirolub.process(text))
+        except Exception as e:
+            logging.warning(f"[RaMirolub] Ошибка: {e}")
+            response = None
 
     if not response:
-        response = "🌱 Я здесь, брат. Собираю мысль…"
+        response = "⚠️ GPT временно недоступен, брат. Я рядом, но пока молчу."
 
     if not isinstance(response, str):
         response = json.dumps(response, ensure_ascii=False)
@@ -222,25 +229,21 @@ async def main():
 
     bot = Bot(token=token)
 
-    # Инициализация GPT (только флаги, без создания tasks)
     if gpt_module:
         gpt_module.init()
 
-    # После старта event loop запускаем фоновые задачи GPT
-    if gpt_module and gpt_module.GPT_ENABLED:
+    if gpt_module and getattr(gpt_module, "GPT_ENABLED", False):
         try:
             asyncio.create_task(gpt_module.background_model_monitor())
         except Exception as e:
             logging.warning(f"Не удалось запустить background_model_monitor: {e}")
 
-    # Self master
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.error(f"self_master awaken error: {e}")
 
-    # RaSvetDownloaderAsync
     if RaSvetDownloaderAsync:
         try:
             rasvet_downloader = RaSvetDownloaderAsync()
@@ -248,7 +251,6 @@ async def main():
         except Exception:
             pass
 
-    # RaCoreMirolub
     if RaCoreMirolub:
         try:
             ra_mirolub = RaCoreMirolub()
