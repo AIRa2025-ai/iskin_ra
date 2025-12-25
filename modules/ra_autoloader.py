@@ -1,4 +1,4 @@
-import os # noqa: F401
+import os  # noqa: F401
 import importlib
 import json
 import logging
@@ -16,8 +16,12 @@ class RaAutoloader:
         self.modules: Dict[str, ModuleType] = {}
         self._tasks: Dict[str, asyncio.Task] = {}
 
+        # создаем папки и __init__.py, чтобы Python видел как пакеты
         for path in self.modules_paths:
             path.mkdir(parents=True, exist_ok=True)
+            init_file = path / "__init__.py"
+            if not init_file.exists():
+                init_file.write_text("# Package init\n", encoding="utf-8")
 
         # создаем манифест, если нет
         if not self.manifest_path.parent.exists():
@@ -50,8 +54,16 @@ class RaAutoloader:
             return ["ra_self_master"]
 
     def sync_manifest(self, active_list):
-        manifest = {"active_modules": active_list, "meta": {"last_updated": asyncio.get_event_loop().time()}}
+        manifest = {
+            "active_modules": active_list,
+            "meta": {"last_updated": asyncio.get_event_loop().time()}
+        }
         try:
+            # используем читаемое ISO время для meta
+            manifest["meta"]["last_updated"] = asyncio.get_event_loop().time()
+            manifest["meta"]["last_updated_iso"] = json.dumps(
+                asyncio.get_event_loop().time(), ensure_ascii=False
+            )
             self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
             logging.info("[RaAutoloader] 📄 manifest синхронизирован.")
         except Exception as e:
@@ -66,7 +78,9 @@ class RaAutoloader:
             if name in available and name not in loaded_modules:
                 try:
                     for path in self.modules_paths:
-                        if (path / f"{name}.py").exists():
+                        module_file = path / f"{name}.py"
+                        if module_file.exists():
+                            # строим корректное имя импорта для Python
                             full_name = f"{path.name}.{name}"
                             if full_name in importlib.sys.modules:
                                 module = importlib.reload(importlib.import_module(full_name))
