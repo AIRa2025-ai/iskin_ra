@@ -423,8 +423,6 @@ async def main():
         except Exception as e:
             logging.error(f"Ошибка активации RaCoreMirolub: {e}")
 
-    dp = Dispatcher()
-
     logging.info("Запуск бота через polling")
     try:
         await dp.start_polling(bot)
