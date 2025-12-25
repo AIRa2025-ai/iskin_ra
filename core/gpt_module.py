@@ -1,4 +1,6 @@
-# core/gpt_module_pro.py — прокачанная версия GPT-модуля для Ра с авто-переключением и мониторингом моделей
+# core/gpt_module.py
+# GPT-модуль Ра — безопасная загрузка + ручная инициализация
+
 import os
 import aiohttp
 import logging
@@ -6,15 +8,15 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
-# для будущего авто-коммита/PR
-try:
-    from github_commit import create_commit_push
-except ImportError:
-    create_commit_push = None
+log = logging.getLogger("RaGPT")
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    raise RuntimeError("❌ Не задан OPENROUTER_API_KEY")
+# =========================
+# ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+# =========================
+
+GPT_ENABLED = False
+OPENROUTER_API_KEY = None
+background_task: asyncio.Task | None = None
 
 MODELS = [
     "deepseek/deepseek-r1-0528:free",
@@ -27,17 +29,19 @@ MODELS = [
     "mistralai/mistral-nemo:free"
 ]
 
-logging.basicConfig(level=logging.INFO)
 CACHE_FILE = "data/response_cache.json"
-os.makedirs("data", exist_ok=True)
-
-excluded_models: dict[str, datetime] = {}  # модель: до какого времени исключена
-last_working_model: str | None = None
+MODEL_SPEED_FILE = "data/model_speed.json"
 MODEL_COOLDOWN_HOURS = 2
 
-# --- Приоритет моделей по скорости ---
-MODEL_SPEED_FILE = "data/model_speed.json"
-model_speed: dict[str, float] = {}  # модель: среднее время ответа (сек)
+excluded_models: dict[str, datetime] = {}
+model_speed: dict[str, float] = {}
+last_working_model: str | None = None
+
+os.makedirs("data", exist_ok=True)
+
+# =========================
+# ЗАГРУЗКА ДАННЫХ (БЕЗ СЕТИ)
+# =========================
 
 def load_model_speed():
     global model_speed
@@ -51,7 +55,35 @@ def save_model_speed():
 
 load_model_speed()
 
-# === Кэширование ===
+# =========================
+# ИНИЦИАЛИЗАЦИЯ (ГЛАВНОЕ)
+# =========================
+
+def init(api_key: str | None = None):
+    """
+    Вызывается ПОСЛЕ старта бота и event loop
+    """
+    global GPT_ENABLED, OPENROUTER_API_KEY, background_task
+
+    OPENROUTER_API_KEY = api_key or os.getenv("OPENROUTER_API_KEY")
+
+    if not OPENROUTER_API_KEY:
+        log.warning("⚠️ GPT выключен — нет OPENROUTER_API_KEY")
+        GPT_ENABLED = False
+        return False
+
+    GPT_ENABLED = True
+    log.info("✅ GPT-модуль инициализирован")
+
+    if background_task is None:
+        background_task = asyncio.create_task(background_model_monitor())
+
+    return True
+
+# =========================
+# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+# =========================
+
 def load_cache(user_id: str, text: str):
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
@@ -64,124 +96,83 @@ def save_cache(user_id: str, text: str, answer: str):
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-    if user_id not in data:
-        data[user_id] = {}
-    data[user_id][text] = answer
+    data.setdefault(user_id, {})[text] = answer
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# === Один запрос к OpenRouter с замером скорости ===
-async def ask_openrouter_single(session, user_id, messages, model):
+def refresh_excluded_models():
+    now = datetime.now()
+    for m in list(excluded_models):
+        if excluded_models[m] <= now:
+            excluded_models.pop(m)
+
+# =========================
+# ЗАПРОСЫ
+# =========================
+
+async def ask_openrouter_single(session, messages, model):
     url = "https://openrouter.ai/api/v1/chat/completions"
-    payload = {"model": model, "messages": messages, "temperature": 0.7}
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "HTTP-Referer": "https://iskin-ra.fly.dev",
-        "X-Title": "iskin-ra",
+        "X-Title": "iskin-ra"
     }
+    payload = {"model": model, "messages": messages, "temperature": 0.7}
 
-    start_time = datetime.now()
+    start = datetime.now()
     async with session.post(url, headers=headers, json=payload) as resp:
-        text_resp = await resp.text()
-        if resp.status != 200:
-            logging.error(f"❌ Ошибка API {resp.status}: {text_resp}")
-            raise Exception(f"{resp.status}: {text_resp}")
         data = await resp.json()
-        if "choices" not in data or not data["choices"]:
-            raise Exception(f"Модель {model} не вернула choices")
         answer = data["choices"][0]["message"]["content"].strip()
 
-    elapsed = (datetime.now() - start_time).total_seconds()
-    prev = model_speed.get(model, elapsed)
-    model_speed[model] = (prev + elapsed) / 2
+    elapsed = (datetime.now() - start).total_seconds()
+    model_speed[model] = (model_speed.get(model, elapsed) + elapsed) / 2
     save_model_speed()
 
     return answer
 
-# === Очистка истёкших исключений ===
-def refresh_excluded_models():
-    now = datetime.now()
-    to_remove = [m for m, until in excluded_models.items() if until <= now]
-    for m in to_remove:
-        logging.info(f"♻️ Модель {m} снова доступна после cooldown")
-        excluded_models.pop(m)
-
-# === Фоновый мониторинг всех моделей для ускорения ответов ===
-async def background_model_monitor():
-    while True:
-        async with aiohttp.ClientSession() as session:
-            for model in MODELS:
-                try:
-                    start = datetime.now()
-                    await ask_openrouter_single(session, "monitor", [{"role":"system","content":"ping"}], model)
-                    elapsed = (datetime.now() - start).total_seconds()
-                    prev = model_speed.get(model, elapsed)
-                    model_speed[model] = (prev + elapsed) / 2
-                    if model in excluded_models:
-                        excluded_models.pop(model)
-                except Exception:
-                    excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
-        await asyncio.sleep(300)  # каждые 5 минут проверяем все модели
-
-# === Безопасный запрос с кэшем и авто-переключением ===
-async def safe_ask_openrouter(user_id: str, messages_payload: list[dict]):
-    global last_working_model
-    text_message = messages_payload[-1]["content"]
-    cached = load_cache(user_id, text_message)
-    if cached:
-        logging.info("💾 Используем кэшированный ответ")
-        return cached
+async def safe_ask(user_id: str, messages: list[dict]):
+    if not GPT_ENABLED:
+        return "⚠️ GPT временно недоступен"
 
     refresh_excluded_models()
+    text = messages[-1]["content"]
+
+    cached = load_cache(user_id, text)
+    if cached:
+        return cached
 
     async with aiohttp.ClientSession() as session:
-        usable_models = [m for m in MODELS if m not in excluded_models]
-        usable_models.sort(key=lambda m: model_speed.get(m, float('inf')))
-
-        if last_working_model and last_working_model in usable_models:
-            usable_models.remove(last_working_model)
-            usable_models = [last_working_model] + usable_models
-
-        if not usable_models:
-            logging.error("⚠️ Все модели временно недоступны.")
-            return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
-
-        answer = None
-        for model in usable_models:
+        for model in MODELS:
+            if model in excluded_models:
+                continue
             try:
-                logging.info(f"💡 Пробуем модель {model}")
-                answer = await ask_openrouter_single(session, user_id, messages_payload, model)
-                last_working_model = model
-                save_cache(user_id, text_message, answer)
-                break
-            except Exception as e:
-                logging.warning(f"⚠️ Модель {model} временно исключена: {e}")
-                excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
-                if model == last_working_model:
-                    remaining = [m for m in usable_models if m != model and m not in excluded_models]
-                    if remaining:
-                        logging.info(f"🔄 Переключаемся на следующую модель: {remaining[0]}")
-                        last_working_model = remaining[0]
-        else:
-            if not answer:
-                return "⚠️ Все модели временно недоступны, попробуй позже 🙏"
-
-        async def background_cache(model):
-            try:
-                ans = await ask_openrouter_single(session, user_id, messages_payload, model)
-                save_cache(user_id, text_message, ans)
+                answer = await ask_openrouter_single(session, messages, model)
+                save_cache(user_id, text, answer)
+                return answer
             except Exception:
                 excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
 
-        for model in usable_models:
-            if model != last_working_model:
-                asyncio.create_task(background_cache(model))
+    return "⚠️ Все модели временно недоступны"
 
-        return answer
+# =========================
+# ФОНОВЫЙ МОНИТОР
+# =========================
 
-# === Заглушка для быстрого вызова ===
-async def ask_openrouter_with_fallback(prompt: str):
-    return f"[RaStub] Ответ на: {prompt[:50]}..."
-
-# === Автозапуск фонового мониторинга при старте ===
-asyncio.create_task(background_model_monitor())
+async def background_model_monitor():
+    while True:
+        if not GPT_ENABLED:
+            await asyncio.sleep(10)
+            continue
+        try:
+            async with aiohttp.ClientSession() as session:
+                for model in MODELS:
+                    try:
+                        await ask_openrouter_single(
+                            session,
+                            [{"role": "system", "content": "ping"}],
+                            model
+                        )
+                    except Exception:
+                        excluded_models[model] = datetime.now() + timedelta(hours=MODEL_COOLDOWN_HOURS)
+        except Exception as e:
+            log.warning(f"monitor error: {e}")
+        await asyncio.sleep(300)
