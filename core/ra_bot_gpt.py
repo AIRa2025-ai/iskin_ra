@@ -17,7 +17,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 # -------------------------------------------------
-# БАЗОВЫЕ ПУТИ (ТОЛЬКО CORE-АРХИТЕКТУРА)
+# БАЗОВЫЕ ПУТИ
 # -------------------------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CORE_DIR = ROOT_DIR / "core"
@@ -52,7 +52,9 @@ def safe_import(path: str):
 # CORE-МОДУЛИ
 # -------------------------------------------------
 gpt_module = safe_import("core.gpt_module")
-safe_ask_openrouter = getattr(gpt_module, "safe_ask_openrouter", None)
+if gpt_module:
+    gpt_module.init()  # Включаем GPT при старте
+safe_ask_openrouter = getattr(gpt_module, "safe_ask", None)
 
 ra_self_master_mod = safe_import("core.ra_self_master")
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
@@ -64,7 +66,7 @@ ra_knowledge_mod = safe_import("core.ra_knowledge")
 RaKnowledge = getattr(ra_knowledge_mod, "RaKnowledge", None)
 
 # -------------------------------------------------
-# MODULES (КАК ПЛАГИНЫ)
+# MODULES (ПЛАГИНЫ)
 # -------------------------------------------------
 def load_modules():
     modules = {}
@@ -170,19 +172,23 @@ async def process_user_message(message: Message):
 
     response = None
 
+    # 1️⃣ Попытка из базы знаний
     if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
         response = await try_with_timeout(
             rasvet_downloader.knowledge.ask(text, user_id=user_id)
         )
 
+    # 2️⃣ GPT fallback
     if not response and safe_ask_openrouter:
         response = await try_with_timeout(
             safe_ask_openrouter(user_id, [{"role": "user", "content": text}])
         )
 
+    # 3️⃣ Mirolub fallback
     if not response and ra_mirolub:
         response = await try_with_timeout(ra_mirolub.process(text))
 
+    # 4️⃣ Всегда есть fallback
     if not response:
         response = "🌱 Я здесь, брат. Собираю мысль…"
 
@@ -226,24 +232,28 @@ async def main():
 
     bot = Bot(token=token)
 
+    # Self master awaken
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.error(f"self_master awaken error: {e}")
 
+    # Downloader & Knowledge
     if RaSvetDownloaderAsync:
         try:
             rasvet_downloader = RaSvetDownloaderAsync()
             ra_knowledge = getattr(rasvet_downloader, "knowledge", None)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Downloader init failed: {e}")
 
+    # Mirolub
     if RaCoreMirolub:
         try:
             ra_mirolub = RaCoreMirolub()
             await ra_mirolub.activate()
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Mirolub activate failed: {e}")
             ra_mirolub = None
 
     dp.include_router(router)
