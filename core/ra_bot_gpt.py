@@ -198,10 +198,9 @@ async def process_user_message(message: Message):
             pass
 
     if response:
-        await message.answer(response)
-    else:
-        await message.answer("⚠️ Не получил ответа от ИскИна.")
-
+        response = "🤍 Я здесь, брат. Я слышу тебя. Дай мне секунду, я собираю ответ."
+    await message.answer(response)
+       
 # ---------------- ROUTER ----------------
 dp = Dispatcher()
 router = Router()
