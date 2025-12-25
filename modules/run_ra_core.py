@@ -1,7 +1,7 @@
 # run_ra_core.py — Динамический автопилот для Ра с автолоадером и async модулями
 import asyncio
 import logging
-from modules.ra_self_master import RaSelfMaster
+from core.ra_self_master import RaSelfMaster
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
