@@ -197,8 +197,9 @@ async def process_user_message(message: Message):
         except Exception:
             pass
 
-    if response:
+    if not response:
         response = "🤍 Я здесь, брат. Я слышу тебя. Дай мне секунду, я собираю ответ."
+        
     await message.answer(response)
        
 # ---------------- ROUTER ----------------
