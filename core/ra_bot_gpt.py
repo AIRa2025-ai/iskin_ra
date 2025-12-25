@@ -422,7 +422,7 @@ async def main():
 
     # --- Webhook setup ---
     WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://yourdomain.com")
+    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://rasvet.duckdns.org")
     WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
     async def handle(request):
