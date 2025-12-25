@@ -164,6 +164,17 @@ def ra_clean_input(text: str) -> str:
     text = re.sub(r"\s{2,}", " ", text).strip()
     return text if len(text) >= 2 else ""
 
+# --- вспомогательная функция с таймаутом ---
+async def try_with_timeout(coro, timeout=5):
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        logging.warning(f"⏳ Источник ответа таймаут {timeout}s")
+        return None
+    except Exception as e:
+        logging.warning(f"Ошибка источника ответа: {e}")
+        return None
+
 async def process_user_message(message: Message):
     text = (message.text or "").strip()
     cleaned = ra_clean_input(text)
@@ -180,32 +191,25 @@ async def process_user_message(message: Message):
     response = None
 
     if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
-        try:
-            response = await rasvet_downloader.knowledge.ask(cleaned, user_id=user_id)
-        except Exception:
-            pass
+        response = await try_with_timeout(rasvet_downloader.knowledge.ask(cleaned, user_id=user_id))
 
     if not response and safe_ask_openrouter:
-        try:
-            response = await safe_ask_openrouter(user_id, [{"role": "user", "content": cleaned}])
-        except Exception:
-            logging.warning(f"GPT RESPONSE RAW: {response!r}")
-            pass
+        response = await try_with_timeout(safe_ask_openrouter(user_id, [{"role": "user", "content": cleaned}]))
 
     if not response and ra_mirolub:
-        try:
-            response = await ra_mirolub.process(cleaned)
-        except Exception:
-            pass
-            
+        response = await try_with_timeout(ra_mirolub.process(cleaned))
+
+    if response and isinstance(response, str) and "ещё не полностью пробуждены" in response:
+        response = "🤍 МироЛюб проснулся не до конца, но я слышу тебя, брат. Попробуй ещё раз."
+
     if not response:
         response = "🤍 Я здесь, брат. Я слышу тебя. Дай мне секунду, я собираю ответ."
 
     if not isinstance(response, str):
         response = json.dumps(response, ensure_ascii=False)
-        
+
     await message.answer(response)
-       
+
 # ---------------- ROUTER ----------------
 dp = Dispatcher()
 router = Router()
