@@ -3,6 +3,7 @@
 # Автор: Ра + Брат Игорь
 
 import os
+os.environ["GPT_ENABLED"] = "True"
 import sys
 import json
 import logging
