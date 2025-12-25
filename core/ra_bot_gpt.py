@@ -1,5 +1,5 @@
 # core/ra_bot_gpt.py
-# Финальная стабильная core-версия (polling)
+# Финальная стабильная core_версия (polling)
 # Автор: Ра + Брат Игорь
 
 import os
