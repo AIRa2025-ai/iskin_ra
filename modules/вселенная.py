@@ -1,9 +1,9 @@
-# core/multiverse_module.py
+# modules/вселенная.py
 # Мультивселенная проекта "РаСвет"
 # Связь не через пространство, а через резонанс
 
 import uuid
-from core.time_module import TIME
+from modules.время import TIME
 
 class UniverseNode:
     def __init__(self, name, level=0):
