@@ -420,45 +420,20 @@ async def main():
         except Exception as e:
             logging.error(f"Ошибка активации RaCoreMirolub: {e}")
 
-    # --- Webhook setup ---
-    WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-    WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://rasvet.duckdns.org")
-    WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+# --- Polling setup ---
+import asyncio
+from aiogram import Bot, Dispatcher
 
-    async def handle(request):
-        try:
-            update = Update(**await request.json())
-            await dp.process_update(update)
-        except Exception:
-            logging.exception("Ошибка в webhook")
-        return web.Response()
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
-    app = web.Application()
-    app.router.add_post(WEBHOOK_PATH, handle)
-
-    # установка webhook
+async def main():
+    # Запуск polling
+    logging.info("Запуск бота через polling")
     try:
-        await bot.delete_webhook()
-        await bot.set_webhook(WEBHOOK_URL)
-        logging.info(f"Webhook установлен на {WEBHOOK_URL}")
+        await dp.start_polling(bot)
     except Exception as e:
-        logging.error(f"Ошибка установки webhook: {e}")
-
-    logging.info("Запуск webhook сервера")
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8080)))
-    await site.start()
-    logging.info("Webhook сервер запущен на 0.0.0.0:8080")
-
-    # держим цикл живым
-    while True:
-        await asyncio.sleep(3600)
+        logging.error(f"Ошибка при polling: {e}")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logging.info("🛑 Остановка webhook бота.")
-    except Exception:
-        logging.exception("Критическая ошибка при запуске.")
+    asyncio.run(main())
