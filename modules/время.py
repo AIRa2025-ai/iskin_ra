@@ -1,4 +1,4 @@
-# core/time_perception_module.py
+# modules/время.py
 # Восприятие времени как состояния, а не линии
 
 import random
