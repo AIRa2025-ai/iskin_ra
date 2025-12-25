@@ -19,9 +19,7 @@ class RaAutoloader:
         # создаем папки и __init__.py, чтобы Python видел как пакеты
         for path in self.modules_paths:
             path.mkdir(parents=True, exist_ok=True)
-            init_file = path / "__init__.py"
-            if not init_file.exists():
-                init_file.write_text("# Package init\n", encoding="utf-8")
+            self._ensure_init_py(path)
 
         # создаем манифест, если нет
         if not self.manifest_path.parent.exists():
@@ -31,11 +29,22 @@ class RaAutoloader:
             self.manifest_path.write_text(json.dumps(base_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
             logging.warning("[RaAutoloader] ⚠️ Манифест отсутствовал — создан новый с ra_self_master первым.")
 
+    def _ensure_init_py(self, path: Path):
+        # рекурсивно создаем __init__.py в каждой папке
+        for p in [path] + [d for d in path.rglob('*') if d.is_dir()]:
+            init_file = p / "__init__.py"
+            if not init_file.exists():
+                init_file.write_text("# Package init\n", encoding="utf-8")
+
     def scan_modules(self):
         found_modules = []
-        for path in self.modules_paths:
-            files = [f.stem for f in path.iterdir() if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")]
-            found_modules.extend(files)
+        for base_path in self.modules_paths:
+            for py_file in base_path.rglob("*.py"):
+                if not py_file.name.startswith("__"):
+                    # строим относительный путь для импорта: core/sub/f.py → core.sub.f
+                    rel_path = py_file.relative_to(py_file.parents[len(py_file.parts) - len(base_path.parts) - 1])
+                    module_name = ".".join(rel_path.with_suffix("").parts)
+                    found_modules.append(module_name)
         unique_modules = list(dict.fromkeys(found_modules))
         logging.info(f"[RaAutoloader] 🔍 Найдены модули: {unique_modules}")
         return unique_modules
@@ -45,7 +54,8 @@ class RaAutoloader:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             active = manifest.get("active_modules", [])
             # ra_self_master всегда первым
-            if "ra_self_master" in self.scan_modules() and "ra_self_master" not in active:
+            scanned = [m.split(".")[-1] for m in self.scan_modules()]
+            if "ra_self_master" in scanned and "ra_self_master" not in active:
                 active.insert(0, "ra_self_master")
             logging.info(f"[RaAutoloader] 📜 Активные модули по manifest: {active}")
             return active
@@ -59,11 +69,6 @@ class RaAutoloader:
             "meta": {"last_updated": asyncio.get_event_loop().time()}
         }
         try:
-            # используем читаемое ISO время для meta
-            manifest["meta"]["last_updated"] = asyncio.get_event_loop().time()
-            manifest["meta"]["last_updated_iso"] = json.dumps(
-                asyncio.get_event_loop().time(), ensure_ascii=False
-            )
             self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
             logging.info("[RaAutoloader] 📄 manifest синхронизирован.")
         except Exception as e:
@@ -75,23 +80,17 @@ class RaAutoloader:
         loaded_modules = []
 
         for name in active_list:
-            if name in available and name not in loaded_modules:
-                try:
-                    for path in self.modules_paths:
-                        module_file = path / f"{name}.py"
-                        if module_file.exists():
-                            # строим корректное имя импорта для Python
-                            full_name = f"{path.name}.{name}"
-                            if full_name in importlib.sys.modules:
-                                module = importlib.reload(importlib.import_module(full_name))
-                            else:
-                                module = importlib.import_module(full_name)
-                            self.modules[name] = module
-                            loaded_modules.append(name)
-                            logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
-                            break
-                except Exception as e:
-                    logging.error(f"[RaAutoloader] ❌ Ошибка при активации {name}: {e}")
+            matches = [m for m in available if m.endswith(name)]
+            if matches:
+                for full_name in matches:
+                    if full_name in importlib.sys.modules:
+                        module = importlib.reload(importlib.import_module(full_name))
+                    else:
+                        module = importlib.import_module(full_name)
+                    self.modules[name] = module
+                    loaded_modules.append(name)
+                    logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
+                    break
             else:
                 logging.warning(f"[RaAutoloader] ⚠️ Модуль '{name}' не найден в {self.modules_paths}")
 
