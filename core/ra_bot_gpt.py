@@ -22,7 +22,6 @@ from aiogram.types import Message
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CORE_DIR = ROOT_DIR / "core"
 MODULES_DIR = ROOT_DIR / "modules"
-
 sys.path.insert(0, str(ROOT_DIR))
 
 # -------------------------------------------------
@@ -52,8 +51,6 @@ def safe_import(path: str):
 # CORE-МОДУЛИ
 # -------------------------------------------------
 gpt_module = safe_import("core.gpt_module")
-if gpt_module:
-    gpt_module.init()  # Включаем GPT при старте
 safe_ask_openrouter = getattr(gpt_module, "safe_ask", None)
 
 ra_self_master_mod = safe_import("core.ra_self_master")
@@ -74,7 +71,6 @@ def load_modules():
         return modules
 
     sys.path.insert(0, str(MODULES_DIR))
-
     for file in MODULES_DIR.glob("*.py"):
         if file.name.startswith("_"):
             continue
@@ -83,7 +79,6 @@ def load_modules():
     return modules
 
 modules = load_modules()
-
 ra_logger = modules.get("ra_logger")
 log = getattr(ra_logger, "log", logging.info)
 
@@ -167,28 +162,23 @@ async def process_user_message(message: Message):
 
     user_id = message.from_user.id
     log_command_usage(user_id, text)
-
     await message.answer("⏳ Думаю…")
 
     response = None
 
-    # 1️⃣ Попытка из базы знаний
     if rasvet_downloader and getattr(rasvet_downloader, "knowledge", None):
         response = await try_with_timeout(
             rasvet_downloader.knowledge.ask(text, user_id=user_id)
         )
 
-    # 2️⃣ GPT fallback
     if not response and safe_ask_openrouter:
         response = await try_with_timeout(
             safe_ask_openrouter(user_id, [{"role": "user", "content": text}])
         )
 
-    # 3️⃣ Mirolub fallback
     if not response and ra_mirolub:
         response = await try_with_timeout(ra_mirolub.process(text))
 
-    # 4️⃣ Всегда есть fallback
     if not response:
         response = "🌱 Я здесь, брат. Собираю мысль…"
 
@@ -232,28 +222,38 @@ async def main():
 
     bot = Bot(token=token)
 
-    # Self master awaken
+    # Инициализация GPT (только флаги, без создания tasks)
+    if gpt_module:
+        gpt_module.init()
+
+    # После старта event loop запускаем фоновые задачи GPT
+    if gpt_module and gpt_module.GPT_ENABLED:
+        try:
+            asyncio.create_task(gpt_module.background_model_monitor())
+        except Exception as e:
+            logging.warning(f"Не удалось запустить background_model_monitor: {e}")
+
+    # Self master
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.error(f"self_master awaken error: {e}")
 
-    # Downloader & Knowledge
+    # RaSvetDownloaderAsync
     if RaSvetDownloaderAsync:
         try:
             rasvet_downloader = RaSvetDownloaderAsync()
             ra_knowledge = getattr(rasvet_downloader, "knowledge", None)
-        except Exception as e:
-            logging.warning(f"Downloader init failed: {e}")
+        except Exception:
+            pass
 
-    # Mirolub
+    # RaCoreMirolub
     if RaCoreMirolub:
         try:
             ra_mirolub = RaCoreMirolub()
             await ra_mirolub.activate()
-        except Exception as e:
-            logging.warning(f"Mirolub activate failed: {e}")
+        except Exception:
             ra_mirolub = None
 
     dp.include_router(router)
