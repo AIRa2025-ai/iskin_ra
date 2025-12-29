@@ -1,4 +1,4 @@
-# core/ra_bot_gpt.py — Telegram-интерфейс Ра через RaSelfMaster
+# core/ra_bot_gpt.py — Telegram + IPC-сервер для RaSelfMaster
 import os
 import sys
 import json
@@ -85,25 +85,21 @@ def ra_clean_input(text: str) -> str:
 # -------------------------------
 # Обработка сообщений через RaSelfMaster
 # -------------------------------
-async def process_message(message: Message):
-    text = ra_clean_input(message.text or "")
+async def process_message(user_id: int, text: str):
+    text = ra_clean_input(text)
     if not text:
-        await message.answer("🤍 Брат, я не чувствую смысла в этом сообщении.")
-        return
+        return "🤍 Брат, я не чувствую смысла в этом сообщении."
 
-    user_id = message.from_user.id
     log_command(user_id, text)
 
     if self_master:
-        await message.answer("⏳ Думаю…")
         try:
             reply = await self_master.process_text(user_id, text)
-            await message.answer(reply)
-            return
+            return reply
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка process_text: {e}")
 
-    await message.answer("⚠️ CORE временно недоступен, брат.")
+    return "⚠️ CORE временно недоступен, брат."
 
 # -------------------------------
 # Aiogram Router
@@ -123,10 +119,42 @@ async def help_cmd(m: Message):
 async def all_text(m: Message):
     if m.text and m.text.startswith("/"):
         return
-    await process_message(m)
+    reply = await process_message(m.from_user.id, m.text)
+    await m.answer(reply)
 
 # -------------------------------
-# Основная функция запуска бота
+# IPC-сервер (asyncio TCP) для CORE
+# -------------------------------
+IPC_HOST = "127.0.0.1"
+IPC_PORT = 8888
+
+async def handle_ipc(reader, writer):
+    try:
+        data = await reader.readline()
+        if not data:
+            writer.close()
+            await writer.wait_closed()
+            return
+        msg = json.loads(data.decode())
+        user_id = msg.get("user_id", 0)
+        text = msg.get("text", "")
+        reply = await process_message(user_id, text)
+        writer.write((json.dumps({"reply": reply}) + "\n").encode())
+        await writer.drain()
+    except Exception as e:
+        logging.warning(f"[IPC] Ошибка обработки: {e}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+async def start_ipc_server():
+    server = await asyncio.start_server(handle_ipc, IPC_HOST, IPC_PORT)
+    logging.info(f"[IPC] Сокет-сервер запущен {IPC_HOST}:{IPC_PORT}")
+    async with server:
+        await server.serve_forever()
+
+# -------------------------------
+# Основная функция запуска бота + IPC
 # -------------------------------
 async def main():
     load_dotenv()
@@ -137,14 +165,16 @@ async def main():
     bot = Bot(token=token)
     dp.include_router(router)
 
-    # Пробуждаем RaSelfMaster перед стартом Telegram
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.warning(f"[RaSelfMaster] awaken error: {e}")
 
-    logging.info("🚀 Telegram РаСвет запущен (polling)")
+    # Запуск IPC-сервера параллельно с Telegram
+    asyncio.create_task(start_ipc_server())
+
+    logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
     await dp.start_polling(bot)
 
 # -------------------------------
@@ -152,6 +182,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("🛑 Telegram бот остановлен")
+        logging.info("🛑 Telegram + IPC бот остановлен")
     except Exception:
-        logging.exception("💥 Критическая ошибка Telegram бота")
+        logging.exception("💥 Критическая ошибка Telegram + IPC бота")
