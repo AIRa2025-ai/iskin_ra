@@ -1,4 +1,3 @@
-# core/ra_bot_gpt.py — Telegram + IPC-сервер для RaSelfMaster
 import os
 import sys
 import json
@@ -14,8 +13,6 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 # -------------------------------
-# Пути и логи
-# -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -23,13 +20,8 @@ LOG_DIR = ROOT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "command_usage.json"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
-# -------------------------------
-# Безопасный импорт модулей
 # -------------------------------
 def safe_import(path):
     try:
@@ -38,24 +30,14 @@ def safe_import(path):
         logging.warning(f"import fail {path}: {e}")
         return None
 
-# GPT-модуль
 gpt_module = safe_import("core.gpt_module")
-
-# RaSelfMaster
 ra_self_master_mod = safe_import("core.ra_self_master")
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 
-# -------------------------------
-# Инициализация RaSelfMaster
-# -------------------------------
 self_master = RaSelfMaster() if RaSelfMaster else None
-
-# Подключаем GPT к RaSelfMaster, если есть
 if self_master and gpt_module:
     self_master.gpt_module = gpt_module
 
-# -------------------------------
-# Лог команд
 # -------------------------------
 def log_command(user_id, text):
     try:
@@ -71,9 +53,6 @@ def log_command(user_id, text):
     except Exception:
         pass
 
-# -------------------------------
-# Очистка текста
-# -------------------------------
 def ra_clean_input(text: str) -> str:
     if not isinstance(text, str):
         return ""
@@ -82,27 +61,19 @@ def ra_clean_input(text: str) -> str:
         return ""
     return text
 
-# -------------------------------
-# Обработка сообщений через RaSelfMaster
-# -------------------------------
 async def process_message(user_id: int, text: str):
     text = ra_clean_input(text)
     if not text:
         return "🤍 Брат, я не чувствую смысла в этом сообщении."
-
     log_command(user_id, text)
-
     if self_master:
         try:
             reply = await self_master.process_text(user_id, text)
             return reply
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка process_text: {e}")
-
     return "⚠️ CORE временно недоступен, брат."
 
-# -------------------------------
-# Aiogram Router
 # -------------------------------
 dp = Dispatcher()
 router = Router()
@@ -123,61 +94,31 @@ async def all_text(m: Message):
     await m.answer(reply)
 
 # -------------------------------
-# IPC-сервер (asyncio TCP) для CORE
-# -------------------------------
 IPC_HOST = "127.0.0.1"
-IPC_PORT = 8888
-
-async def handle_ipc(reader, writer):
-    try:
-        data = await reader.readline()
-        if not data:
-            writer.close()
-            await writer.wait_closed()
-            return
-        msg = json.loads(data.decode())
-        user_id = msg.get("user_id", 0)
-        text = msg.get("text", "")
-        reply = await process_message(user_id, text)
-        writer.write((json.dumps({"reply": reply}) + "\n").encode())
-        await writer.drain()
-    except Exception as e:
-        logging.warning(f"[IPC] Ошибка обработки: {e}")
-    finally:
-        writer.close()
-        await writer.wait_closed()
+IPC_PORT = 8765
 
 async def start_ipc_server():
-    server = await asyncio.start_server(handle_ipc, IPC_HOST, IPC_PORT)
-    logging.info(f"[IPC] Сокет-сервер запущен {IPC_HOST}:{IPC_PORT}")
-    async with server:
-        await server.serve_forever()
+    from core.ra_ipc import RaIPCServer
+    ipc = RaIPCServer(context=self_master, host=IPC_HOST, port=IPC_PORT)
+    await ipc.start()
 
-# -------------------------------
-# Основная функция запуска бота + IPC
 # -------------------------------
 async def main():
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
-
     bot = Bot(token=token)
     dp.include_router(router)
-
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.warning(f"[RaSelfMaster] awaken error: {e}")
-
-    # Запуск IPC-сервера параллельно с Telegram
     asyncio.create_task(start_ipc_server())
-
     logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
     await dp.start_polling(bot)
 
-# -------------------------------
 if __name__ == "__main__":
     try:
         asyncio.run(main())
