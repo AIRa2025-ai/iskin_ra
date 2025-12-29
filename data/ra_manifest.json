@@ -48,7 +48,6 @@
     "ra_world_speaker",
     "ra_world_system",
     "ritualy_vody",
-    "run_ra_core",
     "serdze",
     "scheduler",
     "skills",
@@ -61,7 +60,6 @@
     "wanderer",
     "вселенная",
     "время",
-    "modules/data"
   ],
   "modules": {
     "core": [
@@ -102,6 +100,12 @@
     ],
     "control_scope": "только они могут изменять ядро Ра",
     "auto_repair": true
+  },
+  "resources": {
+  "data": [
+    "modules/data/mantras.json",
+    "modules/data/rituals.json",
+    "modules/data/wisdom.json"
   },
   "meta": {
     "last_updated": "2025-12-25T19:00:00Z",
