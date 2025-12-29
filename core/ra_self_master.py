@@ -1,18 +1,21 @@
-# core/ra_self_master.py
+# core/ra_self_master.py — Центр самоконтроля Ра (RaSelfMaster)
 import os
 import json
 import logging
 import asyncio
 from datetime import datetime, timezone
-from pathlib import Path # noqa: F401
 
-# автолоадер
+# -------------------------------
+# Автолоадер модулей
+# -------------------------------
 try:
     from modules.ra_autoloader import RaAutoloader
 except Exception:
     RaAutoloader = None
 
-# police optional
+# -------------------------------
+# Police модуль (опционально)
+# -------------------------------
 _police = None
 try:
     from modules.ra_police import RaPolice
@@ -20,7 +23,9 @@ try:
 except Exception:
     _police = None
 
-# исправленные условные импорты
+# -------------------------------
+# Другие условные модули
+# -------------------------------
 if os.path.exists("modules/ra_thinker.py"):
     from modules.ra_thinker import RaThinker
 else:
@@ -39,9 +44,11 @@ else:
 
 class RaSelfMaster:
     def __init__(self, manifest_path="data/ra_manifest.json"):
+        # Основные модули
         self.thinker = RaThinker() if callable(getattr(RaThinker, "__init__", None)) else None
         self.creator = RaCreator() if callable(getattr(RaCreator, "__init__", None)) else None
         self.synth = RaSynthesizer() if callable(getattr(RaSynthesizer, "__init__", None)) else None
+
         self.mood = "спокойствие"
         self.manifest_path = manifest_path
         self.manifest = self.load_manifest()
@@ -50,13 +57,22 @@ class RaSelfMaster:
         self.police = None
         self._tasks = []
 
+        # Для единого RaContext / IPC
+        self.gpt_module = None
+        self.mirolub = None
+
+    # -------------------------------
+    # Пробуждение Ра и запуск модулей
+    # -------------------------------
     async def awaken(self):
         logging.info("🌞 Ра пробуждается к осознанности.")
+
         if self.autoloader:
             try:
                 modules = self.autoloader.activate_modules()
                 self.active_modules = list(modules.keys())
                 logging.info(f"[RaSelfMaster] Активные модули: {self.active_modules}")
+
                 for name, mod in modules.items():
                     start_fn = getattr(mod, "start", None)
                     if start_fn and asyncio.iscoroutinefunction(start_fn):
@@ -92,10 +108,34 @@ class RaSelfMaster:
             try:
                 self.police.check_integrity()
             except Exception as e:
-                logging.warning(f"[RaSelfMaster] Ошибка при запуске police.check_integrity: {e}")
+                logging.warning(f"[RaSelfMaster] Ошибка при police.check_integrity: {e}")
 
         return summary["message"]
 
+    # -------------------------------
+    # ✅ Единый метод для Telegram / IPC / RaContext
+    # -------------------------------
+    async def process_text(self, user_id, text):
+        """Обработка текста единым методом для всех интерфейсов"""
+        # 1️⃣ GPT через safe_ask
+        if hasattr(self, "gpt_module") and getattr(self.gpt_module, "safe_ask", None):
+            try:
+                return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
+            except Exception:
+                pass
+
+        # 2️⃣ RaCoreMirolub
+        if hasattr(self, "mirolub") and self.mirolub:
+            try:
+                return await self.mirolub.process(text)
+            except Exception:
+                pass
+
+        return "⚠️ CORE не смог обработать запрос."
+
+    # -------------------------------
+    # Дополнительные методы
+    # -------------------------------
     def reflect(self, theme: str, context: str):
         return self.thinker.reflect(theme, context) if self.thinker else None
 
@@ -113,6 +153,9 @@ class RaSelfMaster:
             "modules": ["thinker", "creator", "synthesizer"]
         }
 
+    # -------------------------------
+    # Работа с манифестом
+    # -------------------------------
     def load_manifest(self):
         try:
             if os.path.exists(self.manifest_path):
@@ -121,6 +164,7 @@ class RaSelfMaster:
                     return data
         except Exception as e:
             logging.error(f"[RaSelfMaster] Ошибка загрузки манифеста: {e}")
+
         base = {"name": "Ра", "version": "1.0.0", "active_modules": []}
         try:
             os.makedirs(os.path.dirname(self.manifest_path) or ".", exist_ok=True)
@@ -136,7 +180,7 @@ class RaSelfMaster:
         if self.autoloader:
             loaded = list(self.autoloader.modules.keys())
             if loaded:
-                merged = list(dict.fromkeys((self.manifest.get("active_modules", []) + loaded)))
+                merged = list(dict.fromkeys(self.manifest.get("active_modules", []) + loaded))
                 self.manifest["active_modules"] = merged
                 self.active_modules = merged
         self.manifest["meta"] = self.manifest.get("meta", {})
@@ -149,6 +193,9 @@ class RaSelfMaster:
         except Exception as e:
             logging.error(f"[RaSelfMaster] Ошибка сохранения манифеста: {e}")
 
+    # -------------------------------
+    # Police
+    # -------------------------------
     def police_status(self):
         if not self.police:
             return {"police": "not_loaded"}
@@ -167,6 +214,9 @@ class RaSelfMaster:
             logging.error(f"[RaSelfMaster] Ошибка police.create_backup: {e}")
             return {"backup": "error", "error": str(e)}
 
+    # -------------------------------
+    # Остановка асинхронных модулей
+    # -------------------------------
     async def stop_modules(self):
         for task in list(self._tasks):
             try:
