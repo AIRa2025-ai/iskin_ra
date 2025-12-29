@@ -166,7 +166,7 @@ async def process_user_message(message: Message):
 
     response = None
 
-    gpt_ready = gpt_module and getattr(gpt_module, "GPT_ENABLED", False)
+    gpt_ready = os.getenv("GPT_ENABLED", "").lower() in ("1", "true", "yes")
     logging.info(f"[RaGPT Check] GPT_ENABLED={gpt_ready} safe_ask_openrouter={safe_ask_openrouter}")
 
     if gpt_ready and safe_ask_openrouter:
