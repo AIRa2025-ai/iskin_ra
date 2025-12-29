@@ -1,12 +1,9 @@
-# core/ra_ipc.py
 import asyncio
 import json
 import logging
 
 class RaIPCServer:
-    """
-    Локальный IPC-сервер (TCP), для общения CORE и Telegram
-    """
+    """Локальный TCP-сервер для обмена текстом между Telegram и CORE"""
     def __init__(self, host="127.0.0.1", port=8765, context=None):
         self.host = host
         self.port = port
@@ -20,7 +17,6 @@ class RaIPCServer:
             message = data.decode()
             logging.info(f"[IPC] Получено сообщение: {message} от {addr}")
 
-            # Преобразуем JSON
             try:
                 payload = json.loads(message)
                 user_id = payload.get("user_id")
@@ -30,7 +26,6 @@ class RaIPCServer:
                 user_id = None
                 text = str(message)
 
-            # CORE обрабатывает текст через RaSelfMaster
             reply = "⚠️ CORE пока не ответил"
             if self.context and hasattr(self.context, "process_text"):
                 try:
