@@ -1,137 +1,63 @@
-import os
 import importlib
 import json
 import logging
 import asyncio
-from types import ModuleType
 from pathlib import Path
+from types import ModuleType
 from typing import Dict, List
 
+CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
+FORBIDDEN_PREFIXES = ("run_", "__")
+
 class RaAutoloader:
-    def __init__(self, modules_paths: List[str] = None, manifest_path="data/ra_manifest.json"):
-        if not modules_paths:
-            modules_paths = ["core", "modules"]
-        self.modules_paths = [Path(p) for p in modules_paths]
+    def __init__(self, manifest_path="data/ra_manifest.json"):
         self.manifest_path = Path(manifest_path)
         self.modules: Dict[str, ModuleType] = {}
-        self._tasks: Dict[str, asyncio.Task] = {}
+        self.tasks: Dict[str, asyncio.Task] = {}
 
-        # создаем папки и __init__.py
-        for path in self.modules_paths:
-            path.mkdir(parents=True, exist_ok=True)
-            self._ensure_init_py(path)
+    def load_manifest(self) -> List[str]:
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        return manifest.get("active_modules", [])
 
-        # создаем манифест, если нет
-        if not self.manifest_path.parent.exists():
-            self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.manifest_path.exists():
-            base_manifest = {"active_modules": ["ra_self_master"]}
-            self.manifest_path.write_text(json.dumps(base_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-            logging.warning("[RaAutoloader] ⚠️ Манифест отсутствовал — создан новый с ra_self_master первым.")
-
-    def _ensure_init_py(self, path: Path):
-        for p in [path] + [d for d in path.rglob('*') if d.is_dir()]:
-            init_file = p / "__init__.py"
-            if not init_file.exists():
-                init_file.write_text("# Package init\n", encoding="utf-8")
-
-    def scan_modules(self):
-        found_modules = []
-        for base_path in self.modules_paths:
-            for py_file in base_path.rglob("*.py"):
-                if py_file.name.startswith("__"):
-                    continue
-                if py_file.suffix != ".py":
-                    continue
-                rel_path = py_file.relative_to(base_path.parent)
-                module_name = ".".join(rel_path.with_suffix("").parts)
-                found_modules.append(module_name)
-        unique_modules = list(dict.fromkeys(found_modules))
-        logging.info(f"[RaAutoloader] 🔍 Найдены модули: {unique_modules}")
-        return unique_modules
-
-    def load_manifest(self):
-        try:
-            manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-            active = manifest.get("active_modules", [])
-            scanned = [m.split(".")[-1] for m in self.scan_modules()]
-            if "ra_self_master" in scanned and "ra_self_master" not in active:
-                active.insert(0, "ra_self_master")
-            for m in scanned:
-                if m not in active:
-                    active.append(m)
-            active = list(dict.fromkeys(active))
-            logging.info(f"[RaAutoloader] 📜 Активные модули после проверки manifest: {active}")
-            return active
-        except Exception as e:
-            logging.error(f"[RaAutoloader] ❌ Ошибка загрузки manifest: {e}")
-            return ["ra_self_master"]
-
-    def sync_manifest(self, active_list):
-        manifest = {
-            "active_modules": active_list,
-            "meta": {"last_updated": asyncio.get_event_loop().time()}
-        }
-        try:
-            self.manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-            logging.info("[RaAutoloader] 📄 manifest синхронизирован.")
-        except Exception as e:
-            logging.error(f"[RaAutoloader] ❌ Ошибка сохранения manifest: {e}")
+    def _is_allowed(self, name: str) -> bool:
+        if name in CORE_FILES:
+            return False
+        if name.startswith(FORBIDDEN_PREFIXES):
+            return False
+        return True
 
     def activate_modules(self) -> Dict[str, ModuleType]:
-        active_list = self.load_manifest()
-        available = self.scan_modules()
-        for name in active_list:
-            matches = [m for m in available if m.endswith(name)]
-            if matches:
-                for full_name in matches:
-                    try:
-                        if full_name in importlib.sys.modules:
-                            module = importlib.reload(importlib.import_module(full_name))
-                        else:
-                            module = importlib.import_module(full_name)
-                        self.modules[name] = module
-                        logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
-                        break
-                    except Exception as e:
-                        logging.error(f"[RaAutoloader] ❌ Ошибка при активации {name}: {e}")
-            else:
-                logging.warning(f"[RaAutoloader] ⚠️ Модуль '{name}' не найден в {self.modules_paths}")
-        self.sync_manifest(list(self.modules.keys()))
-        logging.info(f"[RaAutoloader] 🌟 Всего активировано: {len(self.modules)} модулей.")
+        active = self.load_manifest()
+
+        for name in active:
+            if not self._is_allowed(name):
+                logging.info(f"[RaAutoloader] ⛔ Пропущен core/forbidden модуль: {name}")
+                continue
+
+            try:
+                module = importlib.import_module(f"modules.{name}")
+                self.modules[name] = module
+                logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
+            except Exception as e:
+                logging.error(f"[RaAutoloader] ❌ Ошибка загрузки {name}: {e}")
+
         return self.modules
 
     async def start_async_modules(self):
-        for name, module in list(self.modules.items()):
-            try:
-                start_fn = getattr(module, "start", None)
-                if start_fn and asyncio.iscoroutinefunction(start_fn):
-                    task = asyncio.create_task(start_fn())
-                    self._tasks[name] = task
-                    logging.info(f"[RaAutoloader] 🚀 Async модуль {name} запущен.")
-            except Exception as e:
-                logging.error(f"[RaAutoloader] ❌ Ошибка запуска async {name}: {e}")
+        for name, module in self.modules.items():
+            start_fn = getattr(module, "start", None)
+            if start_fn and asyncio.iscoroutinefunction(start_fn):
+                self.tasks[name] = asyncio.create_task(start_fn())
+                logging.info(f"[RaAutoloader] 🚀 Async модуль запущен: {name}")
 
     async def stop_async_modules(self):
-        for task in list(self._tasks.values()):
+        for task in self.tasks.values():
             task.cancel()
-        self._tasks.clear()
-        logging.info("[RaAutoloader] 🛑 Все async модули остановлены.")
-
-    def get_module(self, name):
-        return self.modules.get(name)
+        self.tasks.clear()
+        logging.info("[RaAutoloader] 🛑 Все async модули остановлены")
 
     def status(self):
         return {
-            "active": list(self.modules.keys()),
-            "count": len(self.modules),
-            "async_running": list(self._tasks.keys())
+            "modules": list(self.modules.keys()),
+            "async": list(self.tasks.keys())
         }
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
-    loader = RaAutoloader()
-    loader.activate_modules()
-    asyncio.run(loader.start_async_modules())
-    print(loader.status())
