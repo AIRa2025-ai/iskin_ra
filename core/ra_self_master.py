@@ -1,4 +1,3 @@
-# core/ra_self_master.py — Центр самоконтроля Ра (RaSelfMaster)
 import os
 import json
 import logging
@@ -44,7 +43,6 @@ else:
 
 class RaSelfMaster:
     def __init__(self, manifest_path="data/ra_manifest.json"):
-        # Основные модули
         self.thinker = RaThinker() if callable(getattr(RaThinker, "__init__", None)) else None
         self.creator = RaCreator() if callable(getattr(RaCreator, "__init__", None)) else None
         self.synth = RaSynthesizer() if callable(getattr(RaSynthesizer, "__init__", None)) else None
@@ -62,7 +60,7 @@ class RaSelfMaster:
         self.mirolub = None
 
     # -------------------------------
-    # Пробуждение Ра и запуск модулей
+    # Пробуждение и запуск модулей
     # -------------------------------
     async def awaken(self):
         logging.info("🌞 Ра пробуждается к осознанности.")
@@ -72,7 +70,6 @@ class RaSelfMaster:
                 modules = self.autoloader.activate_modules()
                 self.active_modules = list(modules.keys())
                 logging.info(f"[RaSelfMaster] Активные модули: {self.active_modules}")
-
                 for name, mod in modules.items():
                     start_fn = getattr(mod, "start", None)
                     if start_fn and asyncio.iscoroutinefunction(start_fn):
@@ -87,15 +84,12 @@ class RaSelfMaster:
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка при sync_manifest: {e}")
 
-        try:
-            if "ra_police" in self.active_modules and _police:
-                try:
-                    self.police = _police()
-                    logging.info("[RaSelfMaster] Модуль полиции инициализирован.")
-                except Exception as e:
-                    logging.warning(f"[RaSelfMaster] Не удалось инициализировать police: {e}")
-        except Exception:
-            pass
+        if "ra_police" in self.active_modules and _police:
+            try:
+                self.police = _police()
+                logging.info("[RaSelfMaster] Модуль полиции инициализирован.")
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] Не удалось инициализировать police: {e}")
 
         summary = {
             "message": "🌞 Ра осознал себя и готов к действию!",
@@ -113,28 +107,24 @@ class RaSelfMaster:
         return summary["message"]
 
     # -------------------------------
-    # ✅ Единый метод для Telegram / IPC / RaContext
+    # Единый метод обработки текста
     # -------------------------------
     async def process_text(self, user_id, text):
-        """Обработка текста единым методом для всех интерфейсов"""
-        # 1️⃣ GPT через safe_ask
+        """Обработка текста для Telegram, IPC, RaContext"""
         if hasattr(self, "gpt_module") and getattr(self.gpt_module, "safe_ask", None):
             try:
                 return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
             except Exception:
                 pass
-
-        # 2️⃣ RaCoreMirolub
         if hasattr(self, "mirolub") and self.mirolub:
             try:
                 return await self.mirolub.process(text)
             except Exception:
                 pass
-
         return "⚠️ CORE не смог обработать запрос."
 
     # -------------------------------
-    # Дополнительные методы
+    # Доп. методы
     # -------------------------------
     def reflect(self, theme: str, context: str):
         return self.thinker.reflect(theme, context) if self.thinker else None
@@ -160,8 +150,7 @@ class RaSelfMaster:
         try:
             if os.path.exists(self.manifest_path):
                 with open(self.manifest_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return data
+                    return json.load(f)
         except Exception as e:
             logging.error(f"[RaSelfMaster] Ошибка загрузки манифеста: {e}")
 
@@ -215,7 +204,7 @@ class RaSelfMaster:
             return {"backup": "error", "error": str(e)}
 
     # -------------------------------
-    # Остановка асинхронных модулей
+    # Остановка модулей
     # -------------------------------
     async def stop_modules(self):
         for task in list(self._tasks):
