@@ -1,11 +1,9 @@
-# run_ra_core.py — CORE-запуск Ра (чистый, без дублей)
-
 import asyncio
 import logging
 from core.ra_self_master import RaSelfMaster
+from core.ra_ipc import RaIPCServer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(message)s")
-
 
 async def monitor_new_modules(autoloader, interval=30):
     known = set(autoloader.modules.keys())
@@ -22,7 +20,6 @@ async def monitor_new_modules(autoloader, interval=30):
 
         known = current
 
-
 async def main():
     ra = RaSelfMaster()
     await ra.awaken()
@@ -35,12 +32,16 @@ async def main():
     autoloader.activate_modules()
     await autoloader.start_async_modules()
 
+    # Старт мониторинга новых модулей
     asyncio.create_task(monitor_new_modules(autoloader))
+
+    # Старт IPC
+    ipc = RaIPCServer(context=ra)
+    asyncio.create_task(ipc.start())
 
     while True:
         logging.info(f"[CORE] Status: {autoloader.status()}")
         await asyncio.sleep(60)
-
 
 if __name__ == "__main__":
     try:
