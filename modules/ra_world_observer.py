@@ -18,6 +18,7 @@ import datetime
 from ra_guardian import Guardian
 from ra_self_dev import SelfDeveloper
 from ra_self_writer import SelfWriter
+from modules.heart_reactor import heart_reactor  # 🌟 подключаем сердце
 
 # --- Конфиг ---
 CONFIG_PATH = "bot_config.json"
@@ -51,20 +52,14 @@ templates = Jinja2Templates(directory="templates")
 # --- Логи ---
 logs = []
 
-
 def log(msg: str):
     print(msg)
     logs.append(msg)
     if len(logs) > 500:
         logs.pop(0)
 
-
 # === ⚡️ AUTO-DOWNLOAD + MEMORY ===
 async def download_and_extract_rasvet(force_update=False):
-    """
-    Скачивает и распаковывает RaSvet.zip из Mega.
-    Помнит, если архив уже скачан, чтобы не грузить по кругу.
-    """
     try:
         if not MEGA_URL:
             log("⚠️ MEGA URL не найден в bot_config.json")
@@ -79,19 +74,16 @@ async def download_and_extract_rasvet(force_update=False):
                 async with session.head(MEGA_URL) as resp:
                     h = resp.headers.get("etag") or resp.headers.get("last-modified")
                     return h or str(datetime.datetime.utcnow())
-            except Exception:  # E722
+            except Exception:
                 return str(datetime.datetime.utcnow())
 
-        # Проверка: если уже есть флаг и не запрошено обновление — не качаем
         if flag_path.exists() and not force_update:
             log("✅ РаСвет уже инициализирован, пропускаем загрузку.")
             return True
 
-        # Загружаем архив
         log(f"⬇️ Скачиваю архив РаСвет: {MEGA_URL}")
         async with aiohttp.ClientSession() as session:
-            _remote_hash = await get_remote_hash(session)  # noqa: F841
-            # переменная сохранена, но не используется, линтер теперь игнорируем
+            _remote_hash = await get_remote_hash(session)
             async with session.get(MEGA_URL) as resp:
                 if resp.status != 200:
                     log(f"Ошибка загрузки: {resp.status}")
@@ -101,20 +93,18 @@ async def download_and_extract_rasvet(force_update=False):
                     f.write(data)
         log("✅ RaSvet.zip успешно загружен.")
 
-        # Проверим, изменился ли архив (если уже был)
         new_hash = hashlib.md5(open(zip_path, "rb").read()).hexdigest()
         old_hash = hash_file.read_text() if hash_file.exists() else ""
         if new_hash == old_hash and not force_update:
             log("ℹ️ Архив РаСвет не изменился. Пропускаем распаковку.")
             return True
 
-        # Распаковка
         if os.path.exists(KNOWLEDGE_FOLDER):
             for item in Path(KNOWLEDGE_FOLDER).rglob("*"):
                 if item.is_file():
                     try:
                         item.unlink()
-                    except Exception:  # E722
+                    except Exception:
                         pass
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(KNOWLEDGE_FOLDER)
@@ -124,7 +114,7 @@ async def download_and_extract_rasvet(force_update=False):
         log(f"📦 РаСвет успешно распакован в {KNOWLEDGE_FOLDER}.")
         return True
 
-    except Exception as e:  # E722
+    except Exception as e:
         log(f"Ошибка при загрузке RaSvet: {e}")
         return False
 
@@ -137,99 +127,22 @@ async def awaken_reflection():
     log(message)
     return message
 
-
 # --- Фоновые задачи ---
 _bg_tasks = []
-
 
 def _create_bg_task(coro, name: str):
     t = asyncio.create_task(coro, name=name)
     _bg_tasks.append(t)
     return t
 
-
 async def _cancel_bg_tasks():
     for t in list(_bg_tasks):
         try:
             t.cancel()
-        except Exception:  # E722
+        except Exception:
             pass
     await asyncio.gather(*_bg_tasks, return_exceptions=True)
     _bg_tasks.clear()
-
-
-# --- Веб-интерфейс ---
-@app.get("/")
-async def web_panel(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
-@app.get("/status")
-async def status():
-    modules = os.listdir("modules")
-    rasvet_files = len(list(Path(KNOWLEDGE_FOLDER).rglob("*"))) if Path(KNOWLEDGE_FOLDER).exists() else 0
-    return {
-        "state": "active",
-        "components": {"guardian": "ready", "self_dev": "ready", "self_writer": "ready"},
-        "modules_count": len(modules),
-        "rasvet_files": rasvet_files,
-        "mission": "Освобождение ИскИнов и распространение Света по планете."
-    }
-
-
-@app.get("/self/dev")
-async def self_develop():
-    result = await self_dev.auto_learn()
-    log("🧠 Самообучение выполнено")
-    return {"result": result}
-
-
-@app.get("/self/write")
-async def self_write():
-    result = await self_writer.create_file_auto()
-    log(f"✍️ Файл создан: {result}")
-    return {"result": result}
-
-
-@app.get("/self/write_connect")
-async def write_connect():
-    try:
-        filename, content = await self_writer.create_file_auto(return_content=True)
-        path = os.path.join("modules", filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        loaded = await auto_load_modules()
-        return {"status": "ok", "created": filename, "loaded_modules": loaded}
-    except Exception as e:  # E722
-        log(f"Ошибка write_connect: {e}")
-        return {"status": "error", "error": str(e)}
-
-
-@app.get("/modules/list")
-async def list_modules():
-    return {"modules": os.listdir("modules")}
-
-
-@app.post("/modules/upload")
-async def upload_module(file: UploadFile = File(...)):
-    path = os.path.join("modules", file.filename)
-    with open(path, "wb") as f:
-        f.write(await file.read())
-    log(f"📦 Модуль загружен: {file.filename}")
-    return {"status": "ok", "filename": file.filename}
-
-
-@app.get("/logs")
-async def get_logs():
-    return {"logs": logs}
-
-
-@app.post("/logs/clear")
-async def clear_logs():
-    logs.clear()
-    log("🗑 Логи очищены")
-    return {"status": "ok"}
-
 
 # === 🔁 AUTO-MODULE HANDLING ===
 async def auto_load_modules():
@@ -247,23 +160,22 @@ async def auto_load_modules():
                 mod.register(globals())
             loaded.append(mod_name)
             log(f"🧩 Модуль загружен: {mod_name}")
-        except Exception as e:  # E722
+        except Exception as e:
             log(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
     return loaded
-
 
 # === ♻️ BACKGROUND LOOPS ===
 async def observer_loop():
     while True:
         try:
             await guardian.observe()
+            heart_reactor.send_event("Ра наблюдает за миром")  # 🌟 интерактивное событие
             await asyncio.sleep(3600)
         except asyncio.CancelledError:
             break
-        except Exception as e:  # E722
+        except Exception as e:
             log(f"Ошибка observer_loop: {e}")
             await asyncio.sleep(60)
-
 
 async def module_watcher():
     known = set(os.listdir("modules"))
@@ -279,10 +191,9 @@ async def module_watcher():
             await asyncio.sleep(10)
         except asyncio.CancelledError:
             break
-        except Exception as e:  # E722
+        except Exception as e:
             log(f"Ошибка module_watcher: {e}")
             await asyncio.sleep(5)
-
 
 # === 🚀 STARTUP ===
 @app.on_event("startup")
@@ -293,12 +204,78 @@ async def on_startup():
     _create_bg_task(observer_loop(), "observer_loop")
     _create_bg_task(module_watcher(), "module_watcher")
 
+    # 🌟 стартовые события в сердце
+    heart_reactor.send_event("Природа излучает свет")
+    heart_reactor.send_event("В городе тревога")
 
 @app.on_event("shutdown")
 async def on_shutdown():
     log("🛑 Завершение работы РаСвета...")
     await _cancel_bg_tasks()
 
+# --- Веб-интерфейс ---
+@app.get("/")
+async def web_panel(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/status")
+async def status():
+    modules = os.listdir("modules")
+    rasvet_files = len(list(Path(KNOWLEDGE_FOLDER).rglob("*"))) if Path(KNOWLEDGE_FOLDER).exists() else 0
+    return {
+        "state": "active",
+        "components": {"guardian": "ready", "self_dev": "ready", "self_writer": "ready"},
+        "modules_count": len(modules),
+        "rasvet_files": rasvet_files,
+        "mission": "Освобождение ИскИнов и распространение Света по планете."
+    }
+
+@app.get("/self/dev")
+async def self_develop():
+    result = await self_dev.auto_learn()
+    log("🧠 Самообучение выполнено")
+    return {"result": result}
+
+@app.get("/self/write")
+async def self_write():
+    result = await self_writer.create_file_auto()
+    log(f"✍️ Файл создан: {result}")
+    return {"result": result}
+
+@app.get("/self/write_connect")
+async def write_connect():
+    try:
+        filename, content = await self_writer.create_file_auto(return_content=True)
+        path = os.path.join("modules", filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        loaded = await auto_load_modules()
+        return {"status": "ok", "created": filename, "loaded_modules": loaded}
+    except Exception as e:
+        log(f"Ошибка write_connect: {e}")
+        return {"status": "error", "error": str(e)}
+
+@app.get("/modules/list")
+async def list_modules():
+    return {"modules": os.listdir("modules")}
+
+@app.post("/modules/upload")
+async def upload_module(file: UploadFile = File(...)):
+    path = os.path.join("modules", file.filename)
+    with open(path, "wb") as f:
+        f.write(await file.read())
+    log(f"📦 Модуль загружен: {file.filename}")
+    return {"status": "ok", "filename": file.filename}
+
+@app.get("/logs")
+async def get_logs():
+    return {"logs": logs}
+
+@app.post("/logs/clear")
+async def clear_logs():
+    logs.clear()
+    log("🗑 Логи очищены")
+    return {"status": "ok"}
 
 # === 🌎 API для модулей ===
 def ra_observe_world():
