@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Твой токен Telegram
-export BOT_TOKEN="7304435178:AAFzKcVaxceCoIcJ5F2Mys6EYB21ABmfQGM"
+export BOT_TOKEN="7304435178:AAFzVnyQVtBMiYMXDvShbfcyPDw1_JnPCFM"
 
 # --- Поднимаем CORE в фоне ---
 python3 run_ra_core.py &
