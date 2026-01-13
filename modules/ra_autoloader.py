@@ -1,4 +1,4 @@
-#modules/ra_autoloader.py
+# modules/ra_autoloader.py
 import importlib
 import json
 import logging
@@ -17,8 +17,15 @@ class RaAutoloader:
         self.tasks: Dict[str, asyncio.Task] = {}
 
     def load_manifest(self) -> List[str]:
-        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        return manifest.get("active_modules", [])
+        if not self.manifest_path.exists():
+            logging.warning(f"[RaAutoloader] ❌ Манифест не найден: {self.manifest_path}")
+            return []
+        try:
+            manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+            return manifest.get("active_modules", [])
+        except Exception as e:
+            logging.error(f"[RaAutoloader] ❌ Ошибка чтения манифеста: {e}")
+            return []
 
     def _is_allowed(self, name: str) -> bool:
         if name in CORE_FILES:
@@ -29,19 +36,16 @@ class RaAutoloader:
 
     def activate_modules(self) -> Dict[str, ModuleType]:
         active = self.load_manifest()
-
         for name in active:
             if not self._is_allowed(name):
                 logging.info(f"[RaAutoloader] ⛔ Пропущен core/forbidden модуль: {name}")
                 continue
-
             try:
                 module = importlib.import_module(f"modules.{name}")
                 self.modules[name] = module
                 logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
             except Exception as e:
                 logging.error(f"[RaAutoloader] ❌ Ошибка загрузки {name}: {e}")
-
         return self.modules
 
     async def start_async_modules(self):
@@ -54,6 +58,7 @@ class RaAutoloader:
     async def stop_async_modules(self):
         for task in self.tasks.values():
             task.cancel()
+        await asyncio.gather(*self.tasks.values(), return_exceptions=True)
         self.tasks.clear()
         logging.info("[RaAutoloader] 🛑 Все async модули остановлены")
 
