@@ -1,6 +1,6 @@
 # modules/ra_repo_manager.py
 import os
-import json # noqa: F401
+import json
 import logging
 import asyncio
 from datetime import datetime
@@ -42,23 +42,6 @@ async def list_repo_files(base_dir=BASE_DIR, exts=None):
                     logging.warning(f"⚠️ Не удалось прочитать {path}: {e}")
     return files_summary
 
-# content optional — теперь можно вставлять подготовленный код
-async def create_new_module(module_name: str, description: str, user_id: int, content: Optional[str] = None):
-    safe_name = module_name.replace(" ", "_").lower()
-    file_path = os.path.join(BASE_DIR, "modules", f"{safe_name}.py")
-    timestamp = datetime.now().isoformat()
-    content = content or (await _ask_generate_module(module_name, description, user_id)) or NEW_MODULE_TEMPLATE.format(module_name=module_name, timestamp=timestamp)
-
-    try:
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        logging.info(f"✅ Модуль создан: {file_path}")
-    except Exception as e:
-        logging.error(f"❌ Ошибка при создании модуля {module_name}: {e}")
-        return None
-    return file_path
-
 async def _ask_generate_module(module_name: str, description: str, user_id: int) -> Optional[str]:
     if not safe_ask_openrouter:
         return None
@@ -74,6 +57,22 @@ async def _ask_generate_module(module_name: str, description: str, user_id: int)
     except Exception as e:
         logging.warning(f"GPT не сгенерировал код: {e}")
         return None
+
+async def create_new_module(module_name: str, description: str, user_id: int, content: Optional[str] = None):
+    safe_name = module_name.replace(" ", "_").lower()
+    file_path = os.path.join(BASE_DIR, "modules", f"{safe_name}.py")
+    timestamp = datetime.now().isoformat()
+    content = content or (await _ask_generate_module(module_name, description, user_id)) or NEW_MODULE_TEMPLATE.format(module_name=module_name, timestamp=timestamp)
+
+    try:
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        logging.info(f"✅ Модуль создан: {file_path}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка при создании модуля {module_name}: {e}")
+        return None
+    return file_path
 
 async def auto_register_module(module_name: str):
     main_file = os.path.join(BASE_DIR, "ra_bot_gpt.py")
@@ -106,7 +105,6 @@ async def commit_and_push_changes(branch_name=None, commit_msg=None):
         logging.error(f"❌ Ошибка при создании PR: {e}")
         return None
 
-# Пример автопроверки/апдейта
 async def ra_repo_autoupdate(user_id: int):
     files = await list_repo_files()
     logging.info(f"🔍 Всего файлов в репо: {len(files)}")
