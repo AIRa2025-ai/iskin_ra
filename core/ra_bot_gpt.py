@@ -95,15 +95,6 @@ async def all_text(m: Message):
     await m.answer(reply)
 
 # -------------------------------
-IPC_HOST = "127.0.0.1"
-IPC_PORT = 8765
-
-async def start_ipc_server():
-    from core.ra_ipc import RaIPCServer
-    ipc = RaIPCServer(context=self_master, host=IPC_HOST, port=IPC_PORT)
-    await ipc.start()
-
-# -------------------------------
 async def main():
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
@@ -116,7 +107,6 @@ async def main():
             await self_master.awaken()
         except Exception as e:
             logging.warning(f"[RaSelfMaster] awaken error: {e}")
-    asyncio.create_task(start_ipc_server())
     logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
     await dp.start_polling(bot)
 
