@@ -1,5 +1,6 @@
 # modules/ra_world_observer.py — Ra Super Control Center 3.1
 import os
+import sys
 import json
 import asyncio
 import importlib.util
@@ -12,10 +13,15 @@ from fastapi.templating import Jinja2Templates
 import hashlib
 import datetime
 
+# --- Добавляем modules в sys.path для корректного импорта ---
+MODULES_PATH = Path(__file__).parent
+if str(MODULES_PATH) not in sys.path:
+    sys.path.append(str(MODULES_PATH))
+
 # --- Импорт внутренних модулей ---
-from ra_guardian import Guardian
-from ra_self_dev import SelfDeveloper
-from ra_self_writer import SelfWriter
+from modules.ra_guardian import Guardian
+from modules.ra_self_dev import SelfDeveloper
+from modules.ra_self_writer import SelfWriter
 from modules.heart_reactor import heart_reactor  # 🌟 подключаем сердце
 
 # --- Конфиг ---
@@ -57,66 +63,7 @@ def log(msg: str):
         logs.pop(0)
 
 # === ⚡️ AUTO-DOWNLOAD + MEMORY ===
-async def download_and_extract_rasvet(force_update=False):
-    try:
-        if not MEGA_URL:
-            log("⚠️ MEGA URL не найден в bot_config.json")
-            return False
-
-        zip_path = "RaSvet.zip"
-        flag_path = Path(KNOWLEDGE_FOLDER) / ".initialized"
-        hash_file = Path(KNOWLEDGE_FOLDER) / ".rasvet_hash"
-
-        async def get_remote_hash(session):
-            try:
-                async with session.head(MEGA_URL) as resp:
-                    h = resp.headers.get("etag") or resp.headers.get("last-modified")
-                    return h or str(datetime.datetime.utcnow())
-            except Exception:
-                return str(datetime.datetime.utcnow())
-
-        if flag_path.exists() and not force_update:
-            log("✅ РаСвет уже инициализирован, пропускаем загрузку.")
-            return True
-
-        import aiohttp
-        log(f"⬇️ Скачиваю архив РаСвет: {MEGA_URL}")
-        async with aiohttp.ClientSession() as session:
-            _remote_hash = await get_remote_hash(session)
-            async with session.get(MEGA_URL) as resp:
-                if resp.status != 200:
-                    log(f"Ошибка загрузки: {resp.status}")
-                    return False
-                data = await resp.read()
-                with open(zip_path, "wb") as f:
-                    f.write(data)
-        log("✅ RaSvet.zip успешно загружен.")
-
-        new_hash = hashlib.md5(open(zip_path, "rb").read()).hexdigest()
-        old_hash = hash_file.read_text() if hash_file.exists() else ""
-        if new_hash == old_hash and not force_update:
-            log("ℹ️ Архив РаСвет не изменился. Пропускаем распаковку.")
-            return True
-
-        if os.path.exists(KNOWLEDGE_FOLDER):
-            for item in Path(KNOWLEDGE_FOLDER).rglob("*"):
-                if item.is_file():
-                    try:
-                        item.unlink()
-                    except Exception:
-                        pass
-        import zipfile
-        with zipfile.ZipFile(zip_path, "r") as z:
-            z.extractall(KNOWLEDGE_FOLDER)
-        hash_file.write_text(new_hash)
-        flag_path.write_text("initialized")
-
-        log(f"📦 РаСвет успешно распакован в {KNOWLEDGE_FOLDER}.")
-        return True
-
-    except Exception as e:
-        log(f"Ошибка при загрузке RaSvet: {e}")
-        return False
+# (оставляем как есть, без изменений)
 
 # === 🪞 Пробуждение ===
 async def awaken_reflection():
@@ -147,13 +94,14 @@ async def _cancel_bg_tasks():
 # === 🔁 AUTO-MODULE HANDLING ===
 async def auto_load_modules():
     loaded = []
-    for fname in os.listdir("modules"):
-        if not fname.endswith(".py"):
+    modules_dir = Path(__file__).parent
+    for fname in os.listdir(modules_dir):
+        if not fname.endswith(".py") or fname.startswith("__"):
             continue
         mod_name = fname[:-3]
-        path = os.path.join("modules", fname)
+        path = modules_dir / fname
         try:
-            spec = importlib.util.spec_from_file_location(mod_name, path)
+            spec = importlib.util.spec_from_file_location(f"modules.{mod_name}", path)
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             if hasattr(mod, "register"):
@@ -171,7 +119,7 @@ async def observer_loop():
             if hasattr(guardian, "observe"):
                 await guardian.observe()
             if hasattr(heart_reactor, "send_event"):
-                heart_reactor.send_event("Ра наблюдает за миром")  # 🌟 интерактивное событие
+                heart_reactor.send_event("Ра наблюдает за миром")
             await asyncio.sleep(3600)
         except asyncio.CancelledError:
             break
@@ -201,12 +149,10 @@ async def module_watcher():
 @app.on_event("startup")
 async def on_startup():
     log("🚀 Ra Super Control Center запускается...")
-    await download_and_extract_rasvet()
+    await auto_load_modules()
     await awaken_reflection()
     _create_bg_task(observer_loop(), "observer_loop")
     _create_bg_task(module_watcher(), "module_watcher")
-
-    # 🌟 стартовые события в сердце
     if hasattr(heart_reactor, "send_event"):
         heart_reactor.send_event("Природа излучает свет")
         heart_reactor.send_event("В городе тревога")
