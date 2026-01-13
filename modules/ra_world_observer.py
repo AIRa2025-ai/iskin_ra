@@ -1,4 +1,4 @@
-# ra_world_observer.py — Ra Super Control Center 3.1 (с памятью архива РаСвет)
+# modules/ra_world_observer.py — Ra Super Control Center 3.1 (с памятью архива РаСвет)
 import os
 import json
 import asyncio
