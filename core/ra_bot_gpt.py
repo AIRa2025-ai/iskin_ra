@@ -101,7 +101,10 @@ async def main():
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
     bot = Bot(token=token)
-    dp.include_router(router)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
     if self_master:
         try:
             await self_master.awaken()
@@ -112,7 +115,9 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        loop = asyncio.get_event_loop()
+        loop.create_task(main())
+        loop.run_forever()
     except KeyboardInterrupt:
         logging.info("🛑 Telegram + IPC бот остановлен")
     except Exception:
