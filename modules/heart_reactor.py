@@ -60,12 +60,3 @@ class HeartReactor:
 # === Автозапуск цикла сердца ===
 heart_reactor = HeartReactor()
 asyncio.create_task(heart_reactor.listen_and_respond())
-💡 Как использовать:
-
-python
-Копировать код
-from modules.heart_reactor import heart_reactor
-
-# отправляем событие
-heart_reactor.send_event("Природа излучает свет")
-heart_reactor.send_event("В городе тревога")
