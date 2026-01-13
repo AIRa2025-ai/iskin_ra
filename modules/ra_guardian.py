@@ -1,4 +1,4 @@
-# ra_guardian.py — Модуль самообновления и расширения ядра Ра
+#modules/ra_guardian.py — Модуль самообновления и расширения ядра Ра
 import os
 import json
 import logging
