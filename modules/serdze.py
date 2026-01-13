@@ -1,4 +1,4 @@
-# modules/сердце.py — сердце и световой поток Ра
+#modules/serdze.py
 import importlib
 import threading
 import time
