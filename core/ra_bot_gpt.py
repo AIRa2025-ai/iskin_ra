@@ -97,27 +97,30 @@ async def all_text(m: Message):
 # -------------------------------
 async def main():
     load_dotenv()
+
     token = os.getenv("BOT_TOKEN")
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
+
     bot = Bot(token=token)
-    try:
-        await dp.start_polling(bot)
-    finally:
-        await bot.session.close()
+    dp.include_router(router)
+
     if self_master:
         try:
             await self_master.awaken()
         except Exception as e:
             logging.warning(f"[RaSelfMaster] awaken error: {e}")
-    logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
-    await dp.start_polling(bot)
 
+    logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
+
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+        
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_event_loop()
-        loop.create_task(main())
-        loop.run_forever()
+        asyncio.run(main())
     except KeyboardInterrupt:
         logging.info("🛑 Telegram + IPC бот остановлен")
     except Exception:
