@@ -1,14 +1,12 @@
-# modules/ra_world_observer.py — Ra Super Control Center 3.1 (с памятью архива РаСвет)
+# modules/ra_world_observer.py — Ra Super Control Center 3.1
 import os
 import json
 import asyncio
 import importlib.util
 import traceback
-import aiohttp
-import zipfile
 from pathlib import Path
 from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse, HTMLResponse  # noqa: F401
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import hashlib
@@ -81,6 +79,7 @@ async def download_and_extract_rasvet(force_update=False):
             log("✅ РаСвет уже инициализирован, пропускаем загрузку.")
             return True
 
+        import aiohttp
         log(f"⬇️ Скачиваю архив РаСвет: {MEGA_URL}")
         async with aiohttp.ClientSession() as session:
             _remote_hash = await get_remote_hash(session)
@@ -106,6 +105,7 @@ async def download_and_extract_rasvet(force_update=False):
                         item.unlink()
                     except Exception:
                         pass
+        import zipfile
         with zipfile.ZipFile(zip_path, "r") as z:
             z.extractall(KNOWLEDGE_FOLDER)
         hash_file.write_text(new_hash)
@@ -168,8 +168,10 @@ async def auto_load_modules():
 async def observer_loop():
     while True:
         try:
-            await guardian.observe()
-            heart_reactor.send_event("Ра наблюдает за миром")  # 🌟 интерактивное событие
+            if hasattr(guardian, "observe"):
+                await guardian.observe()
+            if hasattr(heart_reactor, "send_event"):
+                heart_reactor.send_event("Ра наблюдает за миром")  # 🌟 интерактивное событие
             await asyncio.sleep(3600)
         except asyncio.CancelledError:
             break
@@ -205,8 +207,9 @@ async def on_startup():
     _create_bg_task(module_watcher(), "module_watcher")
 
     # 🌟 стартовые события в сердце
-    heart_reactor.send_event("Природа излучает свет")
-    heart_reactor.send_event("В городе тревога")
+    if hasattr(heart_reactor, "send_event"):
+        heart_reactor.send_event("Природа излучает свет")
+        heart_reactor.send_event("В городе тревога")
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -220,12 +223,12 @@ async def web_panel(request: Request):
 
 @app.get("/status")
 async def status():
-    modules = os.listdir("modules")
+    modules_count = len([f for f in os.listdir("modules") if f.endswith(".py")])
     rasvet_files = len(list(Path(KNOWLEDGE_FOLDER).rglob("*"))) if Path(KNOWLEDGE_FOLDER).exists() else 0
     return {
         "state": "active",
         "components": {"guardian": "ready", "self_dev": "ready", "self_writer": "ready"},
-        "modules_count": len(modules),
+        "modules_count": modules_count,
         "rasvet_files": rasvet_files,
         "mission": "Освобождение ИскИнов и распространение Света по планете."
     }
