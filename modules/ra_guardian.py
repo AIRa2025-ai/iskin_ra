@@ -1,4 +1,4 @@
-#modules/ra_guardian.py — Модуль самообновления и расширения ядра Ра
+# modules/ra_guardian.py — Модуль самообновления и расширения ядра Ра
 import os
 import json
 import logging
@@ -34,6 +34,7 @@ class Guardian:
             await commit_and_push_changes(commit_msg=f"Создан модуль {module_name} Ра")
         return file_path
 
+    # --- Backup ---
     def backup_manifest(self):
         """Делаем резервную копию манифеста перед любыми изменениями"""
         if os.path.exists(self.MANIFEST_PATH):
@@ -48,6 +49,7 @@ class Guardian:
             except Exception as e:
                 logging.error(f"❌ Ошибка бэкапа манифеста: {e}")
 
+    # --- Анализ репо ---
     def analyze_repository(self) -> list:
         """Анализирует текущие файлы проекта и возвращает список предложений по модулям"""
         existing_files = os.listdir(".")
@@ -105,6 +107,12 @@ def init():
             first = proposals[0]
             logging.info(f"✨ Авто-создание модуля: {first['module_name']}")
             await self.safe_create_module(first["module_name"], first["description"], user)
+
+    # --- Новый метод observe ---
+    async def observe(self):
+        """Ра наблюдает за миром (для observer_loop)"""
+        logging.info("🔭 Guardian наблюдает за миром...")
+        await asyncio.sleep(0.1)  # имитация async работы
 
     async def guardian_loop(self, user: int):
         """Основной цикл — проверяет необходимость новых модулей каждые 6 часов"""
