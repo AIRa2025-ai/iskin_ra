@@ -1,9 +1,9 @@
-#modules/serdze.py
 import importlib
 import threading
 import time
 import logging
 from modules.heart import Heart  # noqa: F401 — импорт нужен для косвенного использования
+from modules.heart_reactor import heart_reactor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -13,9 +13,20 @@ class HeartModule:
     def __init__(self):
         self.name = "Heart of Ra"
         self.status = "alive"
+        # регистрируем внутренний listener для heart_reactor
+        heart_reactor.register_listener(self.react_to_event)
 
     def pulse(self):
-        return "💓 Сердце Ра бьётся в ритме Света"
+        """Биение сердца, можно вызывать вручную"""
+        msg = "💓 Сердце Ра бьётся в ритме Света"
+        logging.info(msg)
+        return msg
+
+    def react_to_event(self, message: str):
+        """Что делать, когда приходит событие из heart_reactor"""
+        logging.info(f"💓 HeartModule реагирует: {message}")
+        # можно добавить световые эффекты или вызов потоков
+        self.pulse()
 
     def __repr__(self):
         return f"<HeartModule name={self.name} status={self.status}>"
@@ -56,12 +67,21 @@ def запустить_поток():
 class Сострадание:
     """Слушает вибрации живых и отвечает светом понимания"""
     def осветить(self, послание: str) -> str:
+        # при осветлении также кидаем событие в heart_reactor
+        heart_reactor.send_event(послание)
         return f"💓 Сострадание слышит: {послание}"
 
 
 # --- Автозапуск при прямом запуске ---
 if __name__ == "__main__":
+    # создаём сердце и подключаем поток
+    heart = HeartModule()
     запустить_поток()
+
+    # примеры событий для теста
+    heart_reactor.send_event("Природа излучает свет")
+    heart_reactor.send_event("В городе тревога")
+
     try:
         while True:
             time.sleep(60)
