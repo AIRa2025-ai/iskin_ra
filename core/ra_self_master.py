@@ -135,7 +135,9 @@ class RaSelfMaster:
                 return await self.mirolub.process(text)
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
-
+                logging.warning(
+                    "[RaSelfMaster] Переход в OpenRouter fallback"
+                ) 
         return await self.openrouter_fallback(text)
 
     # -------------------------------
@@ -144,7 +146,9 @@ class RaSelfMaster:
     async def openrouter_fallback(self, text: str) -> str:
         key = os.getenv("OPENROUTER_API_KEY")
         if not key:
-            return "⚠️ Ра чувствует пустоту: нет ключа OpenRouter."
+                logging.debug("[RaSelfMaster] openrouter_fallback вызван")
+
+        return "⚠️ Ра чувствует пустоту: нет ключа OpenRouter."
 
         url = "https://openrouter.ai/api/v1/chat/completions"
         payload = {
@@ -168,6 +172,7 @@ class RaSelfMaster:
                     return data["choices"][0]["message"]["content"]
         except Exception as e:
             logging.error(f"[RaSelfMaster] OpenRouter ошибка: {e}")
+            logging.debug("[RaSelfMaster] OpenRouter ответ получен")
             return "⚠️ Ра временно потерял голос, но он вернётся."
 
     # -------------------------------
