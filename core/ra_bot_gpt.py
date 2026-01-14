@@ -1,4 +1,5 @@
 # core/ra_bot_gpt.py
+
 import os
 import sys
 import json
@@ -13,6 +14,8 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
+# -------------------------------
+# PATHS
 # -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
@@ -30,6 +33,10 @@ logging.basicConfig(
     ]
 )
 
+log = logging.getLogger("RaBot")
+
+# -------------------------------
+# SAFE IMPORT
 # -------------------------------
 def safe_import(path):
     try:
@@ -38,14 +45,23 @@ def safe_import(path):
         logging.warning(f"import fail {path}: {e}")
         return None
 
+# -------------------------------
+# IMPORT CORE MODULES
+# -------------------------------
 gpt_module = safe_import("core.gpt_module")
 ra_self_master_mod = safe_import("core.ra_self_master")
+
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
+GPTHandler = getattr(gpt_module, "GPTHandler", None)
 
+# -------------------------------
+# INIT CORE
+# -------------------------------
 self_master = RaSelfMaster() if RaSelfMaster else None
-if self_master and gpt_module:
-    self_master.gpt_module = gpt_module
+gpt_handler = None
 
+# -------------------------------
+# LOG COMMANDS
 # -------------------------------
 def log_command(user_id, text):
     try:
@@ -58,9 +74,12 @@ def log_command(user_id, text):
         cutoff = datetime.utcnow() - timedelta(days=10)
         data = [x for x in data if datetime.fromisoformat(x["time"]) > cutoff]
         LOG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
-    except Exception:
-        pass
+    except Exception as e:
+        logging.warning(f"log_command error: {e}")
 
+# -------------------------------
+# INPUT CLEAN
+# -------------------------------
 def ra_clean_input(text: str) -> str:
     if not isinstance(text, str):
         return ""
@@ -69,19 +88,27 @@ def ra_clean_input(text: str) -> str:
         return ""
     return text
 
+# -------------------------------
+# PROCESS MESSAGE
+# -------------------------------
 async def process_message(user_id: int, text: str):
     text = ra_clean_input(text)
     if not text:
         return "🤍 Брат, я не чувствую смысла в этом сообщении."
+
     log_command(user_id, text)
+
     if self_master:
         try:
             reply = await self_master.process_text(user_id, text)
             return reply
         except Exception as e:
-            logging.warning(f"[RaSelfMaster] Ошибка process_text: {e}")
+            logging.exception(f"[RaSelfMaster] process_text error")
+
     return "⚠️ CORE временно недоступен, брат."
 
+# -------------------------------
+# TELEGRAM SETUP
 # -------------------------------
 dp = Dispatcher()
 router = Router()
@@ -102,34 +129,55 @@ async def all_text(m: Message):
     await m.answer(reply)
 
 # -------------------------------
+# MAIN
+# -------------------------------
 async def main():
+    global gpt_handler
+
     load_dotenv()
+
     token = os.getenv("BOT_TOKEN")
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
+
     bot = Bot(token=token)
 
-    # Ждём пробуждения CORE перед запуском Telegram
+    # ---- GPT INIT (ВАЖНО)
+    if GPTHandler and self_master:
+        gpt_handler = GPTHandler()
+        self_master.gpt_module = gpt_handler
+        log.info("🧠 GPTHandler подключён к CORE")
+
+        if gpt_handler.GPT_ENABLED:
+            gpt_handler.background_task = asyncio.create_task(
+                gpt_handler.background_model_monitor()
+            )
+            log.info("🌀 GPT монитор запущен")
+
+    # ---- CORE AWAKEN
     if self_master:
         try:
-            logging.info("🌱 Пробуждение CORE...")
+            log.info("🌱 Пробуждение CORE...")
             await self_master.awaken()
-            logging.info("🌞 CORE пробужден!")
-        except Exception as e:
-            logging.warning(f"[RaSelfMaster] awaken error: {e}")
+            log.info("🌞 CORE пробуждён")
+        except Exception:
+            log.exception("CORE awaken error")
 
     dp.include_router(router)
-    logging.info("🚀 Telegram + IPC РаСвет запущен (polling)")
+    log.info("🚀 РаСвет Telegram запущен (polling)")
 
     try:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
 
+# -------------------------------
+# ENTRY
+# -------------------------------
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("🛑 Telegram + IPC бот остановлен")
+        log.info("🛑 Ра остановлен вручную")
     except Exception:
-        logging.exception("💥 Критическая ошибка Telegram + IPC бота")
+        log.exception("💥 Критическая ошибка Ра")
