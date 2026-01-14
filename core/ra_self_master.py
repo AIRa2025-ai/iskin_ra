@@ -128,7 +128,7 @@ class RaSelfMaster:
                 if reply:
                     return reply
             except Exception as e:
-                logging.warning(f"[RaSelfMaster] gpt_module ошибка: {e}")
+                logging.exception("[RaSelfMaster] gpt_module УПАЛ")
 
         if self.mirolub:
             try:
