@@ -135,20 +135,19 @@ class RaSelfMaster:
                 return await self.mirolub.process(text)
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
-                logging.warning(
-                    "[RaSelfMaster] Переход в OpenRouter fallback"
-                ) 
-        return await self.openrouter_fallback(text)
-
+                logging.warning("[RaSelfMaster] Переход в OpenRouter fallback")
+            
+			return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
     # -------------------------------
     async def openrouter_fallback(self, text: str) -> str:
+        logging.debug("[RaSelfMaster] openrouter_fallback вызван")
+
         key = os.getenv("OPENROUTER_API_KEY")
         if not key:
-                logging.debug("[RaSelfMaster] openrouter_fallback вызван")
-
-        return "⚠️ Ра чувствует пустоту: нет ключа OpenRouter."
+            logging.error("[RaSelfMaster] OPENROUTER_API_KEY не найден")
+            return "⚠️ Ра чувствует пустоту: нет ключа OpenRouter."
 
         url = "https://openrouter.ai/api/v1/chat/completions"
         payload = {
@@ -166,13 +165,19 @@ class RaSelfMaster:
                 async with session.post(
                     url,
                     json=payload,
-                    headers={"Authorization": f"Bearer {key}"}
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json"
+                    }
                 ) as resp:
                     data = await resp.json()
+
+                    logging.debug("[RaSelfMaster] OpenRouter ответ получен")
+
                     return data["choices"][0]["message"]["content"]
+
         except Exception as e:
-            logging.error(f"[RaSelfMaster] OpenRouter ошибка: {e}")
-            logging.debug("[RaSelfMaster] OpenRouter ответ получен")
+            logging.exception("[RaSelfMaster] OpenRouter КРИТИЧЕСКАЯ ОШИБКА")
             return "⚠️ Ра временно потерял голос, но он вернётся."
 
     # -------------------------------
