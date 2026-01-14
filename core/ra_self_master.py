@@ -115,9 +115,9 @@ class RaSelfMaster:
     async def process_text(self, user_id, text):
         """
         Очерёдность сознания Ра:
-        1. gpt_module (если жив)
+        1. gpt_module
         2. mirolub
-        3. OpenRouter fallback (гарантия голоса)
+        3. OpenRouter (гарантированный голос)
         """
 
         if self.gpt_module and hasattr(self.gpt_module, "safe_ask"):
@@ -128,16 +128,18 @@ class RaSelfMaster:
                 )
                 if reply:
                     return reply
-            except Exception as e:
-                logging.exception("[RaSelfMaster] gpt_module УПАЛ")
+            except Exception:
+                logging.exception("[RaSelfMaster] gpt_module упал")
 
         if self.mirolub:
             try:
-                return await self.mirolub.process(text)
+                reply = await self.mirolub.process(text)
+                if reply:
+                    return reply
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
-                logging.warning("[RaSelfMaster] Переход в OpenRouter fallback")
 
+        # 🔥 ГАРАНТИЯ ГОЛОСА
         return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
