@@ -137,7 +137,6 @@ class RaSelfMaster:
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
                 logging.warning("[RaSelfMaster] Переход в OpenRouter fallback")
-            
 			return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
