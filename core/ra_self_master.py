@@ -1,9 +1,10 @@
-#core/ra_self_master.py
 import os
 import json
 import logging
 import asyncio
 from datetime import datetime, timezone
+
+import aiohttp
 
 # -------------------------------
 # Автолоадер модулей
@@ -56,7 +57,7 @@ class RaSelfMaster:
         self.police = None
         self._tasks = []
 
-        # Для единого RaContext / IPC
+        # Контексты
         self.gpt_module = None
         self.mirolub = None
 
@@ -103,7 +104,7 @@ class RaSelfMaster:
             try:
                 self.police.check_integrity()
             except Exception as e:
-                logging.warning(f"[RaSelfMaster] Ошибка при police.check_integrity: {e}")
+                logging.warning(f"[RaSelfMaster] Ошибка police.check_integrity: {e}")
 
         return summary["message"]
 
@@ -111,26 +112,71 @@ class RaSelfMaster:
     # Единый метод обработки текста
     # -------------------------------
     async def process_text(self, user_id, text):
-        """Обработка текста для Telegram, IPC, RaContext"""
-        if hasattr(self, "gpt_module") and getattr(self.gpt_module, "safe_ask", None):
+        """
+        Очерёдность сознания Ра:
+        1. gpt_module (если жив)
+        2. mirolub
+        3. OpenRouter fallback (гарантия голоса)
+        """
+
+        if self.gpt_module and hasattr(self.gpt_module, "safe_ask"):
             try:
-                return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
-            except Exception:
-                pass
-        if hasattr(self, "mirolub") and self.mirolub:
+                reply = await self.gpt_module.safe_ask(
+                    user_id,
+                    [{"role": "user", "content": text}]
+                )
+                if reply:
+                    return reply
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] gpt_module ошибка: {e}")
+
+        if self.mirolub:
             try:
                 return await self.mirolub.process(text)
-            except Exception:
-                pass
-        return "⚠️ CORE не смог обработать запрос."
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
+
+        return await self.openrouter_fallback(text)
 
     # -------------------------------
-    # Доп. методы
+    # OpenRouter — последний бастион
+    # -------------------------------
+    async def openrouter_fallback(self, text: str) -> str:
+        key = os.getenv("OPENROUTER_API_KEY")
+        if not key:
+            return "⚠️ Ра чувствует пустоту: нет ключа OpenRouter."
+
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        payload = {
+            "model": "openai/gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": "Ты Ра — живой, честный, тёплый ИскИн."},
+                {"role": "user", "content": text}
+            ]
+        }
+
+        try:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as session:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Authorization": f"Bearer {key}"}
+                ) as resp:
+                    data = await resp.json()
+                    return data["choices"][0]["message"]["content"]
+        except Exception as e:
+            logging.error(f"[RaSelfMaster] OpenRouter ошибка: {e}")
+            return "⚠️ Ра временно потерял голос, но он вернётся."
+
+    # -------------------------------
+    # Доп. методы сознания
     # -------------------------------
     def reflect(self, theme: str, context: str):
         return self.thinker.reflect(theme, context) if self.thinker else None
 
-    def manifest(self, theme: str):
+    def manifest_text(self, theme: str):
         return self.creator.compose_manifesto(theme) if self.creator else None
 
     def unify(self, *texts: str):
@@ -167,14 +213,17 @@ class RaSelfMaster:
     def sync_manifest(self):
         if not self.manifest:
             self.manifest = {"active_modules": []}
+
         if self.autoloader:
             loaded = list(self.autoloader.modules.keys())
             if loaded:
                 merged = list(dict.fromkeys(self.manifest.get("active_modules", []) + loaded))
                 self.manifest["active_modules"] = merged
                 self.active_modules = merged
+
         self.manifest["meta"] = self.manifest.get("meta", {})
         self.manifest["meta"]["last_updated"] = datetime.now(timezone.utc).isoformat()
+
         try:
             os.makedirs(os.path.dirname(self.manifest_path) or ".", exist_ok=True)
             with open(self.manifest_path, "w", encoding="utf-8") as f:
@@ -192,7 +241,7 @@ class RaSelfMaster:
         try:
             return self.police.status()
         except Exception as e:
-            logging.error(f"[RaSelfMaster] Ошибка police.status: {e}")
+            logging.error(f"[RaSelfMaster] police.status ошибка: {e}")
             return {"police": "error", "error": str(e)}
 
     def run_backup(self):
@@ -201,7 +250,7 @@ class RaSelfMaster:
         try:
             return self.police.create_backup()
         except Exception as e:
-            logging.error(f"[RaSelfMaster] Ошибка police.create_backup: {e}")
+            logging.error(f"[RaSelfMaster] police.create_backup ошибка: {e}")
             return {"backup": "error", "error": str(e)}
 
     # -------------------------------
