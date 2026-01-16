@@ -17,7 +17,6 @@ def _is_safe_path(path: str) -> bool:
    return any(os.path.abspath(path).startswith(safe) for safe in SAFE_DIRS)
 
 # --- Основные функции ---
-
 def list_project_files():
     """Выводит список всех .py файлов проекта."""
     return [f for f in os.listdir(PROJECT_DIR) if f.endswith(".py")]
