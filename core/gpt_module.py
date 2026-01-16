@@ -46,7 +46,21 @@ class GPTHandler:
             log.info("✅ GPT-модуль инициализирован")
 
         self.load_model_speed()
+        
+    async def ask(self, text: str) -> str:
+        """
+        Унифицированный интерфейс для RaSelfMaster
+        """
+        messages = [
+            {"role": "system", "content": self.ra_context or ""},
+            {"role": "user", "content": text}
+        ]
 
+        result = await self.ask_openrouter(messages)
+        if not result:
+            raise RuntimeError("GPT вернул пустой ответ")
+
+        return result
     # =========================
     # КОНТЕКСТ РА
     # =========================
