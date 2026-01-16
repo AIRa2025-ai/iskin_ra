@@ -5,6 +5,7 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
+from core.identity import RaIdentity
 import aiohttp
 
 # -------------------------------
@@ -62,6 +63,17 @@ class RaSelfMaster:
         self.gpt_module = None
         self.mirolub = None
 
+        # -------------------------------
+        # RaIdentity — подключаем сюда
+        self.identity = RaIdentity(
+            thinker=self.thinker,
+            creator=self.creator,
+            synth=self.synth,
+            gpt_module=self.gpt_module
+        )
+
+        if self.thinker:
+            self.identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
@@ -113,19 +125,18 @@ class RaSelfMaster:
     # Единый метод обработки текста
     # -------------------------------
     async def process_text(self, user_id, text):
-        # Решение через ядро
         decision = self.identity.decide(text)
-
+    
         if decision == "think" and self.thinker:
             return self.thinker.reflect(text)
-
+    
         if decision == "manifest" and self.creator:
             return self.creator.compose_manifesto(text)
-
+    
         if decision == "answer" and self.gpt_module:
             return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
-
-        # fallback
+    
+        # fallback, если никто не сработал
         return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
