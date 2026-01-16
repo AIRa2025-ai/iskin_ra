@@ -6,7 +6,7 @@
 """
 import logging
 from datetime import datetime
-from ra_file_manager import load_rasvet_files
+from modules.ra_file_manager import load_rasvet_files
 
 class RaThinker:
     def __init__(self):
