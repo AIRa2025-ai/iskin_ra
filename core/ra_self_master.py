@@ -136,7 +136,7 @@ class RaSelfMaster:
         decision = self.ra_identity.decide(text)
 
         if decision == "think" and self.thinker:
-            return self.thinker.reflect(f"{text}\n\nКонтекст: {self.identity.thinker_context}")
+            return self.thinker.reflect(f"{text}\n\nКонтекст: {self.ra_identity.thinker_context}")
 
         if decision == "manifest" and self.creator:
             return self.creator.compose_manifesto(text)
