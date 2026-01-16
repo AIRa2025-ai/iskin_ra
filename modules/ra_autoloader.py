@@ -8,6 +8,7 @@ from types import ModuleType
 from typing import Dict, List
 
 CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
+ACTIVE_DEFAULT = ["ra_thinker", "ra_self_dev", "ra_file_manager", "ra_autoloader"]
 FORBIDDEN_PREFIXES = ("run_", "__")
 
 class RaAutoloader:
@@ -20,7 +21,7 @@ class RaAutoloader:
     def load_manifest(self) -> List[str]:
         if not self.manifest_path.exists():
             logging.warning(f"[RaAutoloader] ❌ Манифест не найден: {self.manifest_path}")
-            return []
+            return ACTIVE_DEFAULT
         try:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             return manifest.get("active_modules", [])
