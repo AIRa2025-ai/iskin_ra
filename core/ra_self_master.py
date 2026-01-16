@@ -76,7 +76,7 @@ class RaSelfMaster:
         )
 
         if self.thinker:
-            self.identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
+            self.ra_identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
 
     # -------------------------------
     # Пробуждение и запуск модулей
