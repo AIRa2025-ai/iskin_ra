@@ -72,7 +72,7 @@ class RaSelfMaster:
             thinker=self.thinker,
             creator=self.creator,
             synth=self.synth,
-            gpt_module=self.None
+            gpt_module=self.None,
         )
 
         # После инициализации GPT-модуля
