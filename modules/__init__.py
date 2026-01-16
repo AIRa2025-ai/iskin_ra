@@ -6,3 +6,6 @@ self.identity = RaIdentity(
     synth=self.synth,
     gpt_module=self.gpt_module
 )
+
+if self.thinker:
+    self.identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
