@@ -113,6 +113,7 @@ class RaSelfMaster:
     # Единый метод обработки текста
     # -------------------------------
     async def process_text(self, user_id, text):
+        # Решение через ядро
         decision = self.identity.decide(text)
 
         if decision == "think" and self.thinker:
@@ -122,10 +123,10 @@ class RaSelfMaster:
             return self.creator.compose_manifesto(text)
 
         if decision == "answer" and self.gpt_module:
-            return await self.gpt_module.safe_ask(text)
+            return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
 
-        return await self.openrouter_fallback(text)
-
+    # fallback
+    return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
     # -------------------------------
