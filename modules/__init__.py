@@ -1,4 +1,4 @@
-# if self.thinker:
+# modules/__init__.py
 from core.identity import RaIdentity
 
 self.identity = RaIdentity(
