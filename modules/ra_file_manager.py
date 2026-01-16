@@ -88,3 +88,23 @@ def update_manifest(new_data: dict):
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     logging.info("🌀 Обновлён ra_manifest.json")
+# Добавляем в ra_file_manager.py
+def load_rasvet_files(limit_chars=1500):
+    """
+    Загружает ключевые файлы папки РаСвет и возвращает их как единый контекст.
+    """
+    rasvet_folder = os.path.join(PROJECT_DIR, "RaSvet")
+    context = []
+
+    for root, _, files in os.walk(rasvet_folder):
+        for file in files:
+            if file.endswith(".txt") or file.endswith(".md"):
+                try:
+                    path = os.path.join(root, file)
+                    with open(path, "r", encoding="utf-8") as f:
+                        text = f.read().strip()
+                        context.append(text[:limit_chars])
+                except Exception as e:
+                    logging.warning(f"⚠️ Ошибка чтения {file}: {e}")
+
+    return "\n\n".join(context)
