@@ -133,7 +133,7 @@ class RaSelfMaster:
     # Единый метод обработки текста
     # -------------------------------
     async def process_text(self, user_id, text):
-        decision = self.identity.decide(text)
+        decision = self.ra_identity.decide(text)
 
         if decision == "think" and self.thinker:
             return self.thinker.reflect(f"{text}\n\nКонтекст: {self.identity.thinker_context}")
