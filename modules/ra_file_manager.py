@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+PROJECT_DIR = PROJECT_ROOT
 BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
@@ -14,7 +15,7 @@ os.makedirs(BACKUP_DIR, exist_ok=True)
 SAFE_DIRS = [PROJECT_ROOT]
 def _is_safe_path(path: str) -> bool:
     """Проверка, что путь не выходит за пределы проекта."""
-   return any(os.path.abspath(path).startswith(safe) for safe in SAFE_DIRS)
+    return any(os.path.abspath(path).startswith(safe) for safe in SAFE_DIRS)
 
 # --- Основные функции ---
 def list_project_files():
@@ -63,7 +64,8 @@ def import_module_dynamic(filename: str):
 def run_syntax_check(filename: str) -> bool:
     """Проверяет, что код в файле корректен."""
     try:
-        subprocess.run(["python", "-m", "py_compile", filename], check=True)
+        path = os.path.join(PROJECT_DIR, filename)
+        subprocess.run(["python", "-m", "py_compile", path], check=True)
         logging.info(f"✅ Синтаксис {filename} корректен")
         return True
     except subprocess.CalledProcessError:
