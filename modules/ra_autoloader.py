@@ -11,6 +11,10 @@ CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
 ACTIVE_DEFAULT = ["ra_thinker", "ra_self_dev", "ra_file_manager", "ra_autoloader"]
 FORBIDDEN_PREFIXES = ("run_", "__")
 
+CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
+ACTIVE_DEFAULT = ["ra_thinker", "ra_self_dev", "ra_file_manager"]
+FORBIDDEN_PREFIXES = ("run_", "__")
+
 class RaAutoloader:
     def __init__(self, manifest_path="data/ra_manifest.json"):
         self.manifest_path = Path(manifest_path)
@@ -20,14 +24,19 @@ class RaAutoloader:
 
     def load_manifest(self) -> List[str]:
         if not self.manifest_path.exists():
-            logging.warning(f"[RaAutoloader] ❌ Манифест не найден: {self.manifest_path}")
+            logging.warning("[RaAutoloader] ❌ Манифест не найден — используем ACTIVE_DEFAULT")
             return ACTIVE_DEFAULT
+
         try:
             manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-            return manifest.get("active_modules", [])
+            modules = manifest.get("active_modules", [])
+            if not modules:
+                logging.warning("[RaAutoloader] ⚠️ Манифест пуст — используем ACTIVE_DEFAULT")
+                return ACTIVE_DEFAULT
+            return modules
         except Exception as e:
             logging.error(f"[RaAutoloader] ❌ Ошибка чтения манифеста: {e}")
-            return []
+            return ACTIVE_DEFAULT
 
     def _is_allowed(self, name: str) -> bool:
         if name in CORE_FILES:
@@ -37,11 +46,30 @@ class RaAutoloader:
         return True
 
     def activate_modules(self) -> Dict[str, ModuleType]:
-        active = self.load_manifest()
-        for name in active:
+        for name in self.load_manifest():
             if not self._is_allowed(name):
-                logging.info(f"[RaAutoloader] ⛔ Пропущен core/forbidden модуль: {name}")
                 continue
+            try:
+                module = importlib.import_module(f"modules.{name}")
+                self.modules[name] = module
+                self.active_modules.append(name)
+                logging.info(f"[RaAutoloader] ✅ Модуль активирован: {name}")
+            except Exception as e:
+                logging.error(f"[RaAutoloader] ❌ Ошибка загрузки {name}: {e}")
+        return self.modules
+
+    async def start_async_modules(self):
+        for name, module in self.modules.items():
+            start_fn = getattr(module, "start", None)
+            if start_fn and asyncio.iscoroutinefunction(start_fn):
+                self.tasks[name] = asyncio.create_task(start_fn())
+                logging.info(f"[RaAutoloader] 🚀 Async модуль запущен: {name}")
+
+    async def stop_async_modules(self):
+        for task in self.tasks.values():
+            task.cancel()
+        await asyncio.gather(*self.tasks.values(), return_exceptions=True)
+        self.tasks.clear()
 
             # Отложенная загрузка ra_guardian
             if name == "ra_guardian":
