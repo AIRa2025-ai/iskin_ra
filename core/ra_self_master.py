@@ -5,7 +5,7 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
-from core.identity import RaIdentity
+from core.ra_identity import RaIdentity
 import aiohttp
 
 # -------------------------------
@@ -68,7 +68,7 @@ class RaSelfMaster:
 
         # -------------------------------
         # Identity — мозг Ра
-        self.identity = RaIdentity(
+        self.ra_identity = RaIdentity(
             thinker=self.thinker,
             creator=self.creator,
             synth=self.synth,
