@@ -1,3 +1,5 @@
+from core.identity import RaIdentity
+
 self.identity = RaIdentity(
     thinker=self.thinker,
     creator=self.creator,
