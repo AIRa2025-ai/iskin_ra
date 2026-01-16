@@ -82,7 +82,9 @@ class RaContext:
 ra_context = RaContext()
 ra_context.load()
 
-self_master = RaSelfMaster(context=ra_context) if RaSelfMaster else None
+self_master = RaSelfMaster() if RaSelfMaster else None
+if self_master:
+    self_master.context = ra_context
 thinker = RaThinker() if RaThinker else None
 gpt_handler = None
 
