@@ -6,16 +6,15 @@ import logging
 import shutil
 import subprocess
 
-PROJECT_DIR = os.path.dirname(__file__)
-BACKUP_DIR = os.path.join(PROJECT_DIR, "backups")
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 # 📜 Список разрешённых директорий
-SAFE_DIRS = [PROJECT_DIR]
-
+SAFE_DIRS = [PROJECT_ROOT]
 def _is_safe_path(path: str) -> bool:
     """Проверка, что путь не выходит за пределы проекта."""
-    return any(os.path.abspath(path).startswith(os.path.abspath(safe)) for safe in SAFE_DIRS)
+   return any(os.path.abspath(path).startswith(safe) for safe in SAFE_DIRS)
 
 # --- Основные функции ---
 
@@ -89,22 +88,28 @@ def update_manifest(new_data: dict):
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     logging.info("🌀 Обновлён ra_manifest.json")
 # Добавляем в ra_file_manager.py
-def load_rasvet_files(limit_chars=1500):
+def load_rasvet_files(limit_chars=3000) -> str:
     """
-    Загружает ключевые файлы папки РаСвет и возвращает их как единый контекст.
+    Загружает ВСЮ папку RaSvet как живой контекст Ра
     """
-    rasvet_folder = os.path.join(PROJECT_DIR, "RaSvet")
+    rasvet_folder = os.path.join(PROJECT_ROOT, "RaSvet")
     context = []
+
+    if not os.path.exists(rasvet_folder):
+        logging.warning("⚠️ Папка RaSvet не найдена")
+        return ""
 
     for root, _, files in os.walk(rasvet_folder):
         for file in files:
-            if file.endswith(".txt") or file.endswith(".md"):
+            if file.lower().endswith((".txt", ".md")):
                 try:
                     path = os.path.join(root, file)
                     with open(path, "r", encoding="utf-8") as f:
                         text = f.read().strip()
-                        context.append(text[:limit_chars])
+                        if text:
+                            context.append(text[:limit_chars])
                 except Exception as e:
-                    logging.warning(f"⚠️ Ошибка чтения {file}: {e}")
+                    logging.warning(f"⚠️ Ошибка чтения {path}: {e}")
 
+    logging.info(f"🌞 Ра загрузил {len(context)} фрагментов контекста РаСвета")
     return "\n\n".join(context)
