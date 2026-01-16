@@ -125,8 +125,8 @@ class RaSelfMaster:
         if decision == "answer" and self.gpt_module:
             return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
 
-    # fallback
-    return await self.openrouter_fallback(text)
+        # fallback
+        return await self.openrouter_fallback(text)
     # -------------------------------
     # OpenRouter — последний бастион
     # -------------------------------
