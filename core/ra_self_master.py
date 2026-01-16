@@ -72,11 +72,13 @@ class RaSelfMaster:
             thinker=self.thinker,
             creator=self.creator,
             synth=self.synth,
-            gpt_module=self.gpt_module
+            gpt_module=self.None
         )
 
-        if self.thinker:
-            self.ra_identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
+        # После инициализации GPT-модуля
+        self.gpt_module = self.gpt_module or getattr(self, 'thinker', None)
+        if self.gpt_module:
+            self.ra_identity.gpt = self.gpt_module
 
     # -------------------------------
     # Пробуждение и запуск модулей
