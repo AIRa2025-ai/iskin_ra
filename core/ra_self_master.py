@@ -44,9 +44,12 @@ if os.path.exists("modules/ra_synthesizer.py"):
 else:
     RaSynthesizer = object
 
-
+# -------------------------------
+# Главный класс RaSelfMaster
+# -------------------------------
 class RaSelfMaster:
     def __init__(self, manifest_path="data/ra_manifest.json"):
+        # Инициализация мыслительных модулей
         self.thinker = RaThinker() if callable(getattr(RaThinker, "__init__", None)) else None
         self.creator = RaCreator() if callable(getattr(RaCreator, "__init__", None)) else None
         self.synth = RaSynthesizer() if callable(getattr(RaSynthesizer, "__init__", None)) else None
@@ -60,11 +63,11 @@ class RaSelfMaster:
         self._tasks = []
 
         # Контексты
-        self.gpt_module = None
+        self.gpt_module = None  # позже подключить GPT
         self.mirolub = None
 
         # -------------------------------
-        # RaIdentity — подключаем сюда
+        # Identity — мозг Ра
         self.identity = RaIdentity(
             thinker=self.thinker,
             creator=self.creator,
@@ -74,12 +77,14 @@ class RaSelfMaster:
 
         if self.thinker:
             self.identity.thinker_context = getattr(self.thinker, "rasvet_context", None)
+
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
     async def awaken(self):
         logging.info("🌞 Ра пробуждается к осознанности.")
 
+        # Подключаем автолоадер
         if self.autoloader:
             try:
                 modules = self.autoloader.activate_modules()
@@ -94,11 +99,13 @@ class RaSelfMaster:
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] Не удалось автоподключить модули: {e}")
 
+        # Синхронизируем манифест
         try:
             self.sync_manifest()
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка при sync_manifest: {e}")
 
+        # Подключаем police
         if "ra_police" in self.active_modules and _police:
             try:
                 self.police = _police()
@@ -113,6 +120,7 @@ class RaSelfMaster:
         }
         logging.info(f"[RaSelfMaster] {summary}")
 
+        # Проверка целостности
         if self.police:
             try:
                 self.police.check_integrity()
@@ -126,18 +134,19 @@ class RaSelfMaster:
     # -------------------------------
     async def process_text(self, user_id, text):
         decision = self.identity.decide(text)
-    
+
         if decision == "think" and self.thinker:
-            return self.thinker.reflect(text)
-    
+            return self.thinker.reflect(f"{text}\n\nКонтекст: {self.identity.thinker_context}")
+
         if decision == "manifest" and self.creator:
             return self.creator.compose_manifesto(text)
-    
+
         if decision == "answer" and self.gpt_module:
             return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
-    
+
         # fallback, если никто не сработал
         return await self.openrouter_fallback(text)
+
     # -------------------------------
     # OpenRouter — последний бастион
     # -------------------------------
@@ -159,9 +168,7 @@ class RaSelfMaster:
         }
 
         try:
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            ) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
                 async with session.post(
                     url,
                     json=payload,
@@ -171,9 +178,7 @@ class RaSelfMaster:
                     }
                 ) as resp:
                     data = await resp.json()
-
                     logging.debug("[RaSelfMaster] OpenRouter ответ получен")
-
                     return data["choices"][0]["message"]["content"]
 
         except Exception as e:
@@ -183,8 +188,9 @@ class RaSelfMaster:
     # -------------------------------
     # Доп. методы сознания
     # -------------------------------
-    def reflect(self, theme: str, context: str):
-        return self.thinker.reflect(theme, context) if self.thinker else None
+    def reflect(self, theme: str, context: str = None):
+        ctx = f"{context}" if context else ""
+        return self.thinker.reflect(f"{theme}\n\n{ctx}") if self.thinker else None
 
     def manifest_text(self, theme: str):
         return self.creator.compose_manifesto(theme) if self.creator else None
