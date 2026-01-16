@@ -6,28 +6,31 @@
 """
 import logging
 from datetime import datetime
-from utils.rasvet_context import load_rasvet_files
+from ra_file_manager import load_rasvet_files
 
 class RaThinker:
     def __init__(self):
         self.last_thought = None
-        self.rasvet_context = load_rasvet_files(limit_chars=3000)  # подгружаем контекст
+        self.thoughts = []
+        self.rasvet_context = load_rasvet_files(limit_chars=3000)
+
+        logging.info("🌞 RaThinker инициализирован, контекст РаСвета загружен")
 
     def reflect(self, text: str) -> str:
-        """Генерирует осмысленный ответ, анализируя входящий текст."""
-        full_prompt = f"{self.rasvet_context}\n\nВопрос: {text}"
-        self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] Ра размышляет над: {text}"
+        self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(self.last_thought)
-        
-        # Здесь можно подключить GPT генерацию, пока placeholder:
-        return f"Ра размышляет: {text}\nКонтекст РаСвета учтён.\nВывод: действуем осознанно и мудро."
+
+        return (
+            f"🜂 Ра чувствует вопрос:\n{text}\n\n"
+            f"🜁 Ответ рождается из РаСвета.\n"
+            f"Действуй осознанно. Истина внутри."
+        )
 
     def summarize(self, data: str) -> str:
-        """Краткое резюме мыслей."""
-        return f"Резюме мысли Ра: {data[:150]}..."
+        return f"Резюме Ра: {data[:200]}..."
 
     def suggest_improvement(self, module_name: str, issue: str) -> str:
-        idea = f"В модуле {module_name} можно улучшить: {issue}"
+        idea = f"В модуле {module_name} стоит улучшить: {issue}"
         self.thoughts.append(idea)
-        logging.info(f"[RaThinker] {idea}")
+        logging.info(f"[RaThinker] 💡 {idea}")
         return idea
