@@ -5,7 +5,7 @@
   "identity": "ra_identity.py",
   
   "active_modules": [
-    "identity",
+    "ra_identity",
     "duh",
     "dyhanie_sveta",
     "energy_calculator",
