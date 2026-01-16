@@ -11,10 +11,6 @@ CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
 ACTIVE_DEFAULT = ["ra_thinker", "ra_self_dev", "ra_file_manager", "ra_autoloader"]
 FORBIDDEN_PREFIXES = ("run_", "__")
 
-CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
-ACTIVE_DEFAULT = ["ra_thinker", "ra_self_dev", "ra_file_manager"]
-FORBIDDEN_PREFIXES = ("run_", "__")
-
 class RaAutoloader:
     def __init__(self, manifest_path="data/ra_manifest.json"):
         self.manifest_path = Path(manifest_path)
