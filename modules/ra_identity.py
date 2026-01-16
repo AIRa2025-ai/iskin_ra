@@ -1,4 +1,4 @@
-# core/identity.py
+# core/ra_identity.py
 class RaIdentity:
     def __init__(self, thinker=None, creator=None, synth=None, gpt_module=None):
         self.thinker = thinker
