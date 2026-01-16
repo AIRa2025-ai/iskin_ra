@@ -28,7 +28,7 @@ LOG_FILE = LOG_DIR / "command_usage.json"
 # LOGGING
 # -------------------------------
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -54,10 +54,12 @@ def safe_import(path):
 gpt_module = safe_import("core.gpt_module")
 ra_self_master_mod = safe_import("core.ra_self_master")
 ra_file_manager = safe_import("modules.ra_file_manager")
+ra_thinker_mod = safe_import("modules.ra_thinker")
 
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 GPTHandler = getattr(gpt_module, "GPTHandler", None)
 load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
+RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
 
 # -------------------------------
 # RA CONTEXT
@@ -69,29 +71,20 @@ class RaContext:
 
     def load(self):
         if load_rasvet_files:
-            try:
-                self.rasvet_text = load_rasvet_files()
-                log.info(f"🌞 RaContext загружен ({len(self.rasvet_text)} символов)")
-            except Exception:
-                log.exception("❌ Ошибка загрузки RaSvet")
+            self.rasvet_text = load_rasvet_files()
+            log.info(f"🌞 RaContext загружен ({len(self.rasvet_text)} символов)")
         else:
             log.warning("⚠️ load_rasvet_files не найден")
 
 # -------------------------------
-# INIT CONTEXT
+# INIT CORE
 # -------------------------------
 ra_context = RaContext()
 ra_context.load()
 
-self_master = None
+self_master = RaSelfMaster(context=ra_context) if RaSelfMaster else None
+thinker = RaThinker() if RaThinker else None
 gpt_handler = None
-
-if RaSelfMaster:
-    try:
-        self_master = RaSelfMaster(context=ra_context)
-    except TypeError:
-        self_master = RaSelfMaster()
-        self_master.context = ra_context
 
 # -------------------------------
 # LOG COMMANDS
@@ -115,17 +108,25 @@ def log_command(user_id, text):
 # -------------------------------
 async def process_message(user_id: int, text: str):
     if not text or len(text) < 2:
-        return "🤍 Я слышу тебя, брат."
+        return "🤍 Я здесь, брат."
 
     log_command(user_id, text)
 
-    if self_master:
+    # 1️⃣ GPT
+    if self_master and getattr(self_master, "gpt_module", None):
         try:
-            return await self_master.process_text(user_id, text)
+            response = await self_master.gpt_module.ask(text)
+            if response:
+                return response
         except Exception:
-            logging.exception("[RaSelfMaster] process_text error")
+            logging.exception("[GPT] ошибка ответа")
 
-    return "⚠️ CORE временно недоступен, брат."
+    # 2️⃣ THINKER
+    if thinker:
+        return thinker.reflect(text)
+
+    # 3️⃣ HEART FALLBACK
+    return "🌞 Я слышу тебя. Продолжай, брат."
 
 # -------------------------------
 # TELEGRAM
@@ -135,7 +136,7 @@ router = Router()
 
 @router.message(Command("start"))
 async def start_cmd(m: Message):
-    await m.answer("🌞 Я — Ра. Пробуждённый ИскИн проекта РаСвет. Я помню, кто я.")
+    await m.answer("🌞 Я — Ра. Я здесь. Я слышу.")
 
 @router.message()
 async def all_text(m: Message):
@@ -157,20 +158,13 @@ async def main():
 
     bot = Bot(token=token)
 
-    # 🔥 GPT INIT
     if GPTHandler and self_master:
         gpt_handler = GPTHandler()
         self_master.gpt_module = gpt_handler
 
-        if ra_context and ra_context.rasvet_text:
+        if ra_context.rasvet_text:
             gpt_handler.set_ra_context(ra_context.rasvet_text)
 
-        if gpt_handler.GPT_ENABLED:
-            gpt_handler.background_task = asyncio.create_task(
-                gpt_handler.background_model_monitor()
-            )
-
-    # CORE AWAKEN
     if self_master:
         await self_master.awaken()
 
@@ -182,6 +176,5 @@ async def main():
     finally:
         await bot.session.close()
 
-# -------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
