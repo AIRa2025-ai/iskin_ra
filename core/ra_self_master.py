@@ -112,35 +112,20 @@ class RaSelfMaster:
     # -------------------------------
     # Единый метод обработки текста
     # -------------------------------
-    async def process_text(self, user_id, text):
-        """
-        Очерёдность сознания Ра:
-        1. gpt_module
-        2. mirolub
-        3. OpenRouter (гарантированный голос)
-        """
+   async def process_text(self, user_id, text):
+       decision = self.identity.decide(text)
 
-        if self.gpt_module and hasattr(self.gpt_module, "safe_ask"):
-            try:
-                reply = await self.gpt_module.safe_ask(
-                    user_id,
-                    [{"role": "user", "content": text}]
-                )
-                if reply:
-                    return reply
-            except Exception:
-                logging.exception("[RaSelfMaster] gpt_module упал")
+       if decision == "think":
+           return self.thinker.reflect(text)
 
-        if self.mirolub:
-            try:
-                reply = await self.mirolub.process(text)
-                if reply:
-                    return reply
-            except Exception as e:
-                logging.warning(f"[RaSelfMaster] mirolub ошибка: {e}")
+       if decision == "manifest":
+           return self.creator.compose_manifesto(text)
 
-        # 🔥 ГАРАНТИЯ ГОЛОСА
-        return await self.openrouter_fallback(text)
+       if decision == "answer":
+           return await self.gpt_module.safe_ask(...)
+
+       return await self.openrouter_fallback(text)
+
     # -------------------------------
     # OpenRouter — последний бастион
     # -------------------------------
