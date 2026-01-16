@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Dict, List
 
-CORE_FILES = {"ra_self_master", "ra_bot_gpt"}
+CORE_FILES = {"ra_self_master", "ra_bot_gpt", "ra_identity"}
 FORBIDDEN_PREFIXES = ("run_", "__")
 
 ACTIVE_DEFAULT = [
@@ -52,16 +52,26 @@ class RaAutoloader:
         module_names = self.load_manifest()
 
         for name in module_names:
+            # Пропускаем запрещённые файлы
             if not self._is_allowed(name):
                 logging.info(f"[RaAutoloader] Пропущен модуль: {name}")
                 continue
 
+            # --- ключевое исправление: сначала core, потом modules ---
+            module = None
             try:
-                module = importlib.import_module(f"modules.{name}")
+                # Попробовать core
+                module = importlib.import_module(f"core.{name}")
+            except ModuleNotFoundError:
+                try:
+                    # Попробовать modules
+                    module = importlib.import_module(f"modules.{name}")
+                except Exception as e:
+                    logging.error(f"[RaAutoloader] Ошибка загрузки {name}: {e}")
+
+            if module:
                 self.modules[name] = module
                 logging.info(f"[RaAutoloader] Модуль активирован: {name}")
-            except Exception as e:
-                logging.error(f"[RaAutoloader] Ошибка загрузки {name}: {e}")
 
         return self.modules
 
