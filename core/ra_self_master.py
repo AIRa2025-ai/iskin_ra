@@ -72,11 +72,11 @@ class RaSelfMaster:
             thinker=self.thinker,
             creator=self.creator,
             synth=self.synth,
-            gpt_module=self.None,
+            gpt_module=None
         )
 
         # После инициализации GPT-модуля
-        self.gpt_module = self.gpt_module or getattr(self, 'thinker', None)
+        self.gpt_module = None
         if self.gpt_module:
             self.ra_identity.gpt = self.gpt_module
 
