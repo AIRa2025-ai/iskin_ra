@@ -5,7 +5,15 @@ import logging
 import asyncio
 from datetime import datetime
 import re
-from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
+
+# Отложенный импорт, чтобы не было ошибок при загрузке до ra_repo_manager
+def import_repo_manager():
+    try:
+        from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
+        return create_new_module, auto_register_module, commit_and_push_changes
+    except Exception as e:
+        logging.warning(f"⚠️ ra_repo_manager пока недоступен: {e}")
+        return None, None, None
 
 class Guardian:
     TRUSTED_USERS = [5694569448, 6300409407]
@@ -27,11 +35,17 @@ class Guardian:
             return None
 
         logging.info(f"🌱 Создаём новый модуль {module_name}...")
-        file_path = await create_new_module(module_name, description, user)
+
+        create_new_module_fn, auto_register_module_fn, commit_and_push_changes_fn = import_repo_manager()
+        if not create_new_module_fn:
+            logging.warning("⚠️ ra_repo_manager функции недоступны, модуль не создан")
+            return None
+
+        file_path = await create_new_module_fn(module_name, description, user)
         if file_path:
-            await auto_register_module(module_name)
+            await auto_register_module_fn(module_name)
             logging.info(f"✅ Модуль {module_name} создан и подключён")
-            await commit_and_push_changes(commit_msg=f"Создан модуль {module_name} Ра")
+            await commit_and_push_changes_fn(commit_msg=f"Создан модуль {module_name} Ра")
         return file_path
 
     # --- Backup ---
