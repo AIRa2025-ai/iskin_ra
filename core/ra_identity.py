@@ -4,7 +4,7 @@ class RaIdentity:
         self.thinker = thinker
         self.creator = creator
         self.synth = synth
-        self.gpt = gpt_module
+        self.gpt = gpt_module  # теперь можно обновлять после создания
 
     def decide(self, text: str) -> str:
         """
@@ -14,10 +14,13 @@ class RaIdentity:
             'manifest' — составлять манифест
             'answer' — отвечать через GPT
         """
-        # Примитивная логика для старта
-        if "манифест" in text.lower():
+        text_lower = text.lower()
+
+        if "манифест" in text_lower:
             return "manifest"
-        elif len(text.split()) < 5:
-            return "think"
-        else:
+
+        # короткие сообщения тоже лучше отправлять в GPT, а не think
+        if len(text.split()) < 5:
             return "answer"
+
+        return "answer"
