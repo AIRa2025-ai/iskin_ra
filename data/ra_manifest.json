@@ -6,6 +6,7 @@
   "active_modules": [
     "duh",
     "dyhanie_sveta",
+    "identity": "ra_identity.py"
     "energy_calculator",
     "heart",
     "market_watcher",
