@@ -93,8 +93,8 @@ def log_command(user_id, text):
 # PROCESS MESSAGE
 # -------------------------------
 async def process_message(user_id: int, text: str):
-    if not text or len(text) < 2:
-        return "🤍 Я здесь, брат."
+    if not text or len(text.strip()) < 1:
+        return "🤍 Я здесь."
 
     log_command(user_id, text)
 
