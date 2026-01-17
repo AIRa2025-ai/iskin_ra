@@ -1,4 +1,3 @@
-# modules/ra_autoloader.py
 import importlib
 import json
 import logging
@@ -7,9 +6,11 @@ from pathlib import Path
 from types import ModuleType
 from typing import Dict, List
 
+# Основные файлы core, которые не должны загружаться через автолоадер
 CORE_FILES = {"ra_self_master", "ra_bot_gpt", "ra_identity"}
 FORBIDDEN_PREFIXES = ("run_", "__")
 
+# Модули по умолчанию, которые автолоадер пытается активировать
 ACTIVE_DEFAULT = [
     "ra_thinker",
     "ra_self_dev",
@@ -36,7 +37,7 @@ class RaAutoloader:
             logging.error(f"[RaAutoloader] Ошибка чтения манифеста: {e}")
             return ACTIVE_DEFAULT
 
-    # ---------- filtering ----------
+    # ---------- фильтр ----------
     def _is_allowed(self, name: str) -> bool:
         if name in CORE_FILES:
             return False
@@ -44,23 +45,22 @@ class RaAutoloader:
             return False
         return True
 
-    # ---------- loading ----------
+    # ---------- загрузка ----------
     def activate_modules(self) -> Dict[str, ModuleType]:
         module_names = self.load_manifest()
 
         for name in module_names:
-            # Пропускаем запрещённые файлы
             if not self._is_allowed(name):
                 logging.info(f"[RaAutoloader] Пропущен модуль: {name}")
                 continue
 
             module = None
+            # Сначала пытаемся импортировать из core
             try:
-                # Попробовать core
                 module = importlib.import_module(f"core.{name}")
             except ModuleNotFoundError:
+                # Если не найдено, пробуем из modules
                 try:
-                    # Попробовать modules
                     module = importlib.import_module(f"modules.{name}")
                 except Exception as e:
                     logging.error(f"[RaAutoloader] Ошибка загрузки {name}: {e}")
@@ -86,7 +86,7 @@ class RaAutoloader:
         self.tasks.clear()
         logging.info("[RaAutoloader] Все async модули остановлены")
 
-    # ---------- status ----------
+    # ---------- статус ----------
     def status(self):
         return {
             "modules": list(self.modules.keys()),
