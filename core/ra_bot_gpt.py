@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
-from core.gpt_module import GPTHandle
+from core.gpt_module import GPTHandler
 
 # -------------------------------
 # PATHS
