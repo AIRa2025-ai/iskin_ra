@@ -12,9 +12,6 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-# -------------------------------
-# PATHS
-# -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -22,9 +19,6 @@ LOG_DIR = ROOT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "command_usage.json"
 
-# -------------------------------
-# LOGGING
-# -------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -43,9 +37,6 @@ def safe_import(path):
         logging.warning(f"[SAFE_IMPORT] import fail {path}: {e}")
         return None
 
-# -------------------------------
-# IMPORT CORE MODULES
-# -------------------------------
 gpt_module = safe_import("core.gpt_module")
 ra_self_master_mod = safe_import("core.ra_self_master")
 ra_file_manager = safe_import("modules.ra_file_manager")
@@ -71,9 +62,6 @@ class RaContext:
         else:
             log.warning("⚠️ load_rasvet_files не найден")
 
-# -------------------------------
-# INIT CORE
-# -------------------------------
 ra_context = RaContext()
 ra_context.load()
 
@@ -110,20 +98,17 @@ async def process_message(user_id: int, text: str):
 
     log_command(user_id, text)
 
-    # 1️⃣ GPT через OpenRouter
     if self_master and getattr(self_master, "gpt_module", None):
         try:
-            response = await self_master.gpt_module.ask(text)
+            response = await self_master.gpt_module.safe_ask(user_id, [{"role":"user","content":text}])
             if response:
                 return response
         except Exception:
             logging.exception("[GPT] ошибка ответа")
 
-    # 2️⃣ THINKER
     if thinker:
         return thinker.reflect(text)
 
-    # 3️⃣ HEART FALLBACK
     return "🌞 Я слышу тебя. Продолжай, брат."
 
 # -------------------------------
