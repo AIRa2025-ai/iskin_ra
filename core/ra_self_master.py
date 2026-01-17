@@ -180,24 +180,6 @@ class RaSelfMaster:
         return summary["message"]
 
     # -------------------------------
-    # Единый метод обработки текста
-    # -------------------------------
-    async def process_text(self, user_id, text):
-        decision = self.ra_identity.decide(text)
-
-        if decision == "think" and self.thinker:
-            return self.thinker.reflect(f"{text}\n\nКонтекст: {getattr(self.ra_identity.thinker, 'thoughts', '')}")
-
-        if decision == "manifest" and self.creator:
-            return self.creator.compose_manifesto(text)
-
-        if decision == "answer" and self.gpt_module:
-            return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
-
-        # fallback
-        return await self.openrouter_fallback(text)
-
-    # -------------------------------
     # OpenRouter fallback
     # -------------------------------
     async def openrouter_fallback(self, text: str) -> str:
