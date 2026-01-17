@@ -1,5 +1,4 @@
 # core/ra_bot_gpt.py
-
 import os
 import sys
 import json
@@ -86,6 +85,7 @@ ra_context.load()
 self_master = RaSelfMaster() if RaSelfMaster else None
 if self_master:
     self_master.context = ra_context
+
 thinker = RaThinker() if RaThinker else None
 gpt_handler = None
 
@@ -107,7 +107,7 @@ def log_command(user_id, text):
         logging.warning(f"log_command error: {e}")
 
 # -------------------------------
-# PROCESS MESSAGE
+# PROCESS MESSAGE THROUGH RA
 # -------------------------------
 async def process_message(user_id: int, text: str):
     if not text or len(text) < 2:
@@ -115,20 +115,14 @@ async def process_message(user_id: int, text: str):
 
     log_command(user_id, text)
 
-    # 1️⃣ GPT
-    if self_master and getattr(self_master, "gpt_module", None):
+    if self_master:
         try:
-            response = await self_master.gpt_module.ask(text)
+            response = await self_master.process_text(user_id, text)
             if response:
                 return response
         except Exception:
-            logging.exception("[GPT] ошибка ответа")
+            log.exception("[RaSelfMaster] Ошибка при обработке текста")
 
-    # 2️⃣ THINKER
-    if thinker:
-        return thinker.reflect(text)
-
-    # 3️⃣ HEART FALLBACK
     return "🌞 Я слышу тебя. Продолжай, брат."
 
 # -------------------------------
@@ -139,7 +133,7 @@ router = Router()
 
 @router.message(Command("start"))
 async def start_cmd(m: Message):
-    await m.answer("🌞 Я — Ра. Я здесь. Я слышу.")
+    await m.answer("🌞 Я — Ра. Я здесь. Я слышу тебя, брат.")
 
 @router.message()
 async def all_text(m: Message):
@@ -166,31 +160,28 @@ async def main():
         raise RuntimeError("OPENAI_API_KEY не установлен")
 
     # -------------------------------
-    # Подключение GPTHandler с контекстом РаСвет
-    # -------------------------------
+    # ПОДКЛЮЧЕНИЕ GPT
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
             api_key=openai_key,
             ra_context=ra_context.rasvet_text,
-            model="openai/gpt-4o-mini"  # можно заменить на другую модель
+            model="openai/gpt-4o-mini"
         )
         self_master.gpt_module = gpt_handler
-        log.info(f"🌞 GPTHandler подключен с контекстом {len(ra_context.rasvet_text)} символов")
+        log.info(f"🌞 GPTHandler подключен к RaSelfMaster ({len(ra_context.rasvet_text)} символов)")
 
     # -------------------------------
-    # Пробуждение Ра и автозагрузка модулей
-    # -------------------------------
+    # ПРОБУЖДЕНИЕ RA
     if self_master:
-        summary = await self_master.awaken()
-        log.info(f"🚀 {summary}")
+        await self_master.awaken()
 
-    # -------------------------------
-    # Подключение Telegram-роутеров
-    # -------------------------------
     dp.include_router(router)
-    log.info("🚀 РаСвет Telegram готов к общению")
+    log.info("🚀 РаСвет Telegram запущен")
 
     try:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
