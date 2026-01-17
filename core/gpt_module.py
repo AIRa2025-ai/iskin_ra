@@ -23,6 +23,9 @@ class GPTHandler:
         self.last_working_model = None
         self.GPT_ENABLED = True
 
+    # -----------------------------
+    # ЗАПРОС К ОДНОЙ МОДЕЛИ
+    # -----------------------------
     async def ask_openrouter_single(self, session, messages, model):
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
@@ -39,7 +42,6 @@ class GPTHandler:
             data = await resp.json()
             answer = data["choices"][0]["message"]["content"].strip()
 
-        # Обновляем скорость модели
         elapsed = (datetime.now() - start).total_seconds()
         self.model_router.model_speed[model] = (
             (self.model_router.model_speed.get(model, elapsed) + elapsed) / 2
@@ -48,6 +50,9 @@ class GPTHandler:
         self.last_working_model = model
         return answer
 
+    # -----------------------------
+    # БЕЗОПАСНЫЙ ЗАПРОС GPT
+    # -----------------------------
     async def safe_ask(self, user_id: str, messages: list[dict]):
         if not self.GPT_ENABLED:
             return "⚠️ GPT временно недоступен"
@@ -85,13 +90,15 @@ class GPTHandler:
                     return answer
                 except Exception as e:
                     log.warning(f"GPT ask error: {e}")
-                    self.excluded_models[model] = datetime.utcnow() + timedelta(hours=self.MODEL_COOLDOWN_HOURS)
+                    self.excluded_models[model] = datetime.utcnow() + timedelta(
+                        hours=self.MODEL_COOLDOWN_HOURS
+                    )
 
         return "⚠️ Все модели временно недоступны"
 
-    # =========================
+    # -----------------------------
     # КЭШ
-    # =========================
+    # -----------------------------
     def load_cache(self, user_id: str, text: str):
         if os.path.exists(self.CACHE_FILE):
             with open(self.CACHE_FILE, "r", encoding="utf-8") as f:
@@ -109,18 +116,18 @@ class GPTHandler:
         with open(self.CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # =========================
+    # -----------------------------
     # ИСКЛЮЧЁННЫЕ МОДЕЛИ
-    # =========================
+    # -----------------------------
     def refresh_excluded_models(self):
         now = datetime.utcnow()
         for m in list(self.excluded_models):
             if self.excluded_models[m] <= now:
                 self.excluded_models.pop(m)
 
-    # =========================
-    # ФОНОВЫЙ МОНИТОР
-    # =========================
+    # -----------------------------
+    # ФОНОВЫЙ МОНИТОР МОДЕЛЕЙ
+    # -----------------------------
     async def background_model_monitor(self):
         while True:
             if not self.GPT_ENABLED:
@@ -136,7 +143,9 @@ class GPTHandler:
                                 model
                             )
                         except Exception:
-                            self.excluded_models[model] = datetime.utcnow() + timedelta(hours=self.MODEL_COOLDOWN_HOURS)
+                            self.excluded_models[model] = datetime.utcnow() + timedelta(
+                                hours=self.MODEL_COOLDOWN_HOURS
+                            )
             except Exception as e:
                 log.warning(f"monitor error: {e}")
             await asyncio.sleep(300)
