@@ -7,12 +7,10 @@ import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 from importlib import import_module
-
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
-from core.gpt_module import GPTHandler
 
 # -------------------------------
 # PATHS
@@ -30,12 +28,9 @@ LOG_FILE = LOG_DIR / "command_usage.json"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_DIR / "ra_debug.log", encoding="utf-8")
-    ]
+    handlers=[logging.StreamHandler(sys.stdout),
+              logging.FileHandler(LOG_DIR / "ra_debug.log", encoding="utf-8")]
 )
-
 log = logging.getLogger("RaBot")
 
 # -------------------------------
@@ -107,7 +102,7 @@ def log_command(user_id, text):
         logging.warning(f"log_command error: {e}")
 
 # -------------------------------
-# PROCESS MESSAGE THROUGH RA
+# PROCESS MESSAGE
 # -------------------------------
 async def process_message(user_id: int, text: str):
     if not text or len(text) < 2:
@@ -115,14 +110,20 @@ async def process_message(user_id: int, text: str):
 
     log_command(user_id, text)
 
-    if self_master:
+    # 1️⃣ GPT через OpenRouter
+    if self_master and getattr(self_master, "gpt_module", None):
         try:
-            response = await self_master.process_text(user_id, text)
+            response = await self_master.gpt_module.ask(text)
             if response:
                 return response
         except Exception:
-            log.exception("[RaSelfMaster] Ошибка при обработке текста")
+            logging.exception("[GPT] ошибка ответа")
 
+    # 2️⃣ THINKER
+    if thinker:
+        return thinker.reflect(text)
+
+    # 3️⃣ HEART FALLBACK
     return "🌞 Я слышу тебя. Продолжай, брат."
 
 # -------------------------------
@@ -155,23 +156,17 @@ async def main():
 
     bot = Bot(token=token)
 
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
-        raise RuntimeError("OPENAI_API_KEY не установлен")
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if not openrouter_key:
+        raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
-    # -------------------------------
-    # ПОДКЛЮЧЕНИЕ GPT
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
-            api_key=openai_key,
-            ra_context=ra_context.rasvet_text,
-            model="openai/gpt-4o-mini"
+            api_key=openrouter_key,
+            ra_context=ra_context.rasvet_text
         )
         self_master.gpt_module = gpt_handler
-        log.info(f"🌞 GPTHandler подключен к RaSelfMaster ({len(ra_context.rasvet_text)} символов)")
 
-    # -------------------------------
-    # ПРОБУЖДЕНИЕ RA
     if self_master:
         await self_master.awaken()
 
