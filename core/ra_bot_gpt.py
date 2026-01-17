@@ -135,7 +135,13 @@ async def main():
         raise RuntimeError("BOT_TOKEN не установлен")
 
     bot = Bot(token=token)
-
+    
+# ==== ЭТО Я ВСТАВИЛ+++++++++++++++++++++++++++++++++++++
+    from core.ra_identity import RaIdentity
+    identity = RaIdentity(thinker=thinker)
+    self_master.identity = identity
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
