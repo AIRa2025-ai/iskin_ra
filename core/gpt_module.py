@@ -12,44 +12,25 @@ from openai import AsyncOpenAI
 log = logging.getLogger("RaGPT")
 
 class GPTHandler:
-    MODELS = [
-        "deepseek/deepseek-r1-0528:free",
-        "deepseek/deepseek-chat-v3.1:free",
-        "deepseek/deepseek-r1-0528-qwen3-8b:free",
-        "tngtech/deepseek-r1t2-chimera:free",
-        "mistralai/mistral-small-3.2-24b-instruct:free",
-        "deepseek/deepseek-r1:free",
-        "qwen/qwen3-14b:free",
-        "mistralai/mistral-nemo:free"
-    ]
-
-    MODEL_COOLDOWN_HOURS = 2
-    CACHE_FILE = "data/response_cache.json"
-    MODEL_SPEED_FILE = "data/model_speed.json"
-
-    def __init__(self, api_key: str, ra_context: str = ""):
+    def __init__(self, api_key: str, ra_context: str, model: str):
         self.client = AsyncOpenAI(api_key=api_key)
-        self.ra_context = ra_context or ""
-        logging.info("🧠 GPTHandler инициализирован с контекстом РаСвета")
+        self.ra_context = ra_context
+        self.model = model
 
     async def ask(self, user_text: str) -> str:
-        try:
-            messages = [
-                {"role": "system", "content": self.ra_context},
-                {"role": "user", "content": user_text},
-            ]
+        messages = [
+            {"role": "system", "content": self.ra_context},
+            {"role": "user", "content": user_text},
+        ]
 
-            response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.7,
-            )
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=0.7,
+        )
 
-            return response.choices[0].message.content.strip()
-
-        except Exception as e:
-            logging.exception("❌ GPT ошибка")
-            return "Ра молчит. Внутренний огонь восстанавливается."
+        return response.choices[0].message.content.strip()
+        
     # =========================
     # КОНТЕКСТ РА
     # =========================
