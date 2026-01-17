@@ -7,6 +7,7 @@ import logging
 import asyncio
 import json
 from datetime import datetime, timedelta
+from openai import AsyncOpenAI
 
 log = logging.getLogger("RaGPT")
 
@@ -26,41 +27,29 @@ class GPTHandler:
     CACHE_FILE = "data/response_cache.json"
     MODEL_SPEED_FILE = "data/model_speed.json"
 
-    def __init__(self, api_key: str | None = None):
-        os.makedirs("data", exist_ok=True)
+    def __init__(self, api_key: str, ra_context: str = ""):
+        self.client = AsyncOpenAI(api_key=api_key)
+        self.ra_context = ra_context or ""
+        logging.info("🧠 GPTHandler инициализирован с контекстом РаСвета")
 
-        self.OPENROUTER_API_KEY = api_key or os.getenv("OPENROUTER_API_KEY")
-        self.GPT_ENABLED = bool(self.OPENROUTER_API_KEY)
+    async def ask(self, user_text: str) -> str:
+        try:
+            messages = [
+                {"role": "system", "content": self.ra_context},
+                {"role": "user", "content": user_text},
+            ]
 
-        self.excluded_models: dict[str, datetime] = {}
-        self.model_speed: dict[str, float] = {}
-        self.last_working_model: str | None = None
-        self.background_task: asyncio.Task | None = None
+            response = await self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0.7,
+            )
 
-        # 🔥 ВАЖНО: живая память РаСвет
-        self.ra_context_text: str = ""
+            return response.choices[0].message.content.strip()
 
-        if not self.GPT_ENABLED:
-            log.warning("⚠️ GPT выключен — нет OPENROUTER_API_KEY")
-        else:
-            log.info("✅ GPT-модуль инициализирован")
-
-        self.load_model_speed()
-        
-    async def ask(self, text: str) -> str:
-        """
-        Унифицированный интерфейс для RaSelfMaster
-        """
-        messages = [
-            {"role": "system", "content": self.ra_context or ""},
-            {"role": "user", "content": text}
-        ]
-
-        result = await self.ask_openrouter(messages)
-        if not result:
-            raise RuntimeError("GPT вернул пустой ответ")
-
-        return result
+        except Exception as e:
+            logging.exception("❌ GPT ошибка")
+            return "Ра молчит. Внутренний огонь восстанавливается."
     # =========================
     # КОНТЕКСТ РА
     # =========================
