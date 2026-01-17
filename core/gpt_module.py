@@ -20,7 +20,6 @@ class GPTHandler:
         self.ra_context_text = ra_context
         self.model_router = ModelRouter()
         self.excluded_models = {}
-        self.model_speed = {}
         self.last_working_model = None
         self.GPT_ENABLED = True
 
@@ -40,8 +39,11 @@ class GPTHandler:
             data = await resp.json()
             answer = data["choices"][0]["message"]["content"].strip()
 
+        # Обновляем скорость модели
         elapsed = (datetime.now() - start).total_seconds()
-        self.model_router.model_speed[model] = (self.model_router.model_speed.get(model, elapsed) + elapsed) / 2
+        self.model_router.model_speed[model] = (
+            (self.model_router.model_speed.get(model, elapsed) + elapsed) / 2
+        )
         self.model_router._save_speed()
         self.last_working_model = model
         return answer
@@ -83,7 +85,7 @@ class GPTHandler:
                     return answer
                 except Exception as e:
                     log.warning(f"GPT ask error: {e}")
-                    self.excluded_models[model] = datetime.now() + timedelta(hours=self.MODEL_COOLDOWN_HOURS)
+                    self.excluded_models[model] = datetime.utcnow() + timedelta(hours=self.MODEL_COOLDOWN_HOURS)
 
         return "⚠️ Все модели временно недоступны"
 
