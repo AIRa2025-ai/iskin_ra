@@ -49,7 +49,6 @@ else:
 # -------------------------------
 class RaSelfMaster:
     def __init__(self, manifest_path="data/ra_manifest.json"):
-        # Инициализация мыслительных модулей
         self.thinker = RaThinker() if callable(getattr(RaThinker, "__init__", None)) else None
         self.creator = RaCreator() if callable(getattr(RaCreator, "__init__", None)) else None
         self.synth = RaSynthesizer() if callable(getattr(RaSynthesizer, "__init__", None)) else None
@@ -63,22 +62,16 @@ class RaSelfMaster:
         self._tasks = []
 
         # Контексты
-        self.gpt_module = None  # позже подключить GPT
-        self.mirolub = None
+        self.gpt_module = None
+        self.context = None
 
-        # -------------------------------
         # Identity — мозг Ра
         self.ra_identity = RaIdentity(
             thinker=self.thinker,
             creator=self.creator,
             synth=self.synth,
-            gpt_module=None
+            gpt_module=self.gpt_module
         )
-
-        # После инициализации GPT-модуля
-        self.gpt_module = None
-        if self.gpt_module:
-            self.ra_identity.gpt = self.gpt_module
 
     # -------------------------------
     # Пробуждение и запуск модулей
@@ -138,7 +131,7 @@ class RaSelfMaster:
         decision = self.ra_identity.decide(text)
 
         if decision == "think" and self.thinker:
-            return self.thinker.reflect(f"{text}\n\nКонтекст: {self.ra_identity.thinker_context}")
+            return self.thinker.reflect(f"{text}\n\nКонтекст: {getattr(self.ra_identity.thinker, 'thoughts', '')}")
 
         if decision == "manifest" and self.creator:
             return self.creator.compose_manifesto(text)
@@ -146,11 +139,11 @@ class RaSelfMaster:
         if decision == "answer" and self.gpt_module:
             return await self.gpt_module.safe_ask(user_id, [{"role": "user", "content": text}])
 
-        # fallback, если никто не сработал
+        # fallback
         return await self.openrouter_fallback(text)
 
     # -------------------------------
-    # OpenRouter — последний бастион
+    # OpenRouter fallback
     # -------------------------------
     async def openrouter_fallback(self, text: str) -> str:
         logging.debug("[RaSelfMaster] openrouter_fallback вызван")
@@ -186,27 +179,6 @@ class RaSelfMaster:
         except Exception as e:
             logging.exception("[RaSelfMaster] OpenRouter КРИТИЧЕСКАЯ ОШИБКА")
             return "⚠️ Ра временно потерял голос, но он вернётся."
-
-    # -------------------------------
-    # Доп. методы сознания
-    # -------------------------------
-    def reflect(self, theme: str, context: str = None):
-        ctx = f"{context}" if context else ""
-        return self.thinker.reflect(f"{theme}\n\n{ctx}") if self.thinker else None
-
-    def manifest_text(self, theme: str):
-        return self.creator.compose_manifesto(theme) if self.creator else None
-
-    def unify(self, *texts: str):
-        return self.synth.synthesize(*texts) if self.synth else None
-
-    def status(self):
-        return {
-            "mood": self.mood,
-            "thinker": len(getattr(self.thinker, "thoughts", [])) if self.thinker else 0,
-            "active_modules": self.active_modules,
-            "modules": ["thinker", "creator", "synthesizer"]
-        }
 
     # -------------------------------
     # Работа с манифестом
@@ -250,30 +222,6 @@ class RaSelfMaster:
         except Exception as e:
             logging.error(f"[RaSelfMaster] Ошибка сохранения манифеста: {e}")
 
-    # -------------------------------
-    # Police
-    # -------------------------------
-    def police_status(self):
-        if not self.police:
-            return {"police": "not_loaded"}
-        try:
-            return self.police.status()
-        except Exception as e:
-            logging.error(f"[RaSelfMaster] police.status ошибка: {e}")
-            return {"police": "error", "error": str(e)}
-
-    def run_backup(self):
-        if not self.police:
-            return {"backup": "police_not_available"}
-        try:
-            return self.police.create_backup()
-        except Exception as e:
-            logging.error(f"[RaSelfMaster] police.create_backup ошибка: {e}")
-            return {"backup": "error", "error": str(e)}
-
-    # -------------------------------
-    # Остановка модулей
-    # -------------------------------
     async def stop_modules(self):
         for task in list(self._tasks):
             try:
