@@ -76,11 +76,7 @@ class RaContext:
             log.info(f"🌞 RaContext загружен ({len(self.rasvet_text)} символов)")
         else:
             log.warning("⚠️ load_rasvet_files не найден")
-# после загрузки ra_context
-self.gpt_module = GPTHandler(
-    api_key=CONFIG.OPENAI_API_KEY,
-    ra_context=ra_context
-)
+
 # -------------------------------
 # INIT CORE
 # -------------------------------
