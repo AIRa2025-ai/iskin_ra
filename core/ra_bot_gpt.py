@@ -161,12 +161,16 @@ async def main():
 
     bot = Bot(token=token)
 
-    if GPTHandler and self_master:
-        gpt_handler = GPTHandler()
-        self_master.gpt_module = gpt_handler
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        raise RuntimeError("OPENAI_API_KEY не установлен")
 
-        if ra_context.rasvet_text:
-            gpt_handler.set_ra_context(ra_context.rasvet_text)
+    if GPTHandler and self_master:
+        gpt_handler = GPTHandler(
+            api_key=openai_key,
+            ra_context=ra_context.rasvet_text
+        )
+        self_master.gpt_module = gpt_handler
 
     if self_master:
         await self_master.awaken()
