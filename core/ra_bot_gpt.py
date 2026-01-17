@@ -98,19 +98,14 @@ async def process_message(user_id: int, text: str):
 
     log_command(user_id, text)
 
-    if self_master and getattr(self_master, "gpt_module", None):
-        try:
-            response = await self_master.gpt_module.safe_ask(user_id, [{"role":"user","content":text}])
-            if response:
-                return response
-        except Exception:
-            logging.exception("[GPT] ошибка ответа")
+    if self_master:
+        return await self_master.process_text(user_id, text)
 
     if thinker:
         return thinker.reflect(text)
 
     return "🌞 Я слышу тебя. Продолжай, брат."
-
+    
 # -------------------------------
 # TELEGRAM
 # -------------------------------
