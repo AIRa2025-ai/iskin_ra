@@ -23,7 +23,6 @@ class RaAutoloader:
         self.tasks: Dict[str, asyncio.Task] = {}
 
     # ---------- manifest ----------
-
     def load_manifest(self) -> List[str]:
         if not self.manifest_path.exists():
             logging.warning("[RaAutoloader] Манифест не найден — используем ACTIVE_DEFAULT")
@@ -38,7 +37,6 @@ class RaAutoloader:
             return ACTIVE_DEFAULT
 
     # ---------- filtering ----------
-
     def _is_allowed(self, name: str) -> bool:
         if name in CORE_FILES:
             return False
@@ -47,7 +45,6 @@ class RaAutoloader:
         return True
 
     # ---------- loading ----------
-
     def activate_modules(self) -> Dict[str, ModuleType]:
         module_names = self.load_manifest()
 
@@ -57,7 +54,6 @@ class RaAutoloader:
                 logging.info(f"[RaAutoloader] Пропущен модуль: {name}")
                 continue
 
-            # --- ключевое исправление: сначала core, потом modules ---
             module = None
             try:
                 # Попробовать core
@@ -76,7 +72,6 @@ class RaAutoloader:
         return self.modules
 
     # ---------- async lifecycle ----------
-
     async def start_async_modules(self):
         for name, module in self.modules.items():
             start_fn = getattr(module, "start", None)
@@ -92,7 +87,6 @@ class RaAutoloader:
         logging.info("[RaAutoloader] Все async модули остановлены")
 
     # ---------- status ----------
-
     def status(self):
         return {
             "modules": list(self.modules.keys()),
