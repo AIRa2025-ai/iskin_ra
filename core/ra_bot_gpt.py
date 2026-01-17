@@ -151,6 +151,8 @@ async def main():
             ra_context=ra_context.rasvet_text
         )
         self_master.gpt_module = gpt_handler
+        # запускаем фоновый монитор моделей
+        asyncio.create_task(gpt_handler.background_model_monitor())
 
     if self_master:
         await self_master.awaken()
