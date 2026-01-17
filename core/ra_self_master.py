@@ -55,6 +55,23 @@ class RaSelfMaster:
         self.heart = heart
         self.logger = logger
 
+        # --- ИНИЦИАЛИЗАЦИЯ ИНФРАСТРУКТУРЫ ---
+        self._tasks = []
+
+        self.autoloader = None
+        if RaAutoloader:
+            try:
+                self.autoloader = RaAutoloader()
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] autoloader init failed: {e}")
+
+        self.manifest_path = "data/ra_manifest.json"
+        self.manifest = self.load_manifest()
+
+        self.active_modules = []
+        self.police = None
+        self.awakened = False
+# ====== ЛИЧНОСТЬ РА ========        
     async def process_text(self, user_id: int, text: str) -> str:
         # 1. Лог
         if self.logger:
