@@ -58,12 +58,14 @@ class RaSelfMaster:
         # --- ИНИЦИАЛИЗАЦИЯ ИНФРАСТРУКТУРЫ ---
         self._tasks = []
 
+        # --- безопасная инициализация автолоадера ---
         self.autoloader = None
         if RaAutoloader:
             try:
                 self.autoloader = RaAutoloader()
+                logging.info("[RaSelfMaster] Autoloader создан успешно")
             except Exception as e:
-                logging.warning(f"[RaSelfMaster] autoloader init failed: {e}")
+                logging.warning(f"[RaSelfMaster] Autoloader не создан: {e}")
 
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self.load_manifest()
@@ -137,6 +139,7 @@ class RaSelfMaster:
                 pass
 
         return response
+
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
@@ -144,7 +147,7 @@ class RaSelfMaster:
         logging.info("🌞 Ра пробуждается к осознанности.")
 
         # Подключаем автолоадер
-        if self.autoloader:
+        if getattr(self, "autoloader", None):
             try:
                 modules = self.autoloader.activate_modules()
                 self.active_modules = list(modules.keys())
@@ -165,7 +168,7 @@ class RaSelfMaster:
             logging.warning(f"[RaSelfMaster] Ошибка при sync_manifest: {e}")
 
         # Подключаем police
-        if "ra_police" in self.active_modules and _police:
+        if "ra_police" in getattr(self, "active_modules", []) and _police:
             try:
                 self.police = _police()
                 logging.info("[RaSelfMaster] Модуль полиции инициализирован.")
