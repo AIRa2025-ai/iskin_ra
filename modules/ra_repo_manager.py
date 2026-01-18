@@ -1,4 +1,4 @@
-# modules/ra_repo_manager.py
+# ra_repo_manager.py
 import os
 import json
 import logging
@@ -6,7 +6,6 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-# helpers (обёртки с fallback'ом, чтобы не ломать при отсутствии модулей)
 try:
     from gpt_module import ask_openrouter_with_fallback as safe_ask_openrouter
 except Exception:
@@ -23,7 +22,6 @@ NEW_MODULE_TEMPLATE = """\
 \"\"\"Создано ИскИном Ра, {timestamp}\"\"\"
 
 def main():
-    # TODO: допиши логику модуля
     pass
 """
 
@@ -104,11 +102,3 @@ async def commit_and_push_changes(branch_name=None, commit_msg=None):
     except Exception as e:
         logging.error(f"❌ Ошибка при создании PR: {e}")
         return None
-
-async def ra_repo_autoupdate(user_id: int):
-    files = await list_repo_files()
-    logging.info(f"🔍 Всего файлов в репо: {len(files)}")
-    new_module_path = await create_new_module("ra_logger", "Модуль для расширенной работы с логами", user_id)
-    if new_module_path:
-        await auto_register_module("ra_logger")
-        await commit_and_push_changes()
