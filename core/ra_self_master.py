@@ -54,7 +54,7 @@ if os.path.exists("modules/ra_file_consciousness.py"):
     from modules.ra_file_consciousness import RaFileConsciousness
 else:
     RaFileConsciousness = None
-    
+
 # -------------------------------
 # Главный класс RaSelfMaster
 # -------------------------------
