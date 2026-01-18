@@ -22,6 +22,7 @@ class RaThinker:
     def __init__(self, context=None, file_consciousness=None):
         self.context = context
         self.file_consciousness = file_consciousness
+        context=None
 
     def __init__(self, root_path: str = "."):
         self.root_path = root_path
