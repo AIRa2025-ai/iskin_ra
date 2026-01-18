@@ -46,6 +46,12 @@ RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 GPTHandler = getattr(gpt_module, "GPTHandler", None)
 load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
 RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
+scheduler = RaScheduler(
+    context=ra_context,
+    self_master=self_master,
+    thinker=thinker,
+    upgrade_loop=upgrade_loop
+)
 
 # -------------------------------
 # RA CONTEXT
@@ -80,7 +86,11 @@ if RaThinker and self_master:
     except Exception as e:
         logging.warning(f"[RaBot] Ошибка инициализации RaThinker: {e}")
 gpt_handler = None
-
+scheduler.add_task(
+    scheduler.self_upgrade_tick,
+    interval_seconds=120
+)
+await scheduler.start()
 # -------------------------------
 # LOG COMMANDS
 # -------------------------------
