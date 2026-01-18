@@ -44,3 +44,9 @@ class RaThinker:
         if not self.file_consciousness:
             return {}
         return self.file_consciousness.files
+        
+    def propose_self_improvements(self):
+        """
+        Возвращает список идей для самоулучшения
+        """
+        return []
