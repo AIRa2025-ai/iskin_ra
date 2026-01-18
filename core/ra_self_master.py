@@ -251,6 +251,23 @@ class RaSelfMaster:
         except Exception as e:
             logging.error(f"[RaSelfMaster] Не удалось записать файл {path}: {e}")
 
+    #---РЕШЕНИЕ: МОЖНО ЛИ СЕБЯ МЕНЯТЬ---
+    def _approve_self_upgrade(self, idea: dict) -> bool:
+        """
+        idea = {
+            "type": "modify_file",
+            "path": "modules/ra_thinker.py",
+            "reason": "...",
+            "risk": "low|medium|high"
+        }
+        """
+        risk = idea.get("risk", "medium")
+
+        if risk == "high" and self.police:
+            return False
+
+        return True
+        
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
