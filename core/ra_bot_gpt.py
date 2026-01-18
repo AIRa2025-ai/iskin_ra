@@ -69,7 +69,16 @@ self_master = RaSelfMaster() if RaSelfMaster else None
 if self_master:
     self_master.context = ra_context
 
-thinker = RaThinker() if RaThinker else None
+thinker = None
+if RaThinker and self_master:
+    try:
+        thinker = RaThinker(
+            context=ra_context,
+            file_consciousness=getattr(self_master, "file_consciousness", None)
+        )
+        logging.info("[RaBot] RaThinker связан с файловым сознанием Ра")
+    except Exception as e:
+        logging.warning(f"[RaBot] Ошибка инициализации RaThinker: {e}")
 gpt_handler = None
 
 # -------------------------------
