@@ -167,3 +167,13 @@ class RaThinker:
             })
 
         return ideas
+
+    # -------------------------------
+    # Цикл саморазвития (асинхронный)
+    # -------------------------------
+    async def self_upgrade_cycle(self):
+        """
+        Метод для интеграции с RaSelfMaster:
+        просто вызывает propose_self_improvements и возвращает идеи
+        """
+        return self.propose_self_improvements()
