@@ -4,15 +4,17 @@ import sys
 import json
 import logging
 import asyncio
+import traceback
+
 from datetime import datetime, timedelta
 from pathlib import Path
 from importlib import import_module
-
+from modules.errors import report_error
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
-
+from modules.system import record_system_info
 from modules.ra_scheduler import RaScheduler
 
 # --------------------------------------------------
@@ -57,6 +59,15 @@ GPTHandler = getattr(gpt_module, "GPTHandler", None)
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
 RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
+
+def global_exception_hook(exc_type, exc_value, exc_traceback):
+    report_error(
+        module="GLOBAL",
+        description="".join(traceback.format_exception(exc_type, exc_value, exc_traceback)),
+        severity="CRITICAL"
+    )
+
+sys.excepthook = global_exception_hook
 
 # --------------------------------------------------
 # RA CONTEXT
@@ -135,6 +146,11 @@ async def process_message(user_id: int, text: str):
 
     return "🌞 Я слышу тебя. Продолжай, брат."
 
+# -------------------------------------------------
+async def system_monitor():
+    while True:
+        record_system_info()
+        await asyncio.sleep(300)  # каждые 5 минут
 # --------------------------------------------------
 # TELEGRAM
 # --------------------------------------------------
@@ -182,7 +198,7 @@ async def main():
         )
         self_master.gpt_module = gpt_handler
         asyncio.create_task(gpt_handler.background_model_monitor())
-
+        asyncio.create_task(system_monitor())
     # --- SCHEDULER TASKS ---
     if thinker:
         ra_scheduler.add_task(
