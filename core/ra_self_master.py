@@ -92,7 +92,7 @@ class RaSelfMaster:
         self.file_consciousness = None
         if RaFileConsciousness:
             try:
-                self.file_consciousness = RaFileConsciousness(root=".")
+                self.file_consciousness = RaFileConsciousness(project_root=".")
                 logging.info("[RaSelfMaster] FileConsciousness создан.")
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] FileConsciousness init failed: {e}")
