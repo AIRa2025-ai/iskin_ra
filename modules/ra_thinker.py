@@ -12,22 +12,31 @@ import ast
 from collections import defaultdict
 
 class RaThinker:
-    def __init__(self):
-        self.last_thought = None
-        self.thoughts = []
-        self.rasvet_context = load_rasvet_files(limit_chars=3000)
-
-        logging.info("🌞 RaThinker инициализирован, контекст РаСвета загружен")
-
-    def __init__(self, context=None, file_consciousness=None):
+    def __init__(
+        self,
+        root_path: str = ".",
+        context=None,
+        file_consciousness=None,
+    ):
+        self.root_path = root_path
         self.context = context
         self.file_consciousness = file_consciousness
-        context=None
 
-    def __init__(self, root_path: str = "."):
-        self.root_path = root_path
+        self.last_thought = None
+        self.thoughts = []
+
+        # Контекст РаСвета
+        try:
+            self.rasvet_context = load_rasvet_files(limit_chars=3000)
+        except Exception:
+            self.rasvet_context = ""
+
         self.architecture = {}
         self.import_graph = defaultdict(set)
+
+        logging.info("🌞 RaThinker инициализирован")
+
+    # -----------------------------------------------------------------
 
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
