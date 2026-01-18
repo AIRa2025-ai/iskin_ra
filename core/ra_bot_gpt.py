@@ -191,6 +191,9 @@ async def main():
     if self_master:
         await self_master.awaken()
 
+    if scheduler:
+        await scheduler.start()
+
     dp.include_router(router)
     log.info("🚀 РаСвет Telegram запущен")
 
