@@ -10,6 +10,7 @@ from importlib import import_module
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
+from modules.ra_scheduler import RaScheduler
 from aiogram.types import Message
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -46,7 +47,7 @@ RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 GPTHandler = getattr(gpt_module, "GPTHandler", None)
 load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
 RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
-scheduler = RaScheduler(
+ra_scheduler = RaScheduler(
     context=ra_context,
     self_master=self_master,
     thinker=thinker,
@@ -107,7 +108,7 @@ def log_command(user_id, text):
         LOG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
     except Exception as e:
         logging.warning(f"log_command error: {e}")
-
+        
 # -------------------------------
 # PROCESS MESSAGE
 # -------------------------------
@@ -175,6 +176,18 @@ async def main():
         # Запуск фонового монитора моделей
         asyncio.create_task(gpt_handler.background_model_monitor())
 
+    # пример задач
+    if thinker:
+        ra_scheduler.add_task(
+            coro=thinker.self_upgrade_cycle,
+            interval_seconds=60 * 30  # каждые 30 минут
+        )
+    
+        ra_scheduler.add_task(
+            coro=thinker.self_reflection_cycle,
+            interval_seconds=60 * 60  # каждый час
+        )
+        asyncio.create_task(ra_scheduler.start())
     if self_master:
         await self_master.awaken()
 
