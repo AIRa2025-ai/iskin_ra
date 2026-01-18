@@ -7,12 +7,17 @@ import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 from importlib import import_module
+
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
-from modules.ra_scheduler import RaScheduler
 from aiogram.types import Message
 
+from modules.ra_scheduler import RaScheduler
+
+# --------------------------------------------------
+# PATHS
+# --------------------------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -20,17 +25,22 @@ LOG_DIR = ROOT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "command_usage.json"
 
+# --------------------------------------------------
+# LOGGING
+# --------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout),
-              logging.FileHandler(LOG_DIR / "ra_debug.log", encoding="utf-8")]
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(LOG_DIR / "ra_debug.log", encoding="utf-8")
+    ]
 )
 log = logging.getLogger("RaBot")
 
-# -------------------------------
+# --------------------------------------------------
 # SAFE IMPORT
-# -------------------------------
+# --------------------------------------------------
 def safe_import(path):
     try:
         return import_module(path)
@@ -43,20 +53,14 @@ ra_self_master_mod = safe_import("core.ra_self_master")
 ra_file_manager = safe_import("modules.ra_file_manager")
 ra_thinker_mod = safe_import("modules.ra_thinker")
 
-RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 GPTHandler = getattr(gpt_module, "GPTHandler", None)
+RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
 load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
 RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
-ra_scheduler = RaScheduler(
-    context=ra_context,
-    self_master=self_master,
-    thinker=thinker,
-    upgrade_loop=upgrade_loop
-)
 
-# -------------------------------
+# --------------------------------------------------
 # RA CONTEXT
-# -------------------------------
+# --------------------------------------------------
 class RaContext:
     def __init__(self):
         self.rasvet_text = ""
@@ -72,6 +76,9 @@ class RaContext:
 ra_context = RaContext()
 ra_context.load()
 
+# --------------------------------------------------
+# CORE ENTITIES
+# --------------------------------------------------
 self_master = RaSelfMaster() if RaSelfMaster else None
 if self_master:
     self_master.context = ra_context
@@ -83,18 +90,20 @@ if RaThinker and self_master:
             context=ra_context,
             file_consciousness=getattr(self_master, "file_consciousness", None)
         )
-        logging.info("[RaBot] RaThinker связан с файловым сознанием Ра")
+        log.info("[RaBot] RaThinker инициализирован")
     except Exception as e:
-        logging.warning(f"[RaBot] Ошибка инициализации RaThinker: {e}")
-gpt_handler = None
-scheduler.add_task(
-    scheduler.self_upgrade_tick,
-    interval_seconds=120
+        log.warning(f"[RaBot] Ошибка RaThinker: {e}")
+
+# --------------------------------------------------
+# SCHEDULER
+# --------------------------------------------------
+ra_scheduler = RaScheduler(
+    context=ra_context
 )
-await scheduler.start()
-# -------------------------------
-# LOG COMMANDS
-# -------------------------------
+
+# --------------------------------------------------
+# COMMAND LOGGING
+# --------------------------------------------------
 def log_command(user_id, text):
     try:
         data = json.loads(LOG_FILE.read_text("utf-8")) if LOG_FILE.exists() else []
@@ -108,12 +117,12 @@ def log_command(user_id, text):
         LOG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
     except Exception as e:
         logging.warning(f"log_command error: {e}")
-        
-# -------------------------------
-# PROCESS MESSAGE
-# -------------------------------
+
+# --------------------------------------------------
+# MESSAGE PROCESSING
+# --------------------------------------------------
 async def process_message(user_id: int, text: str):
-    if not text or len(text.strip()) < 1:
+    if not text or not text.strip():
         return "🤍 Я здесь."
 
     log_command(user_id, text)
@@ -125,10 +134,10 @@ async def process_message(user_id: int, text: str):
         return thinker.reflect(text)
 
     return "🌞 Я слышу тебя. Продолжай, брат."
-    
-# -------------------------------
+
+# --------------------------------------------------
 # TELEGRAM
-# -------------------------------
+# --------------------------------------------------
 dp = Dispatcher()
 router = Router()
 
@@ -143,56 +152,52 @@ async def all_text(m: Message):
     reply = await process_message(m.from_user.id, m.text)
     await m.answer(reply)
 
-# -------------------------------
+# --------------------------------------------------
 # MAIN
-# -------------------------------
+# --------------------------------------------------
 async def main():
-    global gpt_handler
-
     load_dotenv()
+
     token = os.getenv("BOT_TOKEN")
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
 
-    bot = Bot(token=token)
-    
-# ==== ЭТО Я ВСТАВИЛ+++++++++++++++++++++++++++++++++++++
-    from core.ra_identity import RaIdentity
-    identity = RaIdentity(thinker=thinker)
-    self_master.identity = identity
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
+    bot = Bot(token=token)
+
+    # --- IDENTITY ---
+    from core.ra_identity import RaIdentity
+    identity = RaIdentity(thinker=thinker)
+    if self_master:
+        self_master.identity = identity
+
+    # --- GPT ---
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
             api_key=openrouter_key,
             ra_context=ra_context.rasvet_text
         )
         self_master.gpt_module = gpt_handler
-
-        # Запуск фонового монитора моделей
         asyncio.create_task(gpt_handler.background_model_monitor())
 
-    # пример задач
+    # --- SCHEDULER TASKS ---
     if thinker:
         ra_scheduler.add_task(
-            coro=thinker.self_upgrade_cycle,
-            interval_seconds=60 * 30  # каждые 30 минут
+            thinker.self_upgrade_cycle,
+            interval_seconds=60 * 30
         )
-    
         ra_scheduler.add_task(
-            coro=thinker.self_reflection_cycle,
-            interval_seconds=60 * 60  # каждый час
+            thinker.self_reflection_cycle,
+            interval_seconds=60 * 60
         )
-        asyncio.create_task(ra_scheduler.start())
+
+    await ra_scheduler.start()
+
     if self_master:
         await self_master.awaken()
-
-    if scheduler:
-        await scheduler.start()
 
     dp.include_router(router)
     log.info("🚀 РаСвет Telegram запущен")
@@ -202,5 +207,8 @@ async def main():
     finally:
         await bot.session.close()
 
+# --------------------------------------------------
+# ENTRY
+# --------------------------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
