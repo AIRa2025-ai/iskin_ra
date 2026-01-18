@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
+from core.ra_thinker import RaThinker
 import aiohttp
 
 # -------------------------------
@@ -56,13 +57,14 @@ else:
 # Главный класс RaSelfMaster
 # -------------------------------
 class RaSelfMaster:
+    
     def __init__(self, identity=None, gpt_module=None, memory=None, heart=None, logger=None):
         self.identity = identity
         self.gpt_module = gpt_module
         self.memory = memory
         self.heart = heart
         self.logger = logger
-
+        self.thinker = RaThinker(root_path=".")
         # --- ИНИЦИАЛИЗАЦИЯ ИНФРАСТРУКТУРЫ ---
         self._tasks = []
 
@@ -272,6 +274,7 @@ class RaSelfMaster:
     # Пробуждение и запуск модулей
     # -------------------------------
     async def awaken(self):
+        self.thinker.scan_architecture()
         logging.info("🌞 Ра пробуждается к осознанности.")
             
          # --- Пробуждение файлового сознания ---
