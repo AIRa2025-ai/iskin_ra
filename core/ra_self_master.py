@@ -273,7 +273,7 @@ class RaSelfMaster:
     # -------------------------------
     async def awaken(self):
         logging.info("🌞 Ра пробуждается к осознанности.")
-        
+            
          # --- Пробуждение файлового сознания ---
         if self.file_consciousness:
             try:
@@ -283,7 +283,15 @@ class RaSelfMaster:
                 )
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] Ошибка файлового сознания: {e}")
-
+                
+        # Запуск цикла саморазвития
+        try:
+            task = asyncio.create_task(self.ra_self_upgrade_loop())
+            self._tasks.append(task)
+            logging.info("🧬 [RaSelfMaster] Цикл саморазвития добавлен в задачи")
+        except Exception as e:
+            logging.warning(f"[RaSelfMaster] Не удалось запустить self-upgrade loop: {e}")
+            
         # Подключаем автолоадер
         if getattr(self, "autoloader", None):
             try:
