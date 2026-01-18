@@ -41,7 +41,6 @@ class RaThinker:
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(self.last_thought)
-
         return (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
@@ -61,12 +60,6 @@ class RaThinker:
         if not self.file_consciousness:
             return {}
         return self.file_consciousness.files
-        
-    def propose_self_improvements(self):
-        """
-        Возвращает список идей для самоулучшения
-        """
-        return []
 
     # -------------------------------
     # Сканирование архитектуры
@@ -77,6 +70,10 @@ class RaThinker:
         self.import_graph.clear()
 
         for root, _, files in os.walk(self.root_path):
+            # Игнорируем скрытые папки и бэкапы
+            if any(part.startswith(".") or part == "backups" for part in root.split(os.sep)):
+                continue
+
             for file in files:
                 if not file.endswith(".py"):
                     continue
@@ -147,7 +144,6 @@ class RaThinker:
     # -------------------------------
     def propose_self_improvements(self):
         ideas = []
-
         summary = self.architecture_summary()
 
         for module in summary["heavy_modules"]:
@@ -172,8 +168,11 @@ class RaThinker:
     # Цикл саморазвития (асинхронный)
     # -------------------------------
     async def self_upgrade_cycle(self):
-        """
-        Метод для интеграции с RaSelfMaster:
-        просто вызывает propose_self_improvements и возвращает идеи
-        """
+        return self.propose_self_improvements()
+
+    # -------------------------------
+    # Цикл саморефлексии (для RaBot)
+    # -------------------------------
+    async def self_reflection_cycle(self):
+        # Можем использовать его для анализа новых изменений и идей
         return self.propose_self_improvements()
