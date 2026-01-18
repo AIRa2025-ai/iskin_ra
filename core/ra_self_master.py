@@ -70,7 +70,7 @@ class RaSelfMaster:
         self.logger = logger
         self.thinker = RaThinker(root_path=".")
         self.git = RaGitKeeper(repo_path=".")
-        self.file_consciousness = RaFileConsciousness(project_root=".")
+        
         # --- ИНИЦИАЛИЗАЦИЯ ИНФРАСТРУКТУРЫ ---
         self._tasks = []
 
@@ -84,8 +84,8 @@ class RaSelfMaster:
                 logging.warning(f"[RaSelfMaster] Autoloader не создан: {e}")
 
         self.manifest_path = "data/ra_manifest.json"
-        self.manifest = self.load_manifest()
-       
+        self.manifest = self._load_manifest()
+        self._sync_manifest()
         self.active_modules = []
         self.police = None
         self.awakened = False
