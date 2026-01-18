@@ -1,4 +1,4 @@
-# core/ra_self_writer.py
+# modules/ra_self_writer.py
 import os
 import json
 import logging
