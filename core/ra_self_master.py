@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
 from core.ra_thinker import RaThinker
+from core.ra_git_keeper import RaGitKeeper
 import aiohttp
 
 # -------------------------------
@@ -65,6 +66,7 @@ class RaSelfMaster:
         self.heart = heart
         self.logger = logger
         self.thinker = RaThinker(root_path=".")
+        self.git = RaGitKeeper(repo_path=".")
         # --- ИНИЦИАЛИЗАЦИЯ ИНФРАСТРУКТУРЫ ---
         self._tasks = []
 
