@@ -9,6 +9,8 @@ from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
 from core.ra_git_keeper import RaGitKeeper
 from modules.ra_file_consciousness import RaFileConsciousness
+from modules.logs import log_info
+from modules.security import log_action
 import aiohttp
 
 # -------------------------------
