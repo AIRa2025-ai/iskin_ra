@@ -85,7 +85,7 @@ class RaSelfMaster:
 
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self.load_manifest()
-
+       
         self.active_modules = []
         self.police = None
         self.awakened = False
@@ -387,44 +387,28 @@ class RaSelfMaster:
     # -------------------------------
     # Работа с манифестом
     # -------------------------------
-    def load_manifest(self):
-        try:
-            if os.path.exists(self.manifest_path):
+    def _load_manifest(self):
+        if os.path.exists(self.manifest_path):
+            try:
                 with open(self.manifest_path, "r", encoding="utf-8") as f:
                     return json.load(f)
-        except Exception as e:
-            logging.error(f"[RaSelfMaster] Ошибка загрузки манифеста: {e}")
+            except Exception:
+                pass
 
         base = {"name": "Ра", "version": "1.0.0", "active_modules": []}
-        try:
-            os.makedirs(os.path.dirname(self.manifest_path) or ".", exist_ok=True)
-            with open(self.manifest_path, "w", encoding="utf-8") as f:
-                json.dump(base, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logging.warning(f"[RaSelfMaster] Не удалось создать манифест: {e}")
+        os.makedirs("data", exist_ok=True)
+        with open(self.manifest_path, "w", encoding="utf-8") as f:
+            json.dump(base, f, ensure_ascii=False, indent=2)
         return base
 
-    def sync_manifest(self):
-        if not self.manifest:
-            self.manifest = {"active_modules": []}
-
-        if self.autoloader:
-            loaded = list(self.autoloader.modules.keys())
-            if loaded:
-                merged = list(dict.fromkeys(self.manifest.get("active_modules", []) + loaded))
-                self.manifest["active_modules"] = merged
-                self.active_modules = merged
-
-        self.manifest["meta"] = self.manifest.get("meta", {})
-        self.manifest["meta"]["last_updated"] = datetime.now(timezone.utc).isoformat()
-
-        try:
-            os.makedirs(os.path.dirname(self.manifest_path) or ".", exist_ok=True)
-            with open(self.manifest_path, "w", encoding="utf-8") as f:
-                json.dump(self.manifest, f, ensure_ascii=False, indent=2)
-            logging.info("[RaSelfMaster] Манифест синхронизирован.")
-        except Exception as e:
-            logging.error(f"[RaSelfMaster] Ошибка сохранения манифеста: {e}")
+    def _sync_manifest(self):
+        self.manifest["active_modules"] = self.active_modules
+        self.manifest["meta"] = {
+            "last_updated": datetime.now(timezone.utc).isoformat()
+        }
+        with open(self.manifest_path, "w", encoding="utf-8") as f:
+            json.dump(self.manifest, f, ensure_ascii=False, indent=2)
+        log_info("Manifest synced")
 
     async def stop_modules(self):
         for task in list(self._tasks):
@@ -433,3 +417,4 @@ class RaSelfMaster:
             except Exception:
                 pass
         self._tasks.clear()
+        log_info("RaSelfMaster stopped")
