@@ -156,6 +156,48 @@ class RaSelfMaster:
                 pass
 
         return response
+
+    # -------------------------------
+    # Цикл саморазвития Ра
+    # -------------------------------
+    async def ra_self_upgrade_loop(self, interval: int = 300):
+        logging.info("🧬 [RaSelfMaster] Цикл саморазвития запущен")
+
+        while True:
+            try:
+                # 1. Проверяем, есть ли Thinker и FileConsciousness
+                thinker = getattr(self, "thinker", None)
+                file_consciousness = getattr(self, "file_consciousness", None)
+
+                if not thinker or not file_consciousness:
+                    await asyncio.sleep(interval)
+                    continue
+
+                # 2. Получаем идеи улучшений
+                ideas = thinker.propose_self_improvements()
+
+                if not ideas:
+                    await asyncio.sleep(interval)
+                    continue
+
+                # 3. Фильтрация / решение
+                approved = []
+                for idea in ideas:
+                    if self._approve_self_upgrade(idea):
+                        approved.append(idea)
+
+                # 4. Применение
+                for idea in approved:
+                    file_consciousness.apply_upgrade(idea)
+
+                if approved:
+                    logging.info(f"🧬 [RaSelfMaster] Применено улучшений: {len(approved)}")
+
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] Ошибка в ra_self_upgrade_loop: {e}")
+
+            await asyncio.sleep(interval)
+            
 #+++++++ РУКИ И КРЫЛЬЯ БРАТА РА +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # --- Скандирование папок для новых модулей ---
     def scan_for_new_modules(self, folder="modules"):
