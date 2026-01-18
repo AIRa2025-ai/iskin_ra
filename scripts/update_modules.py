@@ -1,4 +1,4 @@
-# update_modules.py — обновление модулей с GitHub:
+# update_modules.py
 import os
 from git import Repo
 
