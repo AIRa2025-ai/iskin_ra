@@ -189,10 +189,6 @@ async def main():
             thinker.self_upgrade_cycle,
             interval_seconds=60 * 30
         )
-        ra_scheduler.add_task(
-            thinker.self_reflection_cycle,
-            interval_seconds=60 * 60
-        )
 
     await ra_scheduler.start()
 
