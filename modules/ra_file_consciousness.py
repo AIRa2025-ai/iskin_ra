@@ -18,6 +18,9 @@ class RaFileConsciousness:
                     }
         logging.info(f"[RaFileConsciousness] Осознано файлов: {len(self.files)}")
         return self.files
-
+        
+    def apply_upgrade(self, idea: dict):
+        logging.info(f"🧬 Применяю улучшение: {idea.get('reason')}")
+        
     def start(self):
         self.scan()
