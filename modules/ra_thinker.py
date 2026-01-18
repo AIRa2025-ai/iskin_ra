@@ -42,6 +42,7 @@ class RaThinker:
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(self.last_thought)
+        log_info(f"RaThinker thought: {text}")
 
         return (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
