@@ -11,9 +11,11 @@ class RaFileConsciousness:
         self.project_root = Path(project_root)
         self.backup_root = self.project_root / "backups"
         self.backup_root.mkdir(exist_ok=True)
-        self.root = root
-        self.files = {}
 
+        # 🔥 единый корень сознания (алиас для совместимости)
+        self.root = self.project_root
+
+        self.files = {}
     def scan(self):
         for root, _, files in os.walk(self.root):
             for f in files:
