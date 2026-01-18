@@ -16,6 +16,11 @@ class RaThinker:
 
         logging.info("🌞 RaThinker инициализирован, контекст РаСвета загружен")
 
+    def __init__(self, context=None, file_consciousness=None):
+        self.context = context
+        self.file_consciousness = file_consciousness
+
+
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(self.last_thought)
@@ -34,3 +39,8 @@ class RaThinker:
         self.thoughts.append(idea)
         logging.info(f"[RaThinker] 💡 {idea}")
         return idea
+
+    def get_known_files(self):
+        if not self.file_consciousness:
+            return {}
+        return self.file_consciousness.files
