@@ -84,6 +84,11 @@
     "ra_police",
     "ra_police_net",
 
+    "logs.py",
+    "errors.py",
+    "security.py",
+    "system.py",
+    
     "skills",
     "scheduler",
     "my_module"
