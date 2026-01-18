@@ -10,6 +10,7 @@ from modules.ra_file_manager import load_rasvet_files
 import os
 import ast
 from collections import defaultdict
+from modules.logs import log_info, log_error
 
 class RaThinker:
     def __init__(
@@ -41,6 +42,7 @@ class RaThinker:
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(self.last_thought)
+
         return (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
