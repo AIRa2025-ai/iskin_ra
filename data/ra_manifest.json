@@ -36,6 +36,8 @@
     "ra_light",
     "ra_nft",
     
+    "internet_agent",
+    
     "ra_police",
     "ra_police_net",
     "ra_repo_manager",
