@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
-from core.ra_thinker import RaThinker
+from modules.ra_thinker import RaThinker
 from core.ra_git_keeper import RaGitKeeper
 from modules.ra_file_consciousness import RaFileConsciousness
 import aiohttp
