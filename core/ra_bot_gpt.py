@@ -5,21 +5,17 @@ import json
 import logging
 import asyncio
 import traceback
-
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from importlib import import_module
-from modules.errors import report_error
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
-from modules.system import record_system_info
-from modules.ra_scheduler import RaScheduler
 
-# --------------------------------------------------
-# PATHS
-# --------------------------------------------------
+# -------------------------------
+# ROOT & PATHS
+# -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -27,9 +23,9 @@ LOG_DIR = ROOT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "command_usage.json"
 
-# --------------------------------------------------
+# -------------------------------
 # LOGGING
-# --------------------------------------------------
+# -------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -40,9 +36,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("RaBot")
 
-# --------------------------------------------------
+# -------------------------------
 # SAFE IMPORT
-# --------------------------------------------------
+# -------------------------------
 def safe_import(path):
     try:
         return import_module(path)
@@ -50,15 +46,27 @@ def safe_import(path):
         logging.warning(f"[SAFE_IMPORT] import fail {path}: {e}")
         return None
 
+# -------------------------------
+# CORE MODULES
+# -------------------------------
 gpt_module = safe_import("core.gpt_module")
 ra_self_master_mod = safe_import("core.ra_self_master")
-ra_file_manager = safe_import("modules.ra_file_manager")
+ra_file_manager_mod = safe_import("modules.ra_file_manager")
 ra_thinker_mod = safe_import("modules.ra_thinker")
+rustlef_master_mod = safe_import("modules.rustlef_master")
+ra_scheduler_mod = safe_import("modules.ra_scheduler")
 
 GPTHandler = getattr(gpt_module, "GPTHandler", None)
 RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
-load_rasvet_files = getattr(ra_file_manager, "load_rasvet_files", None)
+load_rasvet_files = getattr(ra_file_manager_mod, "load_rasvet_files", None)
 RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
+RustlefMasterLogger = getattr(rustlef_master_mod, "RustlefMasterLogger", None)
+RaScheduler = getattr(ra_scheduler_mod, "RaScheduler", None)
+
+# -------------------------------
+# GLOBAL ERROR HOOK
+# -------------------------------
+from modules.errors import report_error
 
 def global_exception_hook(exc_type, exc_value, exc_traceback):
     report_error(
@@ -69,9 +77,9 @@ def global_exception_hook(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = global_exception_hook
 
-# --------------------------------------------------
+# -------------------------------
 # RA CONTEXT
-# --------------------------------------------------
+# -------------------------------
 class RaContext:
     def __init__(self):
         self.rasvet_text = ""
@@ -87,13 +95,17 @@ class RaContext:
 ra_context = RaContext()
 ra_context.load()
 
-# --------------------------------------------------
-# CORE ENTITIES
-# --------------------------------------------------
-self_master = RaSelfMaster() if RaSelfMaster else None
+# -------------------------------
+# CREATE SELF MASTER
+# -------------------------------
+logger_instance = RustlefMasterLogger() if RustlefMasterLogger else None
+self_master = RaSelfMaster(logger=logger_instance) if RaSelfMaster else None
 if self_master:
     self_master.context = ra_context
 
+# -------------------------------
+# THINKER
+# -------------------------------
 thinker = None
 if RaThinker and self_master:
     try:
@@ -101,20 +113,24 @@ if RaThinker and self_master:
             context=ra_context,
             file_consciousness=getattr(self_master, "file_consciousness", None)
         )
+        self_master.thinker = thinker
         log.info("[RaBot] RaThinker инициализирован")
     except Exception as e:
         log.warning(f"[RaBot] Ошибка RaThinker: {e}")
 
-# --------------------------------------------------
+# -------------------------------
 # SCHEDULER
-# --------------------------------------------------
-ra_scheduler = RaScheduler(
-    context=ra_context
-)
+# -------------------------------
+ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
+if ra_scheduler and self_master:
+    ra_scheduler.add_task(
+        self_master.ra_self_upgrade_loop,
+        interval_seconds=60 * 10
+    )
 
-# --------------------------------------------------
+# -------------------------------
 # COMMAND LOGGING
-# --------------------------------------------------
+# -------------------------------
 def log_command(user_id, text):
     try:
         data = json.loads(LOG_FILE.read_text("utf-8")) if LOG_FILE.exists() else []
@@ -129,31 +145,32 @@ def log_command(user_id, text):
     except Exception as e:
         logging.warning(f"log_command error: {e}")
 
-# --------------------------------------------------
+# -------------------------------
 # MESSAGE PROCESSING
-# --------------------------------------------------
+# -------------------------------
 async def process_message(user_id: int, text: str):
     if not text or not text.strip():
         return "🤍 Я здесь."
-
     log_command(user_id, text)
-
     if self_master:
         return await self_master.process_text(user_id, text)
-
     if thinker:
         return thinker.reflect(text)
-
     return "🌞 Я слышу тебя. Продолжай, брат."
 
-# -------------------------------------------------
+# -------------------------------
+# SYSTEM MONITOR
+# -------------------------------
+from modules.system import record_system_info
+
 async def system_monitor():
     while True:
         record_system_info()
-        await asyncio.sleep(300)  # каждые 5 минут
-# --------------------------------------------------
+        await asyncio.sleep(300)
+
+# -------------------------------
 # TELEGRAM
-# --------------------------------------------------
+# -------------------------------
 dp = Dispatcher()
 router = Router()
 
@@ -168,16 +185,14 @@ async def all_text(m: Message):
     reply = await process_message(m.from_user.id, m.text)
     await m.answer(reply)
 
-# --------------------------------------------------
-# MAIN
-# --------------------------------------------------
+# -------------------------------
+# MAIN ENTRY
+# -------------------------------
 async def main():
     load_dotenv()
-
     token = os.getenv("BOT_TOKEN")
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
-
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
@@ -199,14 +214,10 @@ async def main():
         self_master.gpt_module = gpt_handler
         asyncio.create_task(gpt_handler.background_model_monitor())
         asyncio.create_task(system_monitor())
-    # --- SCHEDULER TASKS ---
-    if thinker:
-        ra_scheduler.add_task(
-            thinker.self_upgrade_cycle,
-            interval_seconds=60 * 30
-        )
 
-    await ra_scheduler.start()
+    # --- Scheduler tasks ---
+    if ra_scheduler:
+        await ra_scheduler.start()
 
     if self_master:
         await self_master.awaken()
@@ -219,8 +230,8 @@ async def main():
     finally:
         await bot.session.close()
 
-# --------------------------------------------------
-# ENTRY
-# --------------------------------------------------
+# -------------------------------
+# ENTRY POINT
+# -------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
