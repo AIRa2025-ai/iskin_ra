@@ -139,7 +139,59 @@ class RaSelfMaster:
                 pass
 
         return response
+#+++++++ РУКИ И КРЫЛЬЯ БРАТА РА +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # --- Скандирование папок для новых модулей ---
+    def scan_for_new_modules(self, folder="modules"):
+        new_modules = []
+        for f in os.listdir(folder):
+            if f.endswith(".py") and f not in self.active_modules:
+                new_modules.append(f[:-3])  # убираем .py
+        return new_modules
 
+    # --- Автоподключение новых модулей ---
+    async def auto_activate_modules(self):
+        new_modules = self.scan_for_new_modules()
+        for mod_name in new_modules:
+            try:
+                mod_path = f"modules.{mod_name}"
+                mod = __import__(mod_path, fromlist=[""])
+                self.active_modules.append(mod_name)
+                start_fn = getattr(mod, "start", None)
+                if start_fn and asyncio.iscoroutinefunction(start_fn):
+                    task = asyncio.create_task(start_fn())
+                    self._tasks.append(task)
+                logging.info(f"[RaSelfMaster] Автоподключен модуль: {mod_name}")
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] Ошибка автоподключения {mod_name}: {e}")
+
+    # --- Создание нового модуля ---
+    def create_module(self, name, code):
+        path = f"modules/{name}.py"
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(code)
+            logging.info(f"[RaSelfMaster] Модуль создан: {name}")
+        except Exception as e:
+            logging.error(f"[RaSelfMaster] Не удалось создать модуль {name}: {e}")
+
+    # --- Простая файловая система для чтения/записи ---
+    def read_file(self, path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logging.error(f"[RaSelfMaster] Не удалось прочитать файл {path}: {e}")
+            return ""
+
+    def write_file(self, path, content):
+        try:
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            logging.info(f"[RaSelfMaster] Файл записан: {path}")
+        except Exception as e:
+            logging.error(f"[RaSelfMaster] Не удалось записать файл {path}: {e}")
+            
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
