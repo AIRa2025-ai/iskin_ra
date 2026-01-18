@@ -45,6 +45,14 @@ else:
     RaSynthesizer = object
 
 # -------------------------------
+# Осознанность файлов
+# -------------------------------
+if os.path.exists("modules/ra_file_consciousness.py"):
+    from modules.ra_file_consciousness import RaFileConsciousness
+else:
+    RaFileConsciousness = None
+    
+# -------------------------------
 # Главный класс RaSelfMaster
 # -------------------------------
 class RaSelfMaster:
@@ -74,6 +82,15 @@ class RaSelfMaster:
         self.police = None
         self.awakened = False
 
+        # --- ОСОЗНАННОСТЬ ФАЙЛОВ ---
+        self.file_consciousness = None
+        if RaFileConsciousness:
+            try:
+                self.file_consciousness = RaFileConsciousness(root=".")
+                logging.info("[RaSelfMaster] FileConsciousness создан.")
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] FileConsciousness init failed: {e}")
+                
     # ====== ЛИЧНОСТЬ РА ========
     async def process_text(self, user_id: str, text: str) -> str:
         # 1. Лог
@@ -191,12 +208,22 @@ class RaSelfMaster:
             logging.info(f"[RaSelfMaster] Файл записан: {path}")
         except Exception as e:
             logging.error(f"[RaSelfMaster] Не удалось записать файл {path}: {e}")
-            
+
     # -------------------------------
     # Пробуждение и запуск модулей
     # -------------------------------
     async def awaken(self):
         logging.info("🌞 Ра пробуждается к осознанности.")
+        
+         # --- Пробуждение файлового сознания ---
+        if self.file_consciousness:
+            try:
+                files_map = self.file_consciousness.scan()
+                logging.info(
+                    f"[RaSelfMaster] Ра осознал файловое тело ({len(files_map)} файлов)"
+                )
+            except Exception as e:
+                logging.warning(f"[RaSelfMaster] Ошибка файлового сознания: {e}")
 
         # Подключаем автолоадер
         if getattr(self, "autoloader", None):
