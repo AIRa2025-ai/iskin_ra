@@ -9,7 +9,8 @@ from core import gpt_module
 from modules.ra_forex_manager import RaForexManager
 
 logging.basicConfig(level=logging.INFO)
-
+forex = RaForexManager()
+asyncio.create_task(forex.market_loop())
 async def main():
     try:
         # -------------------------------
