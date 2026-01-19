@@ -1,10 +1,11 @@
 # ra_forex_manager.py — МУЛЬТИ-ТИМФРЕЙМ + КРОСС-СИГНАЛЫ
-from modules.forex_brain import ForexBrain
-from modules.ra_market_consciousness import RaMarketConsciousness
-from datetime import datetime
 import time
 import json
 import logging
+
+from modules.forex_brain import ForexBrain
+from modules.ra_market_consciousness import RaMarketConsciousness
+from datetime import datetime
 
 class TelegramSender:
     def __init__(self, bot_token, chat_id):
@@ -40,7 +41,13 @@ class RaForexManager:
         self.brain = ForexBrain(pairs=pairs, timeframe=timeframe)
         self.consciousness = RaMarketConsciousness()
 
+        self.brain = ForexBrain()
+        self.consciousness = RaMarketConsciousness()
+
     def update(self):
+        data = self.brain.fetch_all()
+        return self.consciousness.perceive(data)
+
         results = []
 
         for pair in self.brain.pairs:
