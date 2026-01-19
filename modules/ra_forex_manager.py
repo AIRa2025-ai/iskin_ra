@@ -4,6 +4,7 @@ from modules.ra_market_consciousness import RaMarketConsciousness
 from datetime import datetime
 import time
 import json
+import logging
 
 class TelegramSender:
     def __init__(self, bot_token, chat_id):
@@ -21,7 +22,7 @@ class TelegramSender:
             print(f"[TelegramSender] Ошибка отправки: {e}")
 
 class RaForexManager:
-    def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json'):
+    def __init__(self, pairs=None, timeframes="1h", telegram_sender=None, log_file='forex_signals.json'):
         self.timeframes = timeframes or ['M15', 'H1']
         self.telegram = telegram_sender
         self.log_file = log_file
@@ -35,6 +36,25 @@ class RaForexManager:
                 brain = ForexBrain(pairs=[pair], timeframe=tf)
                 self.brain_modules[pair][tf] = brain
                 self.ra_modules[pair][tf] = RaMarketConsciousness(pair, tf, telegram_sender)
+
+        self.brain = ForexBrain(pairs=pairs, timeframe=timeframe)
+        self.consciousness = RaMarketConsciousness()
+
+    def update(self):
+        results = []
+
+        for pair in self.brain.pairs:
+            df = self.brain.fetch_history(pair)
+            if df is None:
+                continue
+
+            snapshot = self.brain.get_market_snapshot(pair)
+            signal = self.consciousness.perceive(snapshot)
+
+            if signal:
+                results.append(signal)
+
+        return results
 
     # -------------------- ФИГУРЫ --------------------
     def detect_figures(self, df):
