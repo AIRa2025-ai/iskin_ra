@@ -1,4 +1,4 @@
-# forex_brain.py
+# modules/forex_brain.py
 import requests
 import pandas as pd
 import numpy as np
