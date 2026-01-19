@@ -1,12 +1,13 @@
 # ra_main.py
 import asyncio
 import logging
+import threading
 from modules import ra_autoloader
 from modules import system
 from modules import ra_file_consciousness
 from core import ra_memory, ra_knowledge
 from core import gpt_module
-from modules.ra_forex_manager import RaForexManager
+from modules.ra_forex_manager import RaForexManager, TelegramSender
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,6 +53,19 @@ async def main():
     except asyncio.CancelledError:
         logging.info("🌙 Ра мягко завершает процессы...")
         raise
+
+telegram = TelegramSender(
+    bot_token="ТВОЙ_BOT_TOKEN",
+    chat_id="ТВОЙ_CHAT_ID"
+)
+
+forex = RaForexManager(
+    pairs=["EURUSD", "GBPUSD"],
+    timeframes=["M15", "H1"],
+    telegram_sender=telegram
+)
+
+threading.Thread(target=forex.run_loop, daemon=True).start()
 
 if __name__ == "__main__":
     try:
