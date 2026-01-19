@@ -43,7 +43,15 @@ class RaForexManager:
 
         self.brain = ForexBrain()
         self.consciousness = RaMarketConsciousness()
-
+# ----------------------------------------------------------------
+    async def market_loop(self):
+        while True:
+            signals = self.update()
+            for s in signals:
+                logging.info(f"🧭 Сигнал Ра: {s}")
+                await send_admin(f"🧭 Сигнал Ра:\n{s}")
+            await asyncio.sleep(300)
+# ----------------------------------------------------------------
     def update(self):
         data = self.brain.fetch_all()
         return self.consciousness.perceive(data)
@@ -187,14 +195,7 @@ class RaForexManager:
             print(f"[{datetime.utcnow()}] 🔄 Обновляем и анализируем все пары...")
             self.analyze_all()
             time.sleep(interval_sec)
-# ----------------------------------------------------------------
-    async def market_loop(self):
-        while True:
-            signals = self.update()
-            for s in signals:
-                logging.info(f"🧭 Сигнал Ра: {s}")
-                await send_admin(f"🧭 Сигнал Ра:\n{s}")
-            await asyncio.sleep(300)
+        return ["EURUSD BUY 1.0820 SL 1.0780 TP 1.0900"]
 # ====================== ПРИМЕР ЗАПУСКА ======================
 if __name__ == "__main__":
     bot_token = "7304435178:AAFzVnyQVtBMiYMXDvShbfcyPDw1_JnPCFM"
