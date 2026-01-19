@@ -23,7 +23,6 @@ class TelegramSender:
         except Exception as e:
             logging.error(f"[TelegramSender] Ошибка отправки: {e}")
 
-
 # ================= RA FOREX MANAGER =================
 class RaForexManager:
     def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json'):
@@ -32,28 +31,34 @@ class RaForexManager:
         self.telegram = telegram_sender
         self.log_file = log_file
 
-        self.brain_modules = {}   # {pair: {tf: ForexBrain}}
-        self.ra_modules = {}      # {pair: {tf: RaMarketConsciousness}}
+        self.brain_modules = {}
+        self.ra_modules = {}
 
         for pair in self.pairs:
             self.brain_modules[pair] = {}
             self.ra_modules[pair] = {}
             for tf in self.timeframes:
-                self.brain_modules[pair][tf] = ForexBrain(pairs=[pair], timeframe=tf)
-                self.ra_modules[pair][tf] = RaMarketConsciousness(pair, tf, telegram_sender)
+                brain = ForexBrain(pairs=[pair], timeframe=tf)
+                ra = RaMarketConsciousness(pair, tf, telegram_sender)
+                self.brain_modules[pair][tf] = brain
+                self.ra_modules[pair][tf] = ra
 
-        logging.info(f"[RaForexManager] Запущен: {self.pairs} | {self.timeframes}")
+        logging.info(f"[RaForexManager] Инициализирован: {self.pairs} | {self.timeframes}")
 
     # ================= ENTRY =================
     def compute_entry(self, df, signal):
+        if len(df) < 2:
+            return None
         last = df.iloc[-1]
         prev = df.iloc[-2]
+
         if signal == "BUY":
             entry = min(last['close'], prev['low'])
         elif signal == "SELL":
             entry = max(last['close'], prev['high'])
         else:
             return None
+
         return round(entry, 5)
 
     # ================= SL / TP =================
@@ -66,18 +71,6 @@ class RaForexManager:
             return round(price + atr * 1.5, 5), round(price - atr * 3, 5)
         return None, None
 
-    # ================= ФИГУРЫ =================
-    def detect_figures(self, df):
-        figures = []
-        if len(df) < 5:
-            return figures
-        highs, lows = df['high'], df['low']
-        if highs.iloc[-1] < highs.iloc[-3] > highs.iloc[-5]:
-            figures.append('Double Top')
-        if lows.iloc[-1] > lows.iloc[-3] < lows.iloc[-5]:
-            figures.append('Double Bottom')
-        return figures
-
     # ================= АНАЛИЗ ПАРЫ ПО ТФ =================
     def analyze_pair_tf(self, pair, tf):
         brain = self.brain_modules[pair][tf]
@@ -88,8 +81,6 @@ class RaForexManager:
         ra = self.ra_modules[pair][tf]
         ra.load_market_data(df)
         ra.analyze()
-
-        figures = self.detect_figures(df)
 
         rsi = ra.df['rsi'].iloc[-1]
         macd = ra.df['macd'].iloc[-1]
@@ -109,10 +100,6 @@ class RaForexManager:
         score += trend
         reasons.append("Тренд вверх" if trend > 0 else "Тренд вниз")
 
-        if figures:
-            score += len(figures)
-            reasons.extend(figures)
-
         signal = "BUY" if score >= 3 else "SELL" if score <= -2 else None
         sl, tp = self.compute_sl_tp(price, atr, signal)
         entry = self.compute_entry(df, signal)
@@ -121,8 +108,8 @@ class RaForexManager:
             "pair": pair,
             "tf": tf,
             "signal": signal,
+            "price": round(price, 5),
             "entry": entry,
-            "price": price,
             "sl": sl,
             "tp": tp,
             "reasons": reasons,
@@ -146,12 +133,8 @@ class RaForexManager:
 
     # ================= ВСЕ ПАРЫ =================
     def analyze_all(self):
-        results = []
         for pair in self.pairs:
-            res = self.cross_tf_signal(pair)
-            if res:
-                results.append(res)
-        return results
+            self.cross_tf_signal(pair)
 
     # ================= ОТПРАВКА =================
     def send_signal(self, signal):
@@ -161,14 +144,14 @@ class RaForexManager:
             f"🔥 {signal['pair']} | {signal['signal']}\n"
             f"TF: {signal['tf']}\n"
             f"Entry: {signal['entry']}\n"
-            f"Цена: {signal['price']:.5f}\n"
+            f"Цена: {signal['price']}\n"
             f"SL: {signal['sl']}\n"
             f"TP: {signal['tp']}\n"
             f"Основания:\n- " + "\n- ".join(signal['reasons'])
         )
         self.telegram.send(msg)
 
-    # ================= ЛОГИ =================
+    # ================= ЛОГ =================
     def log_signal(self, signal):
         try:
             with open(self.log_file, 'r') as f:
