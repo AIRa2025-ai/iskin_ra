@@ -1,12 +1,13 @@
-# ra_forex_manager.py — МУЛЬТИ-ТИМФРЕЙМ + КРОСС-СИГНАЛЫ
+# modules/ra_forex_manager.py
 import time
 import json
 import logging
+from datetime import datetime
 
 from modules.forex_brain import ForexBrain
 from modules.ra_market_consciousness import RaMarketConsciousness
-from datetime import datetime
 
+# ================= TELEGRAM SENDER =================
 class TelegramSender:
     def __init__(self, bot_token, chat_id):
         import requests
@@ -18,60 +19,35 @@ class TelegramSender:
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         data = {"chat_id": self.chat_id, "text": message}
         try:
-            self.requests.post(url, data=data)
+            self.requests.post(url, data=data, timeout=10)
         except Exception as e:
-            print(f"[TelegramSender] Ошибка отправки: {e}")
+            logging.error(f"[TelegramSender] Ошибка отправки: {e}")
 
+
+# ================= RA FOREX MANAGER =================
 class RaForexManager:
-    def __init__(self, pairs=None, timeframes="1h", telegram_sender=None, log_file='forex_signals.json'):
+    def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json'):
+        self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframes = timeframes or ['M15', 'H1']
         self.telegram = telegram_sender
         self.log_file = log_file
-        self.brain_modules = {}  # {pair: {tf: ForexBrain}}
-        self.ra_modules = {}     # {pair: {tf: RaMarketConsciousness}}
 
-        for pair in pairs or ['EURUSD', 'GBPUSD']:
+        # Модули по парам и таймфреймам
+        self.brain_modules = {}   # {pair: {tf: ForexBrain}}
+        self.ra_modules = {}      # {pair: {tf: RaMarketConsciousness}}
+
+        for pair in self.pairs:
             self.brain_modules[pair] = {}
             self.ra_modules[pair] = {}
             for tf in self.timeframes:
                 brain = ForexBrain(pairs=[pair], timeframe=tf)
+                ra = RaMarketConsciousness(pair, tf, telegram_sender)
                 self.brain_modules[pair][tf] = brain
-                self.ra_modules[pair][tf] = RaMarketConsciousness(pair, tf, telegram_sender)
+                self.ra_modules[pair][tf] = ra
 
-        self.brain = ForexBrain(pairs=pairs, timeframe=timeframe)
-        self.consciousness = RaMarketConsciousness()
+        logging.info(f"[RaForexManager] Инициализирован: {self.pairs} | {self.timeframes}")
 
-        self.brain = ForexBrain()
-        self.consciousness = RaMarketConsciousness()
-# ----------------------------------------------------------------
-    async def market_loop(self):
-        while True:
-            signals = self.update()
-            for s in signals:
-                logging.info(f"🧭 Сигнал Ра: {s}")
-                await send_admin(f"🧭 Сигнал Ра:\n{s}")
-            await asyncio.sleep(300)
-# ----------------------------------------------------------------
-    def update(self):
-        data = self.brain.fetch_all()
-        return self.consciousness.perceive(data)
-
-        results = []
-
-        for pair in self.brain.pairs:
-            df = self.brain.fetch_history(pair)
-            if df is None:
-                continue
-
-            snapshot = self.brain.get_market_snapshot(pair)
-            signal = self.consciousness.perceive(snapshot)
-
-            if signal:
-                results.append(signal)
-
-        return results
-
-    # -------------------- ФИГУРЫ --------------------
+    # ================= ФИГУРЫ =================
     def detect_figures(self, df):
         figures = []
         if len(df) < 5:
@@ -81,25 +57,23 @@ class RaForexManager:
             figures.append('Double Top')
         if lows.iloc[-1] > lows.iloc[-3] < lows.iloc[-5]:
             figures.append('Double Bottom')
-        if abs(highs.iloc[-1] - highs.iloc[-5]) < (highs.max() - lows.min()) * 0.05:
-            figures.append('Triangle')
-        if abs(highs.iloc[-1] - lows.iloc[-1]) < (highs.max() - lows.min()) * 0.1:
-            figures.append('Flag')
         return figures
 
-    # -------------------- SL/TP --------------------
+    # ================= SL / TP =================
     def compute_sl_tp(self, price, atr, signal):
+        if not atr or not signal:
+            return None, None
         if signal == "BUY":
             return round(price - atr * 1.5, 5), round(price + atr * 3, 5)
         elif signal == "SELL":
             return round(price + atr * 1.5, 5), round(price - atr * 3, 5)
         return None, None
 
-    # -------------------- АНАЛИЗ ОДНОЙ ПАРЫ ПО ТАЙМФРЕЙМУ --------------------
+    # ================= АНАЛИЗ ПАРЫ ПО ТФ =================
     def analyze_pair_tf(self, pair, tf):
         brain = self.brain_modules[pair][tf]
         df = brain.fetch_history(pair)
-        if df is None or len(df) < 10:
+        if df is None or len(df) < 30:
             return None
 
         ra = self.ra_modules[pair][tf]
@@ -121,9 +95,14 @@ class RaForexManager:
 
         if rsi < 30: score += 1; reasons.append("RSI перепродан")
         if rsi > 70: score -= 1; reasons.append("RSI перекуплен")
-        score += 1 if macd > 0 else -1; reasons.append("MACD бычий" if macd > 0 else "MACD медвежий")
-        score += trend; reasons.append("Тренд вверх" if trend > 0 else "Тренд вниз")
-        score += len(figures); reasons += figures
+        score += 1 if macd > 0 else -1
+        reasons.append("MACD бычий" if macd > 0 else "MACD медвежий")
+        score += trend
+        reasons.append("Тренд вверх" if trend > 0 else "Тренд вниз")
+
+        if figures:
+            score += len(figures)
+            reasons.extend(figures)
 
         signal = "BUY" if score >= 3 else "SELL" if score <= -2 else None
         sl, tp = self.compute_sl_tp(price, atr, signal)
@@ -135,49 +114,49 @@ class RaForexManager:
             "price": price,
             "sl": sl,
             "tp": tp,
-            "rsi": rsi,
-            "macd": macd,
-            "ema50": ema50,
-            "ema200": ema200,
-            "atr": atr,
-            "figures": figures,
             "reasons": reasons,
             "timestamp": datetime.utcnow().isoformat() + 'Z'
         }
 
-    # -------------------- КРОСС-СИГНАЛЫ --------------------
+    # ================= КРОСС-ТФ СИГНАЛ =================
     def cross_tf_signal(self, pair):
         results = []
         for tf in self.timeframes:
             res = self.analyze_pair_tf(pair, tf)
-            if res:
+            if res and res["signal"]:
                 results.append(res)
 
-        # Проверка согласованности сигналов
-        signals = [r['signal'] for r in results if r['signal']]
-        if len(signals) >= 2 and all(s == signals[0] for s in signals):
-            final_signal = signals[0]
-            final_result = results[0]
-            final_result['signal'] = final_signal
-            if final_signal and self.telegram:
-                msg = f"🔥 {pair} | {final_signal} (согласовано по таймфреймам)\nЦена: {final_result['price']:.5f}\nSL: {final_result['sl']}\nTP: {final_result['tp']}\nОснования:\n- " + "\n- ".join(final_result['reasons'])
-                self.telegram.send(msg)
-            self.log_signal(final_result)
-            return final_result
-        else:
-            # Нет согласованного сигнала
-            return None
+        if len(results) >= 2 and all(r['signal'] == results[0]['signal'] for r in results):
+            final = results[0]
+            self.send_signal(final)
+            self.log_signal(final)
+            return final
+        return None
 
-    # -------------------- АНАЛИЗ ВСЕХ ПАР --------------------
+    # ================= ВСЕ ПАРЫ =================
     def analyze_all(self):
         results = []
-        for pair in self.brain_modules.keys():
+        for pair in self.pairs:
             res = self.cross_tf_signal(pair)
             if res:
                 results.append(res)
         return results
 
-    # -------------------- ЛОГИРОВАНИЕ --------------------
+    # ================= ОТПРАВКА =================
+    def send_signal(self, signal):
+        if not self.telegram:
+            return
+        msg = (
+            f"🔥 {signal['pair']} | {signal['signal']}\n"
+            f"TF: {signal['tf']}\n"
+            f"Цена: {signal['price']:.5f}\n"
+            f"SL: {signal['sl']}\n"
+            f"TP: {signal['tp']}\n"
+            f"Основания:\n- " + "\n- ".join(signal['reasons'])
+        )
+        self.telegram.send(msg)
+
+    # ================= ЛОГИ =================
     def log_signal(self, signal):
         try:
             with open(self.log_file, 'r') as f:
@@ -187,24 +166,11 @@ class RaForexManager:
         data.append(signal)
         with open(self.log_file, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"[RaForexManager] Сигнал {signal['pair']} сохранён.")
+        logging.info(f"[RaForexManager] Сигнал сохранён: {signal['pair']}")
 
-    # -------------------- ЦИКЛ --------------------
-    def run_loop(self, interval_sec=3600):
+    # ================= ЦИКЛ =================
+    def run_loop(self, interval_sec=900):
         while True:
-            print(f"[{datetime.utcnow()}] 🔄 Обновляем и анализируем все пары...")
+            logging.info("🔄 Анализируем рынок...")
             self.analyze_all()
             time.sleep(interval_sec)
-        return ["EURUSD BUY 1.0820 SL 1.0780 TP 1.0900"]
-# ====================== ПРИМЕР ЗАПУСКА ======================
-if __name__ == "__main__":
-    bot_token = "7304435178:AAFzVnyQVtBMiYMXDvShbfcyPDw1_JnPCFM"
-    chat_id = "5694569448"
-    telegram = TelegramSender(bot_token, chat_id)
-
-    pairs = ['EURUSD', 'GBPUSD']
-    timeframes = ['1h', '4h']
-    manager = RaForexManager(pairs=pairs, timeframes=timeframes, telegram_sender=telegram)
-
-    # Один проход для теста
-    manager.analyze_all()
