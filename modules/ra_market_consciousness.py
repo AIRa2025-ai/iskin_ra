@@ -1,4 +1,5 @@
 # modules/ra_market_consciousness.py
+import logging
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -12,7 +13,43 @@ class RaMarketConsciousness:
         self.timeframe = timeframe
         self.telegram = telegram_sender
         self.last_signal_time = None
+        self.last_snapshots = {}
 
+    def perceive(self, snapshot):
+        if not snapshot:
+            return None
+
+        pair = snapshot["pair"]
+        self.last_snapshots[pair] = snapshot
+
+        signal = self.analyze(snapshot)
+        return signal
+
+    def analyze(self, snapshot):
+        price = snapshot["price"]
+        high = snapshot["high"]
+        low = snapshot["low"]
+
+        range_size = high - low
+        if range_size == 0:
+            return None
+
+        position = (price - low) / range_size
+
+        if position > 0.8:
+            signal = "🔴 Перекупленность"
+        elif position < 0.2:
+            signal = "🟢 Перепроданность"
+        else:
+            signal = "⚪ Нейтрально"
+
+        logging.info(f"📈 {snapshot['pair']} → {signal}")
+        return {
+            "pair": snapshot["pair"],
+            "signal": signal,
+            "price": price,
+            "time": snapshot["time"]
+        }
     # === ОСНОВА ===
     def load_market_data(self, df: pd.DataFrame):
         """
