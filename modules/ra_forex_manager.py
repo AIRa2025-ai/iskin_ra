@@ -141,6 +141,19 @@ class RaForexManager:
             if res:
                 results.append(res)
         return results
+        
+    # +++++++++++СИГНАЛЫ++++++++++++++++++++++++++++
+    def compute_entry(self, df, signal):
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+        if signal == "BUY":
+            entry = min(last['close'], prev['low'])
+        elif signal == "SELL":
+            entry = max(last['close'], prev['high'])
+        else:
+            return None
+
+        return round(entry, 5)
 
     # ================= ОТПРАВКА =================
     def send_signal(self, signal):
