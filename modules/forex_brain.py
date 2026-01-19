@@ -47,6 +47,7 @@ class ForexBrain:
         except Exception as e:
             print(f"[ForexBrain] Ошибка загрузки {pair}: {e}")
             return None
+        
     # ------------------- ИНДИКАТОРЫ -------------------
     def compute_sma(self, df, period=14):
         return df['close'].rolling(period).mean()
@@ -204,7 +205,22 @@ class ForexBrain:
             json.dump(signals, f, indent=2)
         print(f"[ForexBrain] Сигналы сохранены в {filename}")
 
+    def get_market_snapshot(self, pair):
+        df = self.data.get(pair)
+        if df is None or df.empty:
+            return None
 
+        last = df.iloc[-1]
+        snapshot = {
+            "pair": pair,
+            "price": float(last["close"]),
+            "high": float(last["high"]),
+            "low": float(last["low"]),
+            "volume": float(last["volume"]),
+            "time": last["time"]
+        }
+        return snapshot
+        
 if __name__ == "__main__":
     brain = ForexBrain()
     signals = brain.analyze_all()
