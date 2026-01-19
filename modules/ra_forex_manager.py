@@ -32,7 +32,6 @@ class RaForexManager:
         self.telegram = telegram_sender
         self.log_file = log_file
 
-        # Модули по парам и таймфреймам
         self.brain_modules = {}   # {pair: {tf: ForexBrain}}
         self.ra_modules = {}      # {pair: {tf: RaMarketConsciousness}}
 
@@ -40,12 +39,32 @@ class RaForexManager:
             self.brain_modules[pair] = {}
             self.ra_modules[pair] = {}
             for tf in self.timeframes:
-                brain = ForexBrain(pairs=[pair], timeframe=tf)
-                ra = RaMarketConsciousness(pair, tf, telegram_sender)
-                self.brain_modules[pair][tf] = brain
-                self.ra_modules[pair][tf] = ra
+                self.brain_modules[pair][tf] = ForexBrain(pairs=[pair], timeframe=tf)
+                self.ra_modules[pair][tf] = RaMarketConsciousness(pair, tf, telegram_sender)
 
-        logging.info(f"[RaForexManager] Инициализирован: {self.pairs} | {self.timeframes}")
+        logging.info(f"[RaForexManager] Запущен: {self.pairs} | {self.timeframes}")
+
+    # ================= ENTRY =================
+    def compute_entry(self, df, signal):
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+        if signal == "BUY":
+            entry = min(last['close'], prev['low'])
+        elif signal == "SELL":
+            entry = max(last['close'], prev['high'])
+        else:
+            return None
+        return round(entry, 5)
+
+    # ================= SL / TP =================
+    def compute_sl_tp(self, price, atr, signal):
+        if not atr or not signal:
+            return None, None
+        if signal == "BUY":
+            return round(price - atr * 1.5, 5), round(price + atr * 3, 5)
+        elif signal == "SELL":
+            return round(price + atr * 1.5, 5), round(price - atr * 3, 5)
+        return None, None
 
     # ================= ФИГУРЫ =================
     def detect_figures(self, df):
@@ -58,16 +77,6 @@ class RaForexManager:
         if lows.iloc[-1] > lows.iloc[-3] < lows.iloc[-5]:
             figures.append('Double Bottom')
         return figures
-
-    # ================= SL / TP =================
-    def compute_sl_tp(self, price, atr, signal):
-        if not atr or not signal:
-            return None, None
-        if signal == "BUY":
-            return round(price - atr * 1.5, 5), round(price + atr * 3, 5)
-        elif signal == "SELL":
-            return round(price + atr * 1.5, 5), round(price - atr * 3, 5)
-        return None, None
 
     # ================= АНАЛИЗ ПАРЫ ПО ТФ =================
     def analyze_pair_tf(self, pair, tf):
@@ -106,11 +115,13 @@ class RaForexManager:
 
         signal = "BUY" if score >= 3 else "SELL" if score <= -2 else None
         sl, tp = self.compute_sl_tp(price, atr, signal)
+        entry = self.compute_entry(df, signal)
 
         return {
             "pair": pair,
             "tf": tf,
             "signal": signal,
+            "entry": entry,
             "price": price,
             "sl": sl,
             "tp": tp,
@@ -118,7 +129,7 @@ class RaForexManager:
             "timestamp": datetime.utcnow().isoformat() + 'Z'
         }
 
-    # ================= КРОСС-ТФ СИГНАЛ =================
+    # ================= КРОСС-ТФ =================
     def cross_tf_signal(self, pair):
         results = []
         for tf in self.timeframes:
@@ -141,19 +152,6 @@ class RaForexManager:
             if res:
                 results.append(res)
         return results
-        
-    # +++++++++++СИГНАЛЫ++++++++++++++++++++++++++++
-    def compute_entry(self, df, signal):
-        last = df.iloc[-1]
-        prev = df.iloc[-2]
-        if signal == "BUY":
-            entry = min(last['close'], prev['low'])
-        elif signal == "SELL":
-            entry = max(last['close'], prev['high'])
-        else:
-            return None
-
-        return round(entry, 5)
 
     # ================= ОТПРАВКА =================
     def send_signal(self, signal):
@@ -162,6 +160,7 @@ class RaForexManager:
         msg = (
             f"🔥 {signal['pair']} | {signal['signal']}\n"
             f"TF: {signal['tf']}\n"
+            f"Entry: {signal['entry']}\n"
             f"Цена: {signal['price']:.5f}\n"
             f"SL: {signal['sl']}\n"
             f"TP: {signal['tp']}\n"
