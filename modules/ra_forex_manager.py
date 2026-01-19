@@ -22,7 +22,7 @@ class TelegramSender:
 
 class RaForexManager:
     def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json'):
-        self.timeframes = timeframes or ['1h', '4h']
+        self.timeframes = timeframes or ['M15', 'H1']
         self.telegram = telegram_sender
         self.log_file = log_file
         self.brain_modules = {}  # {pair: {tf: ForexBrain}}
