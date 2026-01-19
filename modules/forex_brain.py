@@ -6,29 +6,47 @@ from datetime import datetime
 import json
 
 class ForexBrain:
-    def __init__(self, pairs=None, timeframe='1h'):
+    def __init__(self, pairs=None, timeframe='H1'):
+        """
+        pairs: список валютных пар, например ['EURUSD', 'GBPUSD']
+        timeframe: таймфрейм для истории, например 'M15', 'H1', 'H4'
+        """
         self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframe = timeframe
         self.data = {}
 
+    # ------------------- ЗАГРУЗКА ИСТОРИИ -------------------
     def fetch_history(self, pair, limit=500):
-        url = f"https://api.binance.com/api/v3/klines?symbol={pair}USDT&interval={self.timeframe}&limit={limit}"
+        """
+        Загружает историю котировок для Alpari (или другого API).
+        Приводит к DataFrame с колонками: time, open, high, low, close, volume
+        """
+        # Здесь подставь URL Alpari или свой источник данных
+        url = f"https://api.alpari.com/v1/marketdata/{pair}/candles?timeframe={self.timeframe}&limit={limit}"
         try:
             resp = requests.get(url)
             resp.raise_for_status()
             candles = resp.json()
-            df = pd.DataFrame(candles, columns=[
-                'open_time','open','high','low','close','volume','close_time',
-                'quote_asset_volume','trades','taker_base','taker_quote','ignore'
-            ])
+
+            # Приводим к стандартной таблице
+            df = pd.DataFrame(candles)
+            df.rename(columns={
+                'openPrice': 'open',
+                'highPrice': 'high',
+                'lowPrice': 'low',
+                'closePrice': 'close',
+                'volume': 'volume',
+                'timestamp': 'time'
+            }, inplace=True)
+            df['time'] = pd.to_datetime(df['time'])
             df[['open','high','low','close','volume']] = df[['open','high','low','close','volume']].astype(float)
-            df['time'] = pd.to_datetime(df['open_time'], unit='ms')
+
             self.data[pair] = df
             return df
+
         except Exception as e:
             print(f"[ForexBrain] Ошибка загрузки {pair}: {e}")
             return None
-
     # ------------------- ИНДИКАТОРЫ -------------------
     def compute_sma(self, df, period=14):
         return df['close'].rolling(period).mean()
