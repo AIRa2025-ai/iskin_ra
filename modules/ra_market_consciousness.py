@@ -6,6 +6,7 @@ from datetime import datetime
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
+from core.telegram_sender import send_message
 
 class RaMarketConsciousness:
     def __init__(self, symbol, timeframe, telegram_sender=None):
@@ -33,7 +34,9 @@ class RaMarketConsciousness:
         range_size = high - low
         if range_size == 0:
             return None
-
+        if signal:
+            send_message(f"📈 {pair}: {signal}")
+            
         position = (price - low) / range_size
 
         if position > 0.8:
