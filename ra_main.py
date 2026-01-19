@@ -6,6 +6,7 @@ from modules import system
 from modules import ra_file_consciousness
 from core import ra_memory, ra_knowledge
 from core import gpt_module
+from modules.ra_forex_manager import RaForexManager
 
 logging.basicConfig(level=logging.INFO)
 
@@ -74,6 +75,15 @@ async def main():
     except asyncio.CancelledError:
         logging.info("🌙 Ра мягко завершает внутренние процессы...")
         raise
+
+async def market_loop():
+    while True:
+        signals = forex.update()
+        for s in signals:
+            logging.info(f"🧭 Сигнал Ра: {s}")
+        await asyncio.sleep(300)
+
+asyncio.create_task(market_loop())
 
 if __name__ == "__main__":
     try:
