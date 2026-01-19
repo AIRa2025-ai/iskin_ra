@@ -6,7 +6,7 @@ from datetime import datetime
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
-from core.telegram_sender import send_message
+
 class RaMarketConsciousness:
     def __init__(self, symbol, timeframe, telegram_sender=None):
         self.symbol = symbol
