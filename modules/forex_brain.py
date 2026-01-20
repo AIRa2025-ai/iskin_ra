@@ -26,11 +26,18 @@ class ForexBrain:
             resp.raise_for_status()
             data = resp.json()
 
+            # Проверка, есть ли данные по паре
+            if not data.get('rates') or data['rates'].get(pair) is None:
+                print(f"[ForexBrain] Нет данных по {pair}")
+                return None
+
+            pair_data = data['rates'][pair]
+
             # Формируем DataFrame из полученных данных
             df = pd.DataFrame({
-                'pair': list(data['rates'].keys()),
-                'close': [v['rate'] for v in data['rates'].values()],
-                'time': pd.to_datetime([v['timestamp'] for v in data['rates'].values()], unit='s')
+                'pair': [pair],
+                'close': [pair_data['rate']],
+                'time': [pd.to_datetime(pair_data['timestamp'], unit='s')]
             })
 
             # Заглушки для остальных колонок, чтобы остальной код не ругался
