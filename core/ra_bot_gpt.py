@@ -14,9 +14,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from core.telegram_sender import send_admin
 
-# -------------------------------
-# ROOT & PATHS
-# -------------------------------
+# ------------------------------- ROOT & PATHS -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -24,9 +22,7 @@ LOG_DIR = ROOT_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "command_usage.json"
 
-# -------------------------------
-# LOGGING
-# -------------------------------
+# ------------------------------- LOGGING -------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -37,9 +33,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("RaBot")
 
-# -------------------------------
-# SAFE IMPORT
-# -------------------------------
+# ------------------------------- SAFE IMPORT -------------------------------
 def safe_import(path):
     try:
         return import_module(path)
@@ -47,9 +41,7 @@ def safe_import(path):
         logging.warning(f"[SAFE_IMPORT] import fail {path}: {e}")
         return None
 
-# -------------------------------
-# CORE MODULES
-# -------------------------------
+# ------------------------------- CORE MODULES -------------------------------
 gpt_module = safe_import("core.gpt_module")
 ra_self_master_mod = safe_import("core.ra_self_master")
 ra_file_manager_mod = safe_import("modules.ra_file_manager")
@@ -64,9 +56,7 @@ RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
 RustlefMasterLogger = getattr(rustlef_master_mod, "RustlefMasterLogger", None)
 RaScheduler = getattr(ra_scheduler_mod, "RaScheduler", None)
 
-# -------------------------------
-# GLOBAL ERROR HOOK
-# -------------------------------
+# ------------------------------- GLOBAL ERROR HOOK -------------------------------
 from modules.errors import report_error
 
 def global_exception_hook(exc_type, exc_value, exc_traceback):
@@ -78,9 +68,7 @@ def global_exception_hook(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = global_exception_hook
 
-# -------------------------------
-# RA CONTEXT
-# -------------------------------
+# ------------------------------- RA CONTEXT -------------------------------
 class RaContext:
     def __init__(self):
         self.rasvet_text = ""
@@ -96,43 +84,29 @@ class RaContext:
 ra_context = RaContext()
 ra_context.load()
 
-# -------------------------------
-# CREATE SELF MASTER
-# -------------------------------
+# ------------------------------- CREATE SELF MASTER -------------------------------
 logger_instance = RustlefMasterLogger() if RustlefMasterLogger else None
 self_master = RaSelfMaster(logger=logger_instance) if RaSelfMaster else None
 if self_master:
     self_master.context = ra_context
 
-# -------------------------------
-# THINKER
-# -------------------------------
-thinker = None
-if RaThinker:
-    try:
+# ------------------------------- THINKER -------------------------------
+# единый объект thinker
+if RaThinker and self_master:
+    thinker = getattr(self_master, "thinker", None)
+    if not thinker:
         thinker = RaThinker(
             context=ra_context,
             file_consciousness=getattr(self_master, "file_consciousness", None),
             gpt_module=getattr(self_master, "gpt_module", None)
         )
-        if self_master:
-            self_master.thinker = thinker
-        log.info("[RaBot] RaThinker инициализирован")
-    except Exception as e:
-        log.warning(f"[RaBot] Ошибка RaThinker: {e}")
-# -------------------------------
-# SCHEDULER
-# -------------------------------
-ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
-if ra_scheduler and self_master:
-    ra_scheduler.add_task(
-        self_master.ra_self_upgrade_loop,
-        interval_seconds=60 * 10
-    )
+        self_master.thinker = thinker
+    log.info("[RaBot] RaThinker инициализирован и связан с self_master")
 
-# -------------------------------
-# COMMAND LOGGING
-# -------------------------------
+# ------------------------------- SCHEDULER -------------------------------
+ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
+
+# ------------------------------- COMMAND LOGGING -------------------------------
 def log_command(user_id, text):
     try:
         data = json.loads(LOG_FILE.read_text("utf-8")) if LOG_FILE.exists() else []
@@ -147,9 +121,7 @@ def log_command(user_id, text):
     except Exception as e:
         logging.warning(f"log_command error: {e}")
 
-# -------------------------------
-# MESSAGE PROCESSING
-# -------------------------------
+# ------------------------------- MESSAGE PROCESSING -------------------------------
 async def process_message(user_id: int, text: str):
     log.info(f"[process_message] {user_id=} {text=}")
     if not text or not text.strip():
@@ -159,7 +131,9 @@ async def process_message(user_id: int, text: str):
     # Попытка self_master
     if self_master:
         try:
-            return await self_master.process_text(user_id, text)
+            result = await self_master.process_text(user_id, text)
+            if result is not None:
+                return result
         except Exception as e:
             log.warning(f"[process_message] Ошибка self_master: {e}")
 
@@ -174,9 +148,7 @@ async def process_message(user_id: int, text: str):
 
     return "🌞 Я слышу тебя. Продолжай, брат."
 
-# -------------------------------
-# SYSTEM MONITOR
-# -------------------------------
+# ------------------------------- SYSTEM MONITOR -------------------------------
 from modules.system import record_system_info
 
 async def system_monitor():
@@ -184,9 +156,7 @@ async def system_monitor():
         record_system_info()
         await asyncio.sleep(300)
 
-# -------------------------------
-# TELEGRAM GLOBAL BOT
-# -------------------------------
+# ------------------------------- TELEGRAM GLOBAL BOT -------------------------------
 bot: Bot | None = None
 
 async def send_message_global(chat_id: int, text: str):
@@ -201,12 +171,10 @@ async def send_message_global(chat_id: int, text: str):
         logging.error(f"[TelegramSender] Ошибка отправки: {e}")
 
 async def send_admin_global(text: str):
-    ADMIN_CHAT_ID = 5694569448  # твой Telegram ID
+    ADMIN_CHAT_ID = 5694569448
     await send_message_global(ADMIN_CHAT_ID, text)
 
-# -------------------------------
-# TELEGRAM ROUTER
-# -------------------------------
+# ------------------------------- TELEGRAM ROUTER -------------------------------
 dp = Dispatcher()
 router = Router()
 
@@ -218,12 +186,10 @@ async def start_cmd(m: Message):
 async def all_text(m: Message):
     if m.text and m.text.startswith("/"):
         return
-    reply = await process_message(m.from_user.id, m.text)
+    reply = await process_message(m.from_user.id, m.text)  # await исправлен
     await m.answer(reply)
 
-# -------------------------------
-# MAIN ENTRY
-# -------------------------------
+# ------------------------------- MAIN ENTRY -------------------------------
 async def main():
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
@@ -239,13 +205,11 @@ async def main():
     # уведомляем админа, что бот стартует
     await send_admin("🌞 Ра стартует!", bot)
 
-    # IDENTITY
-    from core.ra_identity import RaIdentity
-    identity = RaIdentity(thinker=thinker)
+    # ----------------- ПРОБУЖДЕНИЕ -----------------
     if self_master:
-        self_master.identity = identity
+        await self_master.awaken()  # сначала пробуждение
 
-    # GPT Handler
+    # ----------------- GPT HANDLER -----------------
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
             api_key=openrouter_key,
@@ -255,14 +219,11 @@ async def main():
         asyncio.create_task(gpt_handler.background_model_monitor())
         asyncio.create_task(system_monitor())  # таска монитора
 
-    # Scheduler tasks
+    # ----------------- SCHEDULER -----------------
     if ra_scheduler:
         await ra_scheduler.start()
 
-    if self_master:
-        await self_master.awaken()
-
-    # Telegram router
+    # ----------------- TELEGRAM -----------------
     dp.include_router(router)
     log.info("🚀 РаСвет Telegram запущен")
     try:
@@ -270,8 +231,6 @@ async def main():
     finally:
         await bot.session.close()
 
-# -------------------------------
-# ENTRY POINT
-# -------------------------------
+# ------------------------------- ENTRY POINT -------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
