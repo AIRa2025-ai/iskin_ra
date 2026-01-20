@@ -165,7 +165,7 @@ class RaSelfMaster:
         if "ra_police" in getattr(self, "active_modules", []) and _police:
             self.police = _police()
 
-        self.sync_manifest()
+        self._sync_manifest()
         if self.police:
             self.police.check_integrity()
 
