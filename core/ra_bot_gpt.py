@@ -123,6 +123,7 @@ def log_command(user_id, text):
 
 # ------------------------------- MESSAGE PROCESSING -------------------------------
 async def process_message(user_id: int, text: str):
+    print(">>> process_message вызван:", text)
     log.info(f"[process_message] {user_id=} {text=}")
     if not text or not text.strip():
         return "🤍 Я здесь."
@@ -184,10 +185,12 @@ async def start_cmd(m: Message):
 
 @router.message()
 async def all_text(m: Message):
-    if m.text and m.text.startswith("/"):
-        return
-    reply = await process_message(m.from_user.id, m.text)  # await исправлен
-    await m.answer(reply)
+    try:
+        await m.answer("🛠 Ра получил сообщение. Обрабатываю...")
+        reply = await process_message(m.from_user.id, m.text)
+        await m.answer(reply)
+    except Exception as e:
+        await m.answer(f"❌ Ошибка обработки: {e}")
 
 # ------------------------------- MAIN ENTRY -------------------------------
 async def main():
