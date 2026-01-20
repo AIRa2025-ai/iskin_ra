@@ -168,7 +168,25 @@ async def system_monitor():
     while True:
         record_system_info()
         await asyncio.sleep(300)
+#____________________________________
+bot: Bot | None = None  # глобальный объект бота
 
+async def send_message_global(chat_id: int, text: str):
+    """Отправка сообщения в любой чат через глобальный бот"""
+    global bot
+    if bot is None:
+        logging.error("[TelegramSender] Bot ещё не инициализирован")
+        return
+    try:
+        await bot.send_message(chat_id, text)
+        logging.info(f"[TelegramSender] Отправлено в {chat_id}: {text}")
+    except Exception as e:
+        logging.error(f"[TelegramSender] Ошибка отправки: {e}")
+
+async def send_admin_global(text: str):
+    ADMIN_CHAT_ID = 5694569448  # твой Telegram ID
+    await send_message_global(ADMIN_CHAT_ID, text)
+    
 # -------------------------------
 # TELEGRAM
 # -------------------------------
