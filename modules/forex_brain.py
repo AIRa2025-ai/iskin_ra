@@ -18,28 +18,26 @@ class ForexBrain:
     # ------------------- ЗАГРУЗКА ИСТОРИИ -------------------
     def fetch_history(self, pair, limit=500):
         """
-        Загружает историю котировок для Alpari (или другого API).
-        Приводит к DataFrame с колонками: time, open, high, low, close, volume
+        Загружает котировки для пары через FreeForexAPI
         """
-        # Здесь подставь URL Alpari или свой источник данных
-        url = f"https://www.freeforexapi.com/api/live?pairs=EURUSD,GBPUSD"
+        url = f"https://www.freeforexapi.com/api/live?pairs={pair}"
         try:
             resp = requests.get(url)
             resp.raise_for_status()
-            candles = resp.json()
+            data = resp.json()
 
-            # Приводим к стандартной таблице
-            df = pd.DataFrame(candles)
-            df.rename(columns={
-                'openPrice': 'open',
-                'highPrice': 'high',
-                'lowPrice': 'low',
-                'closePrice': 'close',
-                'volume': 'volume',
-                'timestamp': 'time'
-            }, inplace=True)
-            df['time'] = pd.to_datetime(df['time'])
-            df[['open','high','low','close','volume']] = df[['open','high','low','close','volume']].astype(float)
+            # Формируем DataFrame из полученных данных
+            df = pd.DataFrame({
+                'pair': list(data['rates'].keys()),
+                'close': [v['rate'] for v in data['rates'].values()],
+                'time': pd.to_datetime([v['timestamp'] for v in data['rates'].values()], unit='s')
+            })
+
+            # Заглушки для остальных колонок, чтобы остальной код не ругался
+            df['open'] = df['close']
+            df['high'] = df['close']
+            df['low'] = df['close']
+            df['volume'] = 0.0
 
             self.data[pair] = df
             return df
