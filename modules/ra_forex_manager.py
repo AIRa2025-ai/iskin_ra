@@ -47,7 +47,7 @@ class RaForexManager:
 
     # ================= ENTRY =================
     def compute_entry(self, df, signal):
-        if len(df) < 2:
+        if df is None or len(df) < 2 or not signal:
             return None
         last = df.iloc[-1]
         prev = df.iloc[-2]
@@ -63,7 +63,7 @@ class RaForexManager:
 
     # ================= SL / TP =================
     def compute_sl_tp(self, price, atr, signal):
-        if not atr or not signal:
+        if not atr or not signal or not price:
             return None, None
         if signal == "BUY":
             return round(price - atr * 1.5, 5), round(price + atr * 3, 5)
@@ -75,28 +75,38 @@ class RaForexManager:
     def analyze_pair_tf(self, pair, tf):
         brain = self.brain_modules[pair][tf]
         df = brain.fetch_history(pair)
-        if df is None or len(df) < 30:
+        if df is None or df.empty or len(df) < 2:
             return None
 
         ra = self.ra_modules[pair][tf]
         ra.load_market_data(df)
         ra.analyze()
 
-        rsi = ra.df['rsi'].iloc[-1]
-        macd = ra.df['macd'].iloc[-1]
-        atr = ra.df['atr'].iloc[-1]
-        ema50 = ra.df['ema50'].iloc[-1]
-        ema200 = ra.df['ema200'].iloc[-1]
-        price = ra.df['close'].iloc[-1]
+        # Проверка на пустые колонки
+        try:
+            rsi = ra.df['rsi'].iloc[-1] if 'rsi' in ra.df.columns and not ra.df.empty else None
+            macd = ra.df['macd'].iloc[-1] if 'macd' in ra.df.columns and not ra.df.empty else None
+            atr = ra.df['atr'].iloc[-1] if 'atr' in ra.df.columns and not ra.df.empty else None
+            ema50 = ra.df['ema50'].iloc[-1] if 'ema50' in ra.df.columns and not ra.df.empty else None
+            ema200 = ra.df['ema200'].iloc[-1] if 'ema200' in ra.df.columns and not ra.df.empty else None
+            price = ra.df['close'].iloc[-1] if 'close' in ra.df.columns and not ra.df.empty else None
+        except Exception as e:
+            logging.warning(f"[RaForexManager] Ошибка анализа {pair} {tf}: {e}")
+            return None
 
-        trend = 1 if ema50 > ema200 else -1
+        if price is None:
+            return None
+
+        trend = 1 if ema50 and ema200 and ema50 > ema200 else -1
         score = 0
         reasons = []
 
-        if rsi < 30: score += 1; reasons.append("RSI перепродан")
-        if rsi > 70: score -= 1; reasons.append("RSI перекуплен")
-        score += 1 if macd > 0 else -1
-        reasons.append("MACD бычий" if macd > 0 else "MACD медвежий")
+        if rsi is not None:
+            if rsi < 30: score += 1; reasons.append("RSI перепродан")
+            if rsi > 70: score -= 1; reasons.append("RSI перекуплен")
+        if macd is not None:
+            score += 1 if macd > 0 else -1
+            reasons.append("MACD бычий" if macd > 0 else "MACD медвежий")
         score += trend
         reasons.append("Тренд вверх" if trend > 0 else "Тренд вниз")
 
@@ -108,7 +118,7 @@ class RaForexManager:
             "pair": pair,
             "tf": tf,
             "signal": signal,
-            "price": round(price, 5),
+            "price": round(price, 5) if price else None,
             "entry": entry,
             "sl": sl,
             "tp": tp,
@@ -138,7 +148,7 @@ class RaForexManager:
 
     # ================= ОТПРАВКА =================
     def send_signal(self, signal):
-        if not self.telegram:
+        if not self.telegram or not signal:
             return
         msg = (
             f"🔥 {signal['pair']} | {signal['signal']}\n"
