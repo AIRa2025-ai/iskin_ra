@@ -190,6 +190,7 @@ async def send_admin_global(text: str):
 # -------------------------------
 # TELEGRAM
 # -------------------------------
+global bot
 dp = Dispatcher()
 router = Router()
 
@@ -208,7 +209,6 @@ async def all_text(m: Message):
 # MAIN ENTRY
 # -------------------------------
 async def main():
-    global bot
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -218,6 +218,7 @@ async def main():
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
     # --- создаём объект Telegram Bot ---
+    global bot
     bot = Bot(token=token)
 
     # --- сразу можем отправить админу сообщение, что Ра стартует ---
