@@ -1,3 +1,4 @@
+# core/telegram_sender.py
 import logging
 from aiogram import Bot
 
