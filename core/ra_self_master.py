@@ -41,11 +41,10 @@ class RaSelfMaster:
         self.memory = memory
         self.heart = heart
         self.logger = logger
-        self.thinker = RaThinker(root_path=".")
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
         self.active_modules = []
-
+        self.thinker = RaThinker(root_path=".", gpt_module=self.gpt_module)
         # Автолоадер
         self.autoloader = RaAutoloader() if RaAutoloader else None
 
@@ -97,18 +96,13 @@ class RaSelfMaster:
         messages.append({"role": "system", "content": system_content})
         messages.append({"role": "user", "content": text})
 
-        if not self.gpt_module: return "🤍 Я здесь, брат."
-
-        try:
-            response = await self.gpt_module.safe_ask(user_id, messages)
-        except Exception as e:
-            return f"⚠️ Тишина в потоке: {e}"
-
-        if self.memory:
-            try: self.memory.store(user_id, response, role="assistant")
-            except Exception: pass
-
-        return response
+        if not self.gpt_module:
+            if self.thinker:
+                try:
+                    return await self.thinker.reflect_async(text)
+                except Exception:
+                    return f"🤍 Я слышу тебя, но пока молчу."
+            return "🤍 Я здесь, брат."
 
     # -------------------------------
     # Цикл саморазвития
