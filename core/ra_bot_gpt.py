@@ -112,14 +112,14 @@ if RaThinker:
     try:
         thinker = RaThinker(
             context=ra_context,
-            file_consciousness=getattr(self_master, "file_consciousness", None)
+            file_consciousness=getattr(self_master, "file_consciousness", None),
+            gpt_module=getattr(self_master, "gpt_module", None)
         )
         if self_master:
             self_master.thinker = thinker
         log.info("[RaBot] RaThinker инициализирован")
     except Exception as e:
         log.warning(f"[RaBot] Ошибка RaThinker: {e}")
-
 # -------------------------------
 # SCHEDULER
 # -------------------------------
