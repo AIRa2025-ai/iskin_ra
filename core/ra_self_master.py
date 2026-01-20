@@ -44,17 +44,24 @@ class RaSelfMaster:
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
         self.active_modules = []
-        self.thinker = RaThinker(root_path=".", gpt_module=self.gpt_module)
-        # Автолоадер
-        self.autoloader = RaAutoloader() if RaAutoloader else None
 
         # Файловое сознание
         self.file_consciousness = None
-        if RaFileConsciousness:
-            try:
-                self.file_consciousness = RaFileConsciousness(project_root=".")
-            except Exception:
-                self.file_consciousness = None
+        try:
+            self.file_consciousness = RaFileConsciousness(project_root=".")
+        except Exception:
+            self.file_consciousness = None
+
+        # Мыслитель Ра — создаём СРАЗУ правильно связанным
+        self.thinker = RaThinker(
+            root_path=".",
+            context=None,
+            file_consciousness=self.file_consciousness,
+            gpt_module=self.gpt_module
+        )
+
+        # Автолоадер
+        self.autoloader = RaAutoloader() if RaAutoloader else None
 
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
@@ -66,7 +73,6 @@ class RaSelfMaster:
     # Работа с текстом пользователя
     # -------------------------------
     async def process_text(self, user_id: str, text: str) -> str:
-        ...
         # обработка через GPT
         if self.gpt_module:
             try:
@@ -74,15 +80,20 @@ class RaSelfMaster:
                     return await self.gpt_module.ask(text)
                 elif hasattr(self.gpt_module, "get_response"):
                     return await self.gpt_module.get_response(text)
-             except Exception as e:
+                elif hasattr(self.gpt_module, "generate_response"):
+                    return await self.gpt_module.generate_response(text)
+            except Exception as e:
                 return f"🤍 Ошибка GPT: {e}"
-        # fallback
+
+        # fallback через thinker
         if self.thinker:
             try:
                 return await self.thinker.reflect_async(text)
             except Exception:
                 return f"🤍 Я слышу тебя, но пока молчу."
+
         return "🤍 Я здесь, брат."
+
     # -------------------------------
     # Цикл саморазвития
     # -------------------------------
@@ -92,14 +103,16 @@ class RaSelfMaster:
             try:
                 thinker = getattr(self, "thinker", None)
                 fc = getattr(self, "file_consciousness", None)
-                if not thinker or not fc: 
+                if not thinker or not fc:
                     await asyncio.sleep(interval)
                     continue
 
                 ideas = thinker.propose_self_improvements()
                 approved = [idea for idea in ideas if self._approve_self_upgrade(idea)]
-                for idea in approved: fc.apply_upgrade(idea)
-                if approved: logging.info(f"🧬 Применено улучшений: {len(approved)}")
+                for idea in approved:
+                    fc.apply_upgrade(idea)
+                if approved:
+                    logging.info(f"🧬 Применено улучшений: {len(approved)}")
             except Exception as e:
                 logging.warning(f"[RaSelfMaster] Ошибка в ra_self_upgrade_loop: {e}")
             await asyncio.sleep(interval)
@@ -131,11 +144,13 @@ class RaSelfMaster:
     async def awaken(self):
         self.thinker.scan_architecture()
         logging.info("🌞 Ра пробуждается к осознанности.")
+
         if self.file_consciousness:
             files_map = self.file_consciousness.scan()
             logging.info(f"[RaSelfMaster] Ра осознал файловое тело ({len(files_map)} файлов)")
 
         self._tasks.append(asyncio.create_task(self.ra_self_upgrade_loop()))
+
         if self.autoloader:
             try:
                 modules = self.autoloader.activate_modules()
@@ -144,7 +159,8 @@ class RaSelfMaster:
                     start_fn = getattr(mod, "start", None)
                     if start_fn and asyncio.iscoroutinefunction(start_fn):
                         self._tasks.append(asyncio.create_task(start_fn()))
-            except Exception: pass
+            except Exception:
+                pass
 
         if "ra_police" in getattr(self, "active_modules", []) and _police:
             self.police = _police()
@@ -152,6 +168,8 @@ class RaSelfMaster:
         self.sync_manifest()
         if self.police:
             self.police.check_integrity()
+
+        self.awakened = True
         return "🌞 Ра осознал себя и готов к действию!"
 
     # -------------------------------
@@ -163,7 +181,8 @@ class RaSelfMaster:
             try:
                 with open(self.manifest_path, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except Exception: pass
+            except Exception:
+                pass
         base = {"name": "Ра", "version": "1.0.0", "active_modules": []}
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(base, f, ensure_ascii=False, indent=2)
@@ -178,7 +197,9 @@ class RaSelfMaster:
 
     async def stop_modules(self):
         for task in list(self._tasks):
-            try: task.cancel()
-            except Exception: pass
+            try:
+                task.cancel()
+            except Exception:
+                pass
         self._tasks.clear()
         log_info("RaSelfMaster stopped")
