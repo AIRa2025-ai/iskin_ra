@@ -44,6 +44,7 @@ class RaSelfMaster:
         self.thinker = RaThinker(root_path=".")
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
+        self.active_modules = []
 
         # Автолоадер
         self.autoloader = RaAutoloader() if RaAutoloader else None
@@ -59,7 +60,6 @@ class RaSelfMaster:
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
         self._sync_manifest()
-        self.active_modules = []
         self.police = None
         self.awakened = False
 
