@@ -7,51 +7,38 @@ import json
 
 class ForexBrain:
     def __init__(self, pairs=None, timeframe='H1'):
-        """
-        pairs: список валютных пар, например ['EURUSD', 'GBPUSD']
-        timeframe: таймфрейм для истории, например 'M15', 'H1', 'H4'
-        """
         self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframe = timeframe
         self.data = {}
 
-    # ------------------- ЗАГРУЗКА ИСТОРИИ -------------------
     def fetch_history(self, pair, limit=500):
-        """
-        Загружает котировки для пары через FreeForexAPI
-        """
         url = f"https://www.freeforexapi.com/api/live?pairs={pair}"
         try:
-            resp = requests.get(url)
+            resp = requests.get(url, timeout=10)
             resp.raise_for_status()
             data = resp.json()
 
-            # Проверка, есть ли данные по паре
-            if not data.get('rates') or data['rates'].get(pair) is None:
-                print(f"[ForexBrain] Нет данных по {pair}")
-                return None
+            df = pd.DataFrame(columns=['pair', 'time', 'open', 'high', 'low', 'close', 'volume'])
 
-            pair_data = data['rates'][pair]
-
-            # Формируем DataFrame из полученных данных
-            df = pd.DataFrame({
-                'pair': [pair],
-                'close': [pair_data['rate']],
-                'time': [pd.to_datetime(pair_data['timestamp'], unit='s')]
-            })
-
-            # Заглушки для остальных колонок, чтобы остальной код не ругался
-            df['open'] = df['close']
-            df['high'] = df['close']
-            df['low'] = df['close']
-            df['volume'] = 0.0
+            if data.get('rates') and data['rates'].get(pair):
+                pair_data = data['rates'][pair]
+                df = pd.DataFrame({
+                    'pair': [pair],
+                    'close': [pair_data['rate']],
+                    'time': [pd.to_datetime(pair_data['timestamp'], unit='s')]
+                })
+                df['open'] = df['close']
+                df['high'] = df['close']
+                df['low'] = df['close']
+                df['volume'] = 0.0
 
             self.data[pair] = df
             return df
 
         except Exception as e:
             print(f"[ForexBrain] Ошибка загрузки {pair}: {e}")
-            return None
+            return pd.DataFrame(columns=['pair', 'time', 'open', 'high', 'low', 'close', 'volume'])
+
         
     # ------------------- ИНДИКАТОРЫ -------------------
     def compute_sma(self, df, period=14):
@@ -61,6 +48,7 @@ class ForexBrain:
         return df['close'].ewm(span=period, adjust=False).mean()
 
     def compute_rsi(self, df, period=14):
+        if df.empty: return pd.Series([np.nan]*len(df))
         delta = df['close'].diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -151,9 +139,9 @@ class ForexBrain:
     # ------------------- АНАЛИЗ -------------------
     def analyze_pair(self, pair):
         df = self.data.get(pair)
-        if df is None:
-            return None
-
+        if df is None or df.empty: return None
+        if len(df) < 2: return None
+        
         rsi = self.compute_rsi(df).iloc[-1]
         macd, signal = self.compute_macd(df)
         macd_last = macd.iloc[-1]
