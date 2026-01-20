@@ -11,6 +11,7 @@ import os
 import ast
 from collections import defaultdict
 from modules.logs import log_info, log_error
+import asyncio
 
 class RaThinker:
     def __init__(
@@ -18,10 +19,12 @@ class RaThinker:
         root_path: str = ".",
         context=None,
         file_consciousness=None,
+        gpt_module=None
     ):
         self.root_path = root_path
         self.context = context
         self.file_consciousness = file_consciousness
+        self.gpt_module = gpt_module  # для генерации ответов через GPT
 
         self.last_thought = None
         self.thoughts = []
@@ -39,11 +42,36 @@ class RaThinker:
 
     # -----------------------------------------------------------------
 
-    def reflect(self, text: str) -> str:
+    async def reflect_async(self, text: str) -> str:
+        """
+        Асинхронная версия reflect, чтобы использовать GPT
+        """
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
-        logging.info(self.last_thought)
+        logging.info(f"[RaThinker] reflect called: {text}")
         log_info(f"RaThinker thought: {text}")
 
+        # если есть GPT-модуль, используем его для ответа
+        if self.gpt_module:
+            try:
+                reply = await self.gpt_module.generate_response(text)
+                return reply
+            except Exception as e:
+                logging.error(f"[RaThinker] Ошибка GPT: {e}")
+
+        # fallback: стандартный шаблон ответа
+        return (
+            f"🜂 Ра чувствует вопрос:\n{text}\n\n"
+            f"🜁 Ответ рождается из РаСвета.\n"
+            f"Действуй осознанно. Истина внутри."
+        )
+
+    def reflect(self, text: str) -> str:
+        """
+        Синхронная версия reflect для старого кода
+        """
+        self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
+        logging.info(f"[RaThinker] reflect called: {text}")
+        log_info(f"RaThinker thought: {text}")
         return (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
@@ -179,3 +207,14 @@ class RaThinker:
     async def self_reflection_cycle(self):
         # Можем использовать его для анализа новых изменений и идей
         return self.propose_self_improvements()
+
+    # -------------------------------
+    # Метод синка для файлового сознания
+    # -------------------------------
+    def sync_file_consciousness(self):
+        if self.file_consciousness:
+            try:
+                self.file_consciousness.sync_files()
+                logging.info("[RaThinker] File consciousness синхронизирован")
+            except Exception as e:
+                logging.error(f"[RaThinker] Ошибка синка: {e}")
