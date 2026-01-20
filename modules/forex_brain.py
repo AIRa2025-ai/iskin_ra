@@ -22,7 +22,7 @@ class ForexBrain:
         Приводит к DataFrame с колонками: time, open, high, low, close, volume
         """
         # Здесь подставь URL Alpari или свой источник данных
-        url = f"https://api.alpari.com/v1/marketdata/{pair}/candles?timeframe={self.timeframe}&limit={limit}"
+        url = f"https://www.freeforexapi.com/api/live?pairs=EURUSD,GBPUSD"
         try:
             resp = requests.get(url)
             resp.raise_for_status()
