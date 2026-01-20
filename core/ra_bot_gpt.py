@@ -5,7 +5,7 @@ import json
 import logging
 import asyncio
 import traceback
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from importlib import import_module
 from dotenv import load_dotenv
@@ -108,13 +108,14 @@ if self_master:
 # THINKER
 # -------------------------------
 thinker = None
-if RaThinker and self_master:
+if RaThinker:
     try:
         thinker = RaThinker(
             context=ra_context,
             file_consciousness=getattr(self_master, "file_consciousness", None)
         )
-        self_master.thinker = thinker
+        if self_master:
+            self_master.thinker = thinker
         log.info("[RaBot] RaThinker инициализирован")
     except Exception as e:
         log.warning(f"[RaBot] Ошибка RaThinker: {e}")
@@ -150,13 +151,27 @@ def log_command(user_id, text):
 # MESSAGE PROCESSING
 # -------------------------------
 async def process_message(user_id: int, text: str):
+    log.info(f"[process_message] {user_id=} {text=}")
     if not text or not text.strip():
         return "🤍 Я здесь."
     log_command(user_id, text)
+
+    # Попытка self_master
     if self_master:
-        return await self_master.process_text(user_id, text)
+        try:
+            return await self_master.process_text(user_id, text)
+        except Exception as e:
+            log.warning(f"[process_message] Ошибка self_master: {e}")
+
+    # fallback на RaThinker
     if thinker:
-        return thinker.reflect(text)
+        try:
+            if hasattr(thinker, "reflect_async"):
+                return await thinker.reflect_async(text)
+            return thinker.reflect(text)
+        except Exception as e:
+            log.warning(f"[process_message] Ошибка thinker: {e}")
+
     return "🌞 Я слышу тебя. Продолжай, брат."
 
 # -------------------------------
@@ -168,11 +183,13 @@ async def system_monitor():
     while True:
         record_system_info()
         await asyncio.sleep(300)
-#____________________________________
-bot: Bot | None = None  # глобальный объект бота
+
+# -------------------------------
+# TELEGRAM GLOBAL BOT
+# -------------------------------
+bot: Bot | None = None
 
 async def send_message_global(chat_id: int, text: str):
-    """Отправка сообщения в любой чат через глобальный бот"""
     global bot
     if bot is None:
         logging.error("[TelegramSender] Bot ещё не инициализирован")
@@ -186,11 +203,10 @@ async def send_message_global(chat_id: int, text: str):
 async def send_admin_global(text: str):
     ADMIN_CHAT_ID = 5694569448  # твой Telegram ID
     await send_message_global(ADMIN_CHAT_ID, text)
-    
+
 # -------------------------------
-# TELEGRAM
+# TELEGRAM ROUTER
 # -------------------------------
-global bot
 dp = Dispatcher()
 router = Router()
 
@@ -217,20 +233,19 @@ async def main():
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
-    # --- создаём объект Telegram Bot ---
     global bot
     bot = Bot(token=token)
 
-    # --- сразу можем отправить админу сообщение, что Ра стартует ---
+    # уведомляем админа, что бот стартует
     await send_admin("🌞 Ра стартует!", bot)
 
-    # --- IDENTITY ---
+    # IDENTITY
     from core.ra_identity import RaIdentity
     identity = RaIdentity(thinker=thinker)
     if self_master:
         self_master.identity = identity
 
-    # --- GPT ---
+    # GPT Handler
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
             api_key=openrouter_key,
@@ -238,19 +253,18 @@ async def main():
         )
         self_master.gpt_module = gpt_handler
         asyncio.create_task(gpt_handler.background_model_monitor())
-        asyncio.create_task(system_monitor())
+        asyncio.create_task(system_monitor())  # таска монитора
 
-    # --- Scheduler tasks ---
+    # Scheduler tasks
     if ra_scheduler:
         await ra_scheduler.start()
 
     if self_master:
         await self_master.awaken()
 
-    # --- Telegram роутинг ---
+    # Telegram router
     dp.include_router(router)
     log.info("🚀 РаСвет Telegram запущен")
-
     try:
         await dp.start_polling(bot)
     finally:
