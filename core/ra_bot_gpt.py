@@ -208,6 +208,7 @@ async def all_text(m: Message):
 # MAIN ENTRY
 # -------------------------------
 async def main():
+    global bot
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
     if not token:
