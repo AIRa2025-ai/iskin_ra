@@ -187,6 +187,9 @@ class RaSelfMaster:
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(base, f, ensure_ascii=False, indent=2)
         return base
+        
+    def sync_manifest(self):
+        return self._sync_manifest()
 
     def _sync_manifest(self):
         self.manifest["active_modules"] = self.active_modules
