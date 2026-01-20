@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
+from core.telegram_sender import send_admin
 
 # -------------------------------
 # ROOT & PATHS
@@ -197,7 +198,11 @@ async def main():
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
+    # --- создаём объект Telegram Bot ---
     bot = Bot(token=token)
+
+    # --- сразу можем отправить админу сообщение, что Ра стартует ---
+    await send_admin("🌞 Ра стартует!", bot)
 
     # --- IDENTITY ---
     from core.ra_identity import RaIdentity
@@ -222,6 +227,7 @@ async def main():
     if self_master:
         await self_master.awaken()
 
+    # --- Telegram роутинг ---
     dp.include_router(router)
     log.info("🚀 РаСвет Telegram запущен")
 
