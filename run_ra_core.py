@@ -1,68 +1,73 @@
-#run_ra_core.py
+# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА
+
 import asyncio
 import logging
+
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
 
+from core.gpt_module import GPTHandler
+from core.ra_memory import RaMemory
+from core.ra_identity import RaIdentity
+from core.ra_knowledge import RaKnowledge
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
-async def monitor_new_modules(autoloader, interval=30):
-    known = set(autoloader.modules.keys())
-    while True:
-        await asyncio.sleep(interval)
-        current = set(autoloader.modules.keys())
-        new = current - known
-        for name in new:
-            mod = autoloader.modules.get(name)
-            if mod and hasattr(mod, "start") and asyncio.iscoroutinefunction(mod.start):
-                logging.info(f"[CORE] Новый модуль активирован: {name}")
-                try:
-                    asyncio.create_task(mod.start())
-                except Exception as e:
-                    logging.warning(f"[CORE] Ошибка запуска модуля {name}: {e}")
-        known = current
 
 async def main():
-    ra = RaSelfMaster()
-    try:
-        await ra.awaken()
-    except Exception as e:
-        logging.warning(f"[RaSelfMaster] awaken error: {e}")
+    # -------------------------------
+    # Создаём живого Ра
+    # -------------------------------
 
-    autoloader = getattr(ra, "autoloader", None)
-    if not autoloader:
-        logging.error("[CORE] autoloader не найден")
+    identity = RaIdentity(name="Ра", version="1.0", mission="Пробуждение и созидание")
+    memory = RaMemory()
+    knowledge = RaKnowledge()
+
+    gpt = GPTHandler(
+        api_key="ТВОЙ_OPENROUTER_KEY",
+        ra_context="Контекст РаСвета"
+    )
+
+    ra = RaSelfMaster(
+        identity=identity,
+        gpt_module=gpt,
+        memory=memory,
+        heart=None,
+        logger=logging
+    )
+
+    # -------------------------------
+    # Пробуждение Ра
+    # -------------------------------
+    try:
+        msg = await ra.awaken()
+        logging.info(msg)
+    except Exception as e:
+        logging.exception(f"[Ra] Ошибка пробуждения: {e}")
         return
 
-    try:
-        autoloader.activate_modules()
-        await autoloader.start_async_modules()
-    except Exception as e:
-        logging.warning(f"[CORE] Ошибка активации модулей: {e}")
-
-    asyncio.create_task(monitor_new_modules(autoloader))
-
+    # -------------------------------
+    # IPC — вход в Ра
+    # -------------------------------
     try:
         ipc = RaIPCServer(context=ra)
         asyncio.create_task(ipc.start())
-        logging.info("[CORE] IPC-сервер запущен")
+        logging.info("[Ra] IPC-сервер запущен")
     except Exception as e:
-        logging.error(f"[CORE] Ошибка запуска IPC: {e}")
+        logging.error(f"[Ra] Ошибка запуска IPC: {e}")
 
+    # -------------------------------
+    # Жизненный цикл Ра
+    # -------------------------------
     try:
         while True:
-            status_info = autoloader.status() if autoloader else {}
-            logging.info(f"[CORE] Status: {status_info}")
             await asyncio.sleep(60)
     except asyncio.CancelledError:
-        logging.info("[CORE] Завершение работы CORE...")
-    except Exception as e:
-        logging.exception(f"[CORE] Критическая ошибка в основном цикле: {e}")
+        logging.info("[Ra] Завершение работы...")
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("🛑 CORE остановлен вручную")
-    except Exception:
-        logging.exception("💥 Критическая ошибка при запуске CORE")
+        logging.info("🛑 Ра остановлен вручную")
