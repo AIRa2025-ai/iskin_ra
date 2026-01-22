@@ -174,6 +174,13 @@ class RaWorldExplorer:
         if len(self.память_мира) > 150:
             self.память_мира = self.память_мира[-100:]
 
+    #============================================================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+
+    async def sense(self):
+        # например, пришло событие из мира
+        await self.event_bus.emit("world_event", {"msg": "Сигнал из мира"})
     # ------------------------------------------------------------
 
     def status(self) -> dict:
