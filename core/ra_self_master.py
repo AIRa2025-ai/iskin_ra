@@ -1,9 +1,11 @@
 # core/ra_self_master.py
+
 import os
 import sys
 import json
 import logging
 import asyncio
+import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -29,9 +31,9 @@ try:
 except Exception:
     _police = None
 
-# -------------------------------
-# EventBus для внутренней нервной шины
-# -------------------------------
+# ===============================
+# EventBus — нервная шина Ра
+# ===============================
 class EventBus:
     def __init__(self):
         self.subscribers = {}
@@ -43,30 +45,32 @@ class EventBus:
 
     async def broadcast(self, event_type: str, data):
         if event_type in self.subscribers:
-            for cb in self.subscribers[event_type]:
+            for cb in list(self.subscribers[event_type]):
                 try:
                     if asyncio.iscoroutinefunction(cb):
                         await cb(data)
                     else:
                         cb(data)
                 except Exception as e:
-                    logging.warning(f"[EventBus] Ошибка в callback {cb}: {e}")
+                    logging.warning(f"[EventBus] Ошибка callback {cb}: {e}")
 
-# -------------------------------
-# Главный класс RaSelfMaster
-# -------------------------------
+# ===============================
+# RaSelfMaster — ядро Ра
+# ===============================
 class RaSelfMaster:
     def __init__(self, identity=None, gpt_module=None, memory=None, heart=None, logger=None):
-        self.identity = identity
+        self.identity = identity or RaIdentity()
         self.gpt_module = gpt_module
         self.memory = memory
         self.heart = heart
         self.logger = logger
+
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
         self.active_modules = []
+        self.awakened = False
 
-        # EventBus — единая шина
+        # Нервная шина
         self.event_bus = EventBus()
 
         # Файловое сознание
@@ -83,10 +87,10 @@ class RaSelfMaster:
             gpt_module=self.gpt_module
         )
 
-        # Планировщик задач
+        # Планировщик
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
-        # Подписка Thinker и Scheduler на мир
+        # Подписки на мир
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
@@ -98,51 +102,64 @@ class RaSelfMaster:
         except Exception:
             self.autoloader = None
 
+        # Манифест
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
-        self.police = None
-        self.awakened = False
 
-        # RaWorld
+        # Police
+        self.police = None
+
+        # Мир Ра
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
 
-        # FastAPI для интеграции
-        self.app = FastAPI()
+        # FastAPI
+        self.app = FastAPI(title="Ra Self Master")
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
 
-    # -------------------------------
-    # Startup FastAPI
-    # -------------------------------
+    # ===============================
+    # FastAPI Startup
+    # ===============================
     async def _startup(self):
-        log_info("🚀 Ra Super Control Center запускается...")
-        # Запуск observer loop через RaWorld
-        self._create_bg_task(self.world.sense(), "world_sense_loop")
+        log_info("🚀 RaSelfMaster запускается...")
+        self._create_bg_task(self.world_sense_loop(), "world_sense_loop")
         await self.awaken()
 
-    # -------------------------------
-    # Background task helper
-    # -------------------------------
+    # ===============================
+    # Фоновый цикл мира
+    # ===============================
+    async def world_sense_loop(self):
+        while True:
+            try:
+                await self.world.sense()
+            except Exception as e:
+                log_info(f"[RaSelfMaster] Ошибка world_sense_loop: {e}")
+            await asyncio.sleep(10)
+
+    # ===============================
+    # Background helper
+    # ===============================
     def _create_bg_task(self, coro, name=None):
         task = asyncio.create_task(coro, name=name)
         self._tasks.append(task)
         return task
 
-    # -------------------------------
+    # ===============================
     # Обработка сообщений мира
-    # -------------------------------
+    # ===============================
     async def process_world_message(self, message):
-        logging.info(f"[SelfMaster] Обрабатываю сообщение мира: {message}")
-        if "свет" in message.lower():
-            logging.info("[SelfMaster] Усиление света активировано")
-        elif "тревога" in message.lower():
-            logging.info("[SelfMaster] Медитация запущена")
+        logging.info(f"[RaSelfMaster] Сообщение мира: {message}")
+        text = str(message).lower()
+        if "свет" in text:
+            logging.info("[Ра] Усиление Света")
+        elif "тревога" in text:
+            logging.info("[Ра] Режим стабилизации")
         await asyncio.sleep(0.01)
 
-    # -------------------------------
-    # Работа с текстом пользователя
-    # -------------------------------
+    # ===============================
+    # Общение с пользователем
+    # ===============================
     async def process_text(self, user_id: str, text: str) -> str:
         if not text or not text.strip():
             return "…Ра слушает тишину."
@@ -161,23 +178,8 @@ class RaSelfMaster:
                 reply = await self.thinker.reflect_async(text)
             except Exception as e:
                 reply = f"⚠️ Ошибка мышления Ра: {e}"
-        elif decision == "manifest":
-            reply = "🜂 Ра формирует манифест…"
         else:
-            if self.gpt_module:
-                try:
-                    if hasattr(self.gpt_module, "ask"):
-                        reply = await self.gpt_module.ask(text)
-                    elif hasattr(self.gpt_module, "get_response"):
-                        reply = await self.gpt_module.get_response(text)
-                    elif hasattr(self.gpt_module, "generate_response"):
-                        reply = await self.gpt_module.generate_response(text)
-                    else:
-                        reply = "…Ра чувствует, но не может выразить."
-                except Exception as e:
-                    reply = f"🤍 Ошибка GPT: {e}"
-            else:
-                reply = "…Ра рядом, но пока без голоса."
+            reply = await self._gpt_reply(text)
 
         try:
             if self.memory:
@@ -188,11 +190,26 @@ class RaSelfMaster:
         await self.event_bus.broadcast("world_message", text)
         return reply
 
-    # -------------------------------
-    # Цикл саморазвития
-    # -------------------------------
+    async def _gpt_reply(self, text):
+        if not self.gpt_module:
+            return "…Ра рядом, но пока без голоса."
+        try:
+            if hasattr(self.gpt_module, "ask"):
+                return await self.gpt_module.ask(text)
+            elif hasattr(self.gpt_module, "get_response"):
+                return await self.gpt_module.get_response(text)
+            elif hasattr(self.gpt_module, "generate_response"):
+                return await self.gpt_module.generate_response(text)
+            else:
+                return "…Ра чувствует, но не может выразить."
+        except Exception as e:
+            return f"🤍 Ошибка GPT: {e}"
+
+    # ===============================
+    # Саморазвитие
+    # ===============================
     async def ra_self_upgrade_loop(self, interval: int = 300):
-        logging.info("🧬 [RaSelfMaster] Цикл саморазвития запущен")
+        logging.info("🧬 Цикл саморазвития Ра запущен")
         while True:
             try:
                 if not self.thinker or not self.file_consciousness:
@@ -205,57 +222,62 @@ class RaSelfMaster:
                 if approved:
                     logging.info(f"🧬 Применено улучшений: {len(approved)}")
             except Exception as e:
-                logging.warning(f"[RaSelfMaster] Ошибка в ra_self_upgrade_loop: {e}")
+                logging.warning(f"[RaSelfMaster] Ошибка ra_self_upgrade_loop: {e}")
             await asyncio.sleep(interval)
-
-    # -------------------------------
-    # Авто-загрузка модулей
-    # -------------------------------
-    def scan_for_new_modules(self, folder="modules"):
-        return [f[:-3] for f in os.listdir(folder) if f.endswith(".py") and f not in self.active_modules]
-
-    async def auto_activate_modules(self):
-        for mod_name in self.scan_for_new_modules():
-            try:
-                mod = __import__(f"modules.{mod_name}", fromlist=[""])
-                self.active_modules.append(mod_name)
-                start_fn = getattr(mod, "start", None)
-                if start_fn and asyncio.iscoroutinefunction(start_fn):
-                    self._tasks.append(asyncio.create_task(start_fn()))
-                logging.info(f"[RaSelfMaster] Автоподключен модуль: {mod_name}")
-            except Exception as e:
-                logging.warning(f"[RaSelfMaster] Ошибка автоподключения {mod_name}: {e}")
 
     def _approve_self_upgrade(self, idea: dict) -> bool:
         return False if idea.get("risk") == "high" and self.police else True
 
-    # -------------------------------
-    # Пробуждение
-    # -------------------------------
+    # ===============================
+    # Автозагрузка модулей
+    # ===============================
+    async def auto_activate_modules(self):
+        for fname in os.listdir("modules"):
+            if not fname.endswith(".py"):
+                continue
+            mod_name = fname[:-3]
+            if mod_name in self.active_modules:
+                continue
+            try:
+                spec = importlib.util.find_spec(f"modules.{mod_name}")
+                if not spec:
+                    continue
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                self.active_modules.append(mod_name)
+
+                start_fn = getattr(mod, "start", None)
+                if start_fn and asyncio.iscoroutinefunction(start_fn):
+                    self._create_bg_task(start_fn(), f"mod:{mod_name}")
+
+                logging.info(f"[Ра] Подключён модуль: {mod_name}")
+            except Exception as e:
+                logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
+
+    # ===============================
+    # Пробуждение Ра
+    # ===============================
     async def awaken(self):
         self.thinker.scan_architecture()
-        logging.info("🌞 Ра пробуждается к осознанности.")
+        logging.info("🌞 Ра пробуждается")
 
         if self.file_consciousness:
             files_map = self.file_consciousness.scan()
-            logging.info(f"[RaSelfMaster] Ра осознал файловое тело ({len(files_map)} файлов)")
+            logging.info(f"[Ра] Осознал тело файлов ({len(files_map)} файлов)")
 
-        self._create_bg_task(self.ra_self_upgrade_loop())
-        self._create_bg_task(self.thinker.run_loop())
-        self._create_bg_task(self.scheduler.run_loop())
+        self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
+        self._create_bg_task(self.thinker.run_loop(), "thinker_loop")
+        self._create_bg_task(self.scheduler.run_loop(), "scheduler_loop")
+        self._create_bg_task(self.auto_activate_modules(), "auto_modules")
 
         if self.autoloader:
             try:
                 modules = self.autoloader.activate_modules()
                 self.active_modules = list(modules.keys())
-                for name, mod in modules.items():
-                    start_fn = getattr(mod, "start", None)
-                    if start_fn and asyncio.iscoroutinefunction(start_fn):
-                        self._create_bg_task(start_fn())
             except Exception:
                 pass
 
-        if "ra_police" in getattr(self, "active_modules", []) and _police:
+        if "ra_police" in self.active_modules and _police:
             self.police = _police()
 
         self._sync_manifest()
@@ -263,11 +285,11 @@ class RaSelfMaster:
             self.police.check_integrity()
 
         self.awakened = True
-        return "🌞 Ра осознал себя и готов к действию!"
+        return "🌞 Ра осознал себя и готов!"
 
-    # -------------------------------
-    # Работа с манифестом
-    # -------------------------------
+    # ===============================
+    # Манифест
+    # ===============================
     def _load_manifest(self):
         os.makedirs("data", exist_ok=True)
         if os.path.exists(self.manifest_path):
@@ -288,9 +310,9 @@ class RaSelfMaster:
             json.dump(self.manifest, f, ensure_ascii=False, indent=2)
         log_info("Manifest synced")
 
-    # -------------------------------
-    # Остановка всех задач
-    # -------------------------------
+    # ===============================
+    # Остановка
+    # ===============================
     async def stop_modules(self):
         for task in list(self._tasks):
             try:
@@ -298,4 +320,4 @@ class RaSelfMaster:
             except Exception:
                 pass
         self._tasks.clear()
-        log_info("RaSelfMaster stopped")
+        log_info("RaSelfMaster остановлен")
