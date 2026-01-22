@@ -99,12 +99,46 @@ class RaSelfMaster:
 
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
+            # --- WebSocket клиенты для визуальной панели ---
+        self.ws_clients = set()
+
+        @self.app.websocket("/ws/events")
+        async def websocket_events(ws):
+            await ws.accept()
+            self.ws_clients.add(ws)
+            try:
+                while True:
+                    await ws.receive_text()
+            except Exception:
+                pass
+            finally:
+                self.ws_clients.remove(ws)
+                
         @self.app.get("/api/state")
-    async def ra_state():
-        return self.get_state()
+        async def ra_state():
+            return self.get_state()
+            
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
-
+        
+    # =========================================
+    # Метод WebSocket
+    # =========================================
+    async def _emit_ws_event(self, event_type, data):
+        payload = {
+            "time": datetime.now(timezone.utc).isoformat(),
+            "type": event_type,
+            "source": "Ra",
+            "data": str(data)
+        }
+        dead = []
+        for ws in self.ws_clients:
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.ws_clients.remove(ws)
     # ===============================
     # FastAPI Startup
     # ===============================
@@ -142,6 +176,7 @@ class RaSelfMaster:
             logging.info("[Ра] Усиление Света")
         elif "тревога" in text:
             logging.info("[Ра] Режим стабилизации")
+        await self._emit_ws_event("world_message", message)
         await asyncio.sleep(0.01)
 
     # ===============================
