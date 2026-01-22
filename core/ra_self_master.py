@@ -256,6 +256,18 @@ class RaSelfMaster:
         self.awakened = True
         return "🌞 Ра осознал себя и готов к действию!"
 
+#=================================================================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+
+    def set_context(self, context):
+        self.context = context
+
+    async def on_world_event(self, data):
+        print("[RaSelfMaster] Получил событие мира:", data)
+
+    async def on_thought(self, data):
+        print("[RaSelfMaster] Мысль:", data)
     # -------------------------------
     # Работа с манифестом
     # -------------------------------
