@@ -187,7 +187,7 @@ class RaSelfMaster:
         except Exception:
             pass
 
-        await self.event_bus.broadcast("world_message", text)
+        await self.event_bus.emit("world_message", text, source="RaSelfMaster")
         return reply
 
     async def _gpt_reply(self, text):
