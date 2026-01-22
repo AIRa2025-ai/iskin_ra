@@ -112,3 +112,11 @@ class RaWorldSpeaker:
             "dialogs": len(self.dialog_memory),
             "platforms": list(self.token_map.keys())
         }
+
+    #====================================================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+
+    async def sense(self):
+        # например, пришло событие из мира
+        await self.event_bus.emit("world_event", {"msg": "Сигнал из мира"})
