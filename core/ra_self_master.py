@@ -1,10 +1,12 @@
 # core/ra_self_master.py
 import os
+import sys
 import json
 import logging
 import asyncio
-import aiohttp
 from datetime import datetime, timezone
+from pathlib import Path
+
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
@@ -16,17 +18,6 @@ from modules.security import log_action
 from modules.ra_world_observer import RaWorld
 
 # -------------------------------
-# Автолоадер модулей
-# -------------------------------
-mod_name = fname[:-3]
-spec = importlib.util.spec_from_file_location(f"modules.{mod_name}", path)
-try:
-    from modules.ra_autoloader import RaAutoloader
-except Exception:
-    RaAutoloader = None
-    if f"modules.{mod_name}" in sys.modules:
-        continue
-# -------------------------------
 # Police модуль (опционально)
 # -------------------------------
 _police = None
@@ -35,10 +26,7 @@ try:
     _police = RaPolice
 except Exception:
     _police = None
-#=========================================
-world = RaWorld()
-ra.connect_world_observer(world)
-modules_dir = Path(__file__).parent / "modules"
+
 # -------------------------------
 # EventBus для внутренней нервной шины
 # -------------------------------
@@ -62,17 +50,6 @@ class EventBus:
                 except Exception as e:
                     logging.warning(f"[EventBus] Ошибка в callback {cb}: {e}")
 
-# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-class RaWorld:
-    def __init__(self):
-        self.event_bus = None
-
-    def set_event_bus(self, event_bus):
-        self.event_bus = event_bus
-
-    async def sense(self):
-        if self.event_bus:
-            await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"})
 # -------------------------------
 # Главный класс RaSelfMaster
 # -------------------------------
@@ -91,7 +68,6 @@ class RaSelfMaster:
         self.event_bus = EventBus()
 
         # Файловое сознание
-        self.file_consciousness = None
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
@@ -108,26 +84,32 @@ class RaSelfMaster:
         # Планировщик задач
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
-        # Подписка Thinker на сообщения мира
+        # Подписка Thinker и Scheduler на мир
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
 
         # Автолоадер
-        self.autoloader = RaAutoloader() if RaAutoloader else None
+        try:
+            from modules.ra_autoloader import RaAutoloader
+            self.autoloader = RaAutoloader()
+        except Exception:
+            self.autoloader = None
 
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
-        self._sync_manifest()
         self.police = None
         self.awakened = False
+
+        # RaWorld
+        self.world = RaWorld()
+        self.world.set_event_bus(self.event_bus)
 
     # -------------------------------
     # Обработка сообщений мира
     # -------------------------------
     async def process_world_message(self, message):
         logging.info(f"[SelfMaster] Обрабатываю сообщение мира: {message}")
-        # Примеры внутренней реакции
         if "свет" in message.lower():
             logging.info("[SelfMaster] Усиление света активировано")
         elif "тревога" in message.lower():
@@ -141,31 +123,25 @@ class RaSelfMaster:
         if not text or not text.strip():
             return "…Ра слушает тишину."
 
-        # Сохраняем в память
         try:
             if self.memory:
                 self.memory.append(user_id, {"from": "user", "text": text})
         except Exception:
             pass
 
-        # Решение через идентичность
         if self.identity:
             decision = self.identity.decide(text)
         else:
             decision = "answer"
 
-        # Мысль Ра
+        reply = ""
         if decision == "think" and self.thinker:
             try:
                 reply = await self.thinker.reflect_async(text)
             except Exception as e:
                 reply = f"⚠️ Ошибка мышления Ра: {e}"
-
-        # Манифест / творение
         elif decision == "manifest":
             reply = "🜂 Ра формирует манифест…"
-
-        # Ответ через GPT
         else:
             if self.gpt_module:
                 try:
@@ -182,16 +158,13 @@ class RaSelfMaster:
             else:
                 reply = "…Ра рядом, но пока без голоса."
 
-        # Сохраняем ответ Ра
         try:
             if self.memory:
                 self.memory.append(user_id, {"from": "ra", "text": reply})
         except Exception:
             pass
 
-        # Рассылаем сообщение миру через EventBus
         await self.event_bus.broadcast("world_message", text)
-
         return reply
 
     # -------------------------------
@@ -201,16 +174,13 @@ class RaSelfMaster:
         logging.info("🧬 [RaSelfMaster] Цикл саморазвития запущен")
         while True:
             try:
-                thinker = getattr(self, "thinker", None)
-                fc = getattr(self, "file_consciousness", None)
-                if not thinker or not fc:
+                if not self.thinker or not self.file_consciousness:
                     await asyncio.sleep(interval)
                     continue
-
-                ideas = thinker.propose_self_improvements()
+                ideas = self.thinker.propose_self_improvements()
                 approved = [idea for idea in ideas if self._approve_self_upgrade(idea)]
                 for idea in approved:
-                    fc.apply_upgrade(idea)
+                    self.file_consciousness.apply_upgrade(idea)
                 if approved:
                     logging.info(f"🧬 Применено улучшений: {len(approved)}")
             except Exception as e:
@@ -218,7 +188,7 @@ class RaSelfMaster:
             await asyncio.sleep(interval)
 
     # -------------------------------
-    # Авто-загрузка и подключение модулей
+    # Авто-загрузка модулей
     # -------------------------------
     def scan_for_new_modules(self, folder="modules"):
         return [f[:-3] for f in os.listdir(folder) if f.endswith(".py") and f not in self.active_modules]
@@ -274,18 +244,6 @@ class RaSelfMaster:
         self.awakened = True
         return "🌞 Ра осознал себя и готов к действию!"
 
-#=================================================================================
-    def set_event_bus(self, event_bus):
-        self.event_bus = event_bus
-
-    def set_context(self, context):
-        self.context = context
-
-    async def on_world_event(self, data):
-        print("[RaSelfMaster] Получил событие мира:", data)
-
-    async def on_thought(self, data):
-        print("[RaSelfMaster] Мысль:", data)
     # -------------------------------
     # Работа с манифестом
     # -------------------------------
@@ -301,9 +259,6 @@ class RaSelfMaster:
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(base, f, ensure_ascii=False, indent=2)
         return base
-        
-    def sync_manifest(self):
-        return self._sync_manifest()
 
     def _sync_manifest(self):
         self.manifest["active_modules"] = self.active_modules
@@ -312,13 +267,9 @@ class RaSelfMaster:
             json.dump(self.manifest, f, ensure_ascii=False, indent=2)
         log_info("Manifest synced")
 
-    @app.on_event("startup")
-    async def on_startup():
-        log("🚀 Ra Super Control Center запускается...")
-        await awaken_reflection()
-    # стартуем observer только через RaWorld
-        _create_bg_task(world.sense(), "world_sense_loop")
-    
+    # -------------------------------
+    # Остановка всех задач
+    # -------------------------------
     async def stop_modules(self):
         for task in list(self._tasks):
             try:
