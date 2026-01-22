@@ -4,7 +4,6 @@ import asyncio
 import logging
 import os
 from ra_nervous_system import RaCore
-from RaSelfMaster import RaSelfMaster
 from RaThinker import RaThinker
 from RaWorld import RaWorld
 from core.ra_self_master import RaSelfMaster
@@ -108,7 +107,9 @@ async def main():
         logger=logging
     )
     # регистрируем модули
-    core.register_module("self", self_master)
+    core.register_module("self", ra)
+    core.subscribe("world_event", ra.on_world_event)
+    core.subscribe("thought", ra.on_thought)
     core.register_module("thinker", thinker)
     core.register_module("world", world)
     core.register_module("scheduler", scheduler)
