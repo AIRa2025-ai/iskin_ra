@@ -7,6 +7,8 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
+from fastapi import FastAPI
+
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
@@ -105,6 +107,28 @@ class RaSelfMaster:
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
 
+        # FastAPI для интеграции
+        self.app = FastAPI()
+        self.app.on_event("startup")(self._startup)
+        self.app.on_event("shutdown")(self.stop_modules)
+
+    # -------------------------------
+    # Startup FastAPI
+    # -------------------------------
+    async def _startup(self):
+        log_info("🚀 Ra Super Control Center запускается...")
+        # Запуск observer loop через RaWorld
+        self._create_bg_task(self.world.sense(), "world_sense_loop")
+        await self.awaken()
+
+    # -------------------------------
+    # Background task helper
+    # -------------------------------
+    def _create_bg_task(self, coro, name=None):
+        task = asyncio.create_task(coro, name=name)
+        self._tasks.append(task)
+        return task
+
     # -------------------------------
     # Обработка сообщений мира
     # -------------------------------
@@ -129,10 +153,7 @@ class RaSelfMaster:
         except Exception:
             pass
 
-        if self.identity:
-            decision = self.identity.decide(text)
-        else:
-            decision = "answer"
+        decision = self.identity.decide(text) if self.identity else "answer"
 
         reply = ""
         if decision == "think" and self.thinker:
@@ -219,9 +240,9 @@ class RaSelfMaster:
             files_map = self.file_consciousness.scan()
             logging.info(f"[RaSelfMaster] Ра осознал файловое тело ({len(files_map)} файлов)")
 
-        self._tasks.append(asyncio.create_task(self.ra_self_upgrade_loop()))
-        self._tasks.append(asyncio.create_task(self.thinker.run_loop()))
-        self._tasks.append(asyncio.create_task(self.scheduler.run_loop()))
+        self._create_bg_task(self.ra_self_upgrade_loop())
+        self._create_bg_task(self.thinker.run_loop())
+        self._create_bg_task(self.scheduler.run_loop())
 
         if self.autoloader:
             try:
@@ -230,7 +251,7 @@ class RaSelfMaster:
                 for name, mod in modules.items():
                     start_fn = getattr(mod, "start", None)
                     if start_fn and asyncio.iscoroutinefunction(start_fn):
-                        self._tasks.append(asyncio.create_task(start_fn()))
+                        self._create_bg_task(start_fn())
             except Exception:
                 pass
 
