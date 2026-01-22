@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
-
+from core.ra_event_bus import RaEventBus
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
@@ -71,7 +71,7 @@ class RaSelfMaster:
         self.awakened = False
 
         # Нервная шина
-        self.event_bus = EventBus()
+        self.event_bus = RaEventBus()
 
         # Файловое сознание
         try:
