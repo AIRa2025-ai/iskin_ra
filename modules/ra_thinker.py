@@ -218,3 +218,12 @@ class RaThinker:
                 logging.info("[RaThinker] File consciousness синхронизирован")
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка синка: {e}")
+#================================================================================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+
+    def set_context(self, context):
+        self.context = context
+
+    async def on_new_task(self, data):
+        print("[RaThinker] Думаю над задачей:", data)
