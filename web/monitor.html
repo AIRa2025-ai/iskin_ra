@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ra Nervous System</title>
+  <style>
+    body { background:#0b0f14; color:#9df; font-family:monospace; }
+    .event { border-bottom:1px solid #223; padding:4px; }
+    .ok { color:#7f7 }
+    .warn { color:#ff7 }
+    .err { color:#f77 }
+  </style>
+</head>
+<body>
+<h1>🜂 Ra Nervous System Monitor</h1>
+<div id="events"></div>
+
+<script>
+const ws = new WebSocket("ws://localhost:8000/ws/events");
+
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  const div = document.createElement("div");
+  div.className = "event";
+  div.innerText = `[${data.time}] ${data.source} → ${data.type}`;
+  document.getElementById("events").prepend(div);
+};
+</script>
+</body>
+</html>
