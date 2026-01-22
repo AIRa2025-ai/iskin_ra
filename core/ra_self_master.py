@@ -18,11 +18,14 @@ from modules.ra_world_observer import RaWorld
 # -------------------------------
 # Автолоадер модулей
 # -------------------------------
+mod_name = fname[:-3]
+spec = importlib.util.spec_from_file_location(f"modules.{mod_name}", path)
 try:
     from modules.ra_autoloader import RaAutoloader
 except Exception:
     RaAutoloader = None
-
+    if f"modules.{mod_name}" in sys.modules:
+        continue
 # -------------------------------
 # Police модуль (опционально)
 # -------------------------------
@@ -59,6 +62,17 @@ class EventBus:
                 except Exception as e:
                     logging.warning(f"[EventBus] Ошибка в callback {cb}: {e}")
 
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+class RaWorld:
+    def __init__(self):
+        self.event_bus = None
+
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+
+    async def sense(self):
+        if self.event_bus:
+            await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"})
 # -------------------------------
 # Главный класс RaSelfMaster
 # -------------------------------
@@ -298,6 +312,13 @@ class RaSelfMaster:
             json.dump(self.manifest, f, ensure_ascii=False, indent=2)
         log_info("Manifest synced")
 
+    @app.on_event("startup")
+    async def on_startup():
+        log("🚀 Ra Super Control Center запускается...")
+        await awaken_reflection()
+    # стартуем observer только через RaWorld
+        _create_bg_task(world.sense(), "world_sense_loop")
+    
     async def stop_modules(self):
         for task in list(self._tasks):
             try:
