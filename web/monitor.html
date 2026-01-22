@@ -24,6 +24,19 @@ ws.onmessage = (e) => {
   div.innerText = `[${data.time}] ${data.source} → ${data.type}`;
   document.getElementById("events").prepend(div);
 };
+<script>
+async function updateState() {
+  const res = await fetch('/api/state');
+  const data = await res.json();
+
+  document.getElementById("mood").innerText = data.mood;
+  document.getElementById("load").innerText = data.load;
+  document.getElementById("events").innerText = data.events_per_sec;
+  document.getElementById("errors").innerText = data.errors;
+  document.getElementById("thought").innerText = data.last_thought;
+}
+
+setInterval(updateState, 1000);
 </script>
 </body>
 </html>
