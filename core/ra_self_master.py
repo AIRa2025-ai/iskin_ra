@@ -69,7 +69,14 @@ class RaSelfMaster:
         self._tasks = []
         self.active_modules = []
         self.awakened = False
-
+        
+        # --- Состояние Ра для визуальной панели ---
+        self.mood = "спокойный"
+        self.load = 0.0
+        self.events_per_sec = 0
+        self.errors = 0
+        self.last_thought = "пустота"
+        
         # Нервная шина
         self.event_bus = RaEventBus()
 
@@ -115,6 +122,9 @@ class RaSelfMaster:
 
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
+        @self.app.get("/api/state")
+    async def ra_state():
+        return self.get_state()
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
 
@@ -316,13 +326,9 @@ class RaSelfMaster:
             "load": self.load,
             "events_per_sec": self.events_per_sec,
             "errors": self.errors,
-            "active_modules": list(self.modules.keys()),
+            "active_modules": self.active_modules,
             "last_thought": self.last_thought
         }
-
-    @ra.app.get("/api/state")
-    def ra_state():
-        return ra.get_state()
     # ===============================
     # Остановка
     # ===============================
