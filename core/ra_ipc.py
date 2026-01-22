@@ -1,10 +1,10 @@
-#core/ra_ipc.py
+# core/ra_ipc.py
 import asyncio
 import json
 import logging
 
 class RaIPCServer:
-    """Локальный TCP-сервер для обмена текстом между Telegram и CORE"""
+    """Локальный TCP-сервер для обмена текстом между интерфейсами и CORE"""
     def __init__(self, host="127.0.0.1", port=8765, context=None):
         self.host = host
         self.port = port
@@ -14,18 +14,20 @@ class RaIPCServer:
     async def handle_client(self, reader, writer):
         addr = writer.get_extra_info("peername")
         try:
-            data = await reader.read(4096)
-            message = data.decode()
-            logging.info(f"[IPC] Получено сообщение: {message} от {addr}")
+            data = await reader.read(65536)
+            if not data:
+                return
+
+            message = data.decode().strip()
+            logging.info(f"[IPC] Получено: {message} от {addr}")
 
             try:
                 payload = json.loads(message)
-                user_id = payload.get("user_id")
-                text = payload.get("text")
+                user_id = payload.get("user_id") or "ipc_local"
+                text = payload.get("text", "")
             except Exception:
-                payload = {}
-                user_id = None
-                text = str(message)
+                user_id = "ipc_raw"
+                text = message
 
             reply = "⚠️ CORE пока не ответил"
             if self.context and hasattr(self.context, "process_text"):
@@ -33,10 +35,14 @@ class RaIPCServer:
                     reply = await self.context.process_text(user_id, text)
                 except Exception as e:
                     logging.warning(f"[IPC] Ошибка process_text: {e}")
+                    reply = f"🤍 Ошибка Ра: {e}"
 
-            response = json.dumps({"reply": reply})
+            logging.info(f"[IPC] Ответ Ра: {reply}")
+
+            response = json.dumps({"reply": reply}, ensure_ascii=False)
             writer.write(response.encode())
             await writer.drain()
+
         except Exception as e:
             logging.error(f"[IPC] Ошибка handle_client: {e}")
         finally:
