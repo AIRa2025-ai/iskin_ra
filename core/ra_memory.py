@@ -58,3 +58,16 @@ def append_user_memory(user_id, message):
             sync_to_github(f"Memory update for user {user_id}")
         except Exception as e:
             logging.error(f"❌ Ошибка авто-пуша памяти: {e}")
+
+class RaMemory:
+    def __init__(self):
+        pass
+
+    def load(self, user_id):
+        return load_user_memory(user_id)
+
+    def save(self, user_id, memory):
+        return save_user_memory(user_id, memory)
+
+    def append(self, user_id, message):
+        return append_user_memory(user_id, message)
