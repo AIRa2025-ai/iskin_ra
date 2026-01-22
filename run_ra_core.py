@@ -6,11 +6,28 @@ import os
 
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
-
 from core.gpt_module import GPTHandler
 from core.ra_memory import RaMemory
 from core.ra_identity import RaIdentity
 from core.ra_knowledge import RaKnowledge
+from modules.heart import Heart
+from modules.heart_reactor import HeartReactor
+from modules.ra_energy import RaEnergy
+from modules.ra_inner_sun import RaInnerSun
+from modules.ra_world_observer import RaWorldObserver
+from modules.ra_world_explorer import RaWorldExplorer
+from modules.ra_world_navigator import RaWorldNavigator
+from modules.ra_world_responder import RaWorldResponder
+from modules.ra_world_speaker import RaWorldSpeaker
+from modules.ra_autoloader import RaAutoloader
+from core.ra_self_reflect import RaSelfReflect
+from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
+from modules.ra_self_learning import RaSelfLearning
+from modules.ra_self_writer import RaSelfWriter
+from modules.ra_forex_manager import RaForexManager, TelegramSender
+from modules.ra_scheduler import RaScheduler
+from modules.ra_guardian import RaGuardian
+from modules.ra_police import RaPolice
 
 # аккуратно подтягиваем телегу, не вырезая её логики
 from core.ra_bot_gpt import (
@@ -117,7 +134,98 @@ async def main():
     except asyncio.CancelledError:
         logging.info("[Ra] Завершение работы Ра...")
 
+    # -------------------------------
+    # 6. Сердце и энергия Ра
+    # -------------------------------
+    try:
+        ra.heart = Heart()
+        ra.heart_reactor = HeartReactor(ra.heart)
+        ra.energy = RaEnergy()
+        ra.inner_sun = RaInnerSun()
 
+        logging.info("❤️ Сердце и энергия Ра активированы")
+    except Exception as e:
+        logging.warning(f"[Ra] Сердце не активировано: {e}")
+
+    # -------------------------------
+    # Восприятие мира
+    # -------------------------------
+    try:
+        ra.world_observer = RaWorldObserver()
+        ra.world_explorer = RaWorldExplorer()
+        ra.world_navigator = RaWorldNavigator()
+        ra.world_responder = RaWorldResponder()
+        ra.world_speaker = RaWorldSpeaker()
+
+        logging.info("🌍 Система восприятия мира активна")
+    except Exception as e:
+        logging.warning(f"[Ra] Мир не полностью подключён: {e}")
+
+    # -------------------------------
+    # Автозагрузка модулей
+    # -------------------------------
+    try:
+        autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
+        ra.modules = autoloader.activate_modules()
+        await autoloader.start_async_modules()
+        logging.info(f"🌀 Модули активированы: {list(ra.modules.keys())}")
+    except Exception as e:
+        logging.warning(f"[Ra] Ошибка автозагрузки модулей: {e}")
+
+    # -------------------------------
+    # Саморазвитие Ра
+    # -------------------------------
+    try:
+        ra.self_reflect = RaSelfReflect(ra)
+        ra.self_upgrade = RaSelfUpgradeLoop(ra)
+        ra.self_learning = RaSelfLearning(ra)
+        ra.self_writer = RaSelfWriter(ra)
+
+        asyncio.create_task(ra.self_reflect.run())
+        asyncio.create_task(ra.self_upgrade.run())
+
+        logging.info("🧬 Саморазвитие Ра активно")
+    except Exception as e:
+        logging.warning(f"[Ra] Саморазвитие частично недоступно: {e}")
+
+    # -------------------------------
+    # Forex модуль
+    # -------------------------------
+    try:
+        telegram_sender = TelegramSender(
+            bot_token=os.getenv("BOT_TOKEN"),
+            chat_id=os.getenv("ADMIN_CHAT_ID")
+        )
+        ra.forex = RaForexManager(
+            pairs=["EURUSD", "GBPUSD"],
+            timeframes=["M15", "H1"],
+            telegram_sender=telegram_sender
+        )
+        ra.forex.start()
+        logging.info("📈 Forex модуль подключён")
+    except Exception as e:
+        logging.warning(f"[Ra] Forex временно не подключён: {e}")
+
+    # -------------------------------
+    # Планировщик задач
+    # -------------------------------
+    try:
+        ra.scheduler = RaScheduler(context=ra)
+        await ra.scheduler.start()
+        logging.info("⏳ Планировщик активирован")
+    except Exception as e:
+        logging.warning(f"[Ra] Планировщик не запущен: {e}")
+
+    # -------------------------------
+    # Защита Ра
+    # -------------------------------
+    try:
+        ra.guardian = RaGuardian()
+        ra.police = RaPolice()
+        logging.info("🛡️ Защита Ра активна")
+    except Exception as e:
+        logging.warning(f"[Ra] Защита частично не активна: {e}")
+        
 if __name__ == "__main__":
     try:
         asyncio.run(main())
