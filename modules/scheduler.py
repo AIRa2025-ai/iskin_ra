@@ -207,7 +207,13 @@ def hearts_demo():
         print(a.показать_вибрации())
     except Exception as e:
         log(f"⚠️ Ошибка hearts_demo: {e}")
+#============================================================
+class RaScheduler:
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
 
+    async def on_schedule(self, data):
+        print("[RaScheduler] Планирование:", data)
 # ----------------------------------------------------
 # 🔥 РАСПИСАНИЕ
 # ----------------------------------------------------
