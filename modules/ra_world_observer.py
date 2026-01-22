@@ -138,7 +138,7 @@ class RaWorld:
 
     async def sense(self):
         if self.event_bus:
-            await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"})
+            await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"}, source="RaWorld")
 
 # --- Пробуждение ---
 async def awaken_reflection():
