@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import asyncio
+import aiohttp
 from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
@@ -12,7 +13,7 @@ from core.ra_git_keeper import RaGitKeeper
 from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
 from modules.security import log_action
-import aiohttp
+from modules.ra_world_observer import RaWorld
 
 # -------------------------------
 # Автолоадер модулей
@@ -31,7 +32,10 @@ try:
     _police = RaPolice
 except Exception:
     _police = None
-
+#=========================================
+world = RaWorld()
+ra.connect_world_observer(world)
+modules_dir = Path(__file__).parent / "modules"
 # -------------------------------
 # EventBus для внутренней нервной шины
 # -------------------------------
