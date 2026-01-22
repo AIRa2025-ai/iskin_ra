@@ -309,7 +309,20 @@ class RaSelfMaster:
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(self.manifest, f, ensure_ascii=False, indent=2)
         log_info("Manifest synced")
+        
+    def get_state(self):
+        return {
+            "mood": self.mood,
+            "load": self.load,
+            "events_per_sec": self.events_per_sec,
+            "errors": self.errors,
+            "active_modules": list(self.modules.keys()),
+            "last_thought": self.last_thought
+        }
 
+    @ra.app.get("/api/state")
+    def ra_state():
+        return ra.get_state()
     # ===============================
     # Остановка
     # ===============================
