@@ -61,7 +61,10 @@ def append_user_memory(user_id, message):
 
 class RaMemory:
     def __init__(self):
-        pass
+        self.memory_folder = MEMORY_FOLDER
+
+    def get_file(self, user_id):
+        return self.memory_folder / f"{user_id}.json"
 
     def load(self, user_id):
         return load_user_memory(user_id)
