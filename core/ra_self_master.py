@@ -32,29 +32,6 @@ except Exception:
     _police = None
 
 # ===============================
-# EventBus — нервная шина Ра
-# ===============================
-class EventBus:
-    def __init__(self):
-        self.subscribers = {}
-
-    def subscribe(self, event_type: str, callback):
-        if event_type not in self.subscribers:
-            self.subscribers[event_type] = []
-        self.subscribers[event_type].append(callback)
-
-    async def broadcast(self, event_type: str, data):
-        if event_type in self.subscribers:
-            for cb in list(self.subscribers[event_type]):
-                try:
-                    if asyncio.iscoroutinefunction(cb):
-                        await cb(data)
-                    else:
-                        cb(data)
-                except Exception as e:
-                    logging.warning(f"[EventBus] Ошибка callback {cb}: {e}")
-
-# ===============================
 # RaSelfMaster — ядро Ра
 # ===============================
 class RaSelfMaster:
