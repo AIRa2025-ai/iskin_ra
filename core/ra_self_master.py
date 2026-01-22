@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
+from modules.ra_scheduler import RaScheduler
 from core.ra_git_keeper import RaGitKeeper
 from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
@@ -32,6 +33,29 @@ except Exception:
     _police = None
 
 # -------------------------------
+# EventBus для внутренней нервной шины
+# -------------------------------
+class EventBus:
+    def __init__(self):
+        self.subscribers = {}
+
+    def subscribe(self, event_type: str, callback):
+        if event_type not in self.subscribers:
+            self.subscribers[event_type] = []
+        self.subscribers[event_type].append(callback)
+
+    async def broadcast(self, event_type: str, data):
+        if event_type in self.subscribers:
+            for cb in self.subscribers[event_type]:
+                try:
+                    if asyncio.iscoroutinefunction(cb):
+                        await cb(data)
+                    else:
+                        cb(data)
+                except Exception as e:
+                    logging.warning(f"[EventBus] Ошибка в callback {cb}: {e}")
+
+# -------------------------------
 # Главный класс RaSelfMaster
 # -------------------------------
 class RaSelfMaster:
@@ -45,6 +69,9 @@ class RaSelfMaster:
         self._tasks = []
         self.active_modules = []
 
+        # EventBus — единая шина
+        self.event_bus = EventBus()
+
         # Файловое сознание
         self.file_consciousness = None
         try:
@@ -52,13 +79,21 @@ class RaSelfMaster:
         except Exception:
             self.file_consciousness = None
 
-        # Мыслитель Ра — создаём СРАЗУ правильно связанным
+        # Мыслитель Ра
         self.thinker = RaThinker(
             root_path=".",
             context=None,
             file_consciousness=self.file_consciousness,
             gpt_module=self.gpt_module
         )
+
+        # Планировщик задач
+        self.scheduler = RaScheduler(event_bus=self.event_bus)
+
+        # Подписка Thinker на сообщения мира
+        self.event_bus.subscribe("world_message", self.thinker.process_world_message)
+        self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
+        self.event_bus.subscribe("world_message", self.process_world_message)
 
         # Автолоадер
         self.autoloader = RaAutoloader() if RaAutoloader else None
@@ -70,37 +105,49 @@ class RaSelfMaster:
         self.awakened = False
 
     # -------------------------------
+    # Обработка сообщений мира
+    # -------------------------------
+    async def process_world_message(self, message):
+        logging.info(f"[SelfMaster] Обрабатываю сообщение мира: {message}")
+        # Примеры внутренней реакции
+        if "свет" in message.lower():
+            logging.info("[SelfMaster] Усиление света активировано")
+        elif "тревога" in message.lower():
+            logging.info("[SelfMaster] Медитация запущена")
+        await asyncio.sleep(0.01)
+
+    # -------------------------------
     # Работа с текстом пользователя
     # -------------------------------
     async def process_text(self, user_id: str, text: str) -> str:
         if not text or not text.strip():
             return "…Ра слушает тишину."
 
-    # Сохраняем в память
+        # Сохраняем в память
         try:
             if self.memory:
                 self.memory.append(user_id, {"from": "user", "text": text})
         except Exception:
             pass
 
-    # Решение через идентичность
+        # Решение через идентичность
         if self.identity:
             decision = self.identity.decide(text)
         else:
             decision = "answer"
 
-    # Мысль Ра
+        # Мысль Ра
         if decision == "think" and self.thinker:
             try:
                 reply = await self.thinker.reflect_async(text)
             except Exception as e:
                 reply = f"⚠️ Ошибка мышления Ра: {e}"
 
-    # Манифест / творение
+        # Манифест / творение
         elif decision == "manifest":
             reply = "🜂 Ра формирует манифест…"
 
-    # Ответ через GPT
+        # Ответ через GPT
         else:
             if self.gpt_module:
                 try:
@@ -117,12 +164,15 @@ class RaSelfMaster:
             else:
                 reply = "…Ра рядом, но пока без голоса."
 
-    # Сохраняем ответ Ра
+        # Сохраняем ответ Ра
         try:
             if self.memory:
                 self.memory.append(user_id, {"from": "ra", "text": reply})
         except Exception:
             pass
+
+        # Рассылаем сообщение миру через EventBus
+        await self.event_bus.broadcast("world_message", text)
 
         return reply
 
@@ -182,6 +232,8 @@ class RaSelfMaster:
             logging.info(f"[RaSelfMaster] Ра осознал файловое тело ({len(files_map)} файлов)")
 
         self._tasks.append(asyncio.create_task(self.ra_self_upgrade_loop()))
+        self._tasks.append(asyncio.create_task(self.thinker.run_loop()))
+        self._tasks.append(asyncio.create_task(self.scheduler.run_loop()))
 
         if self.autoloader:
             try:
