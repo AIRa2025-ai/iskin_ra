@@ -106,4 +106,4 @@ class RaWorldResponder:
 
     async def sense(self):
         # например, пришло событие из мира
-        await self.event_bus.emit("world_event", {"msg": "Сигнал из мира"})
+        await self.event_bus.emit("world_event", {"msg": "Сигнал из мира"}, source="RaWorld")
