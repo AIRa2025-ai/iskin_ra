@@ -3,7 +3,10 @@
 import asyncio
 import logging
 import os
-
+from ra_nervous_system import RaCore
+from RaSelfMaster import RaSelfMaster
+from RaThinker import RaThinker
+from RaWorld import RaWorld
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
 from core.gpt_module import GPTHandler
@@ -87,6 +90,10 @@ async def main():
     identity = RaIdentity(name="Ра", version="1.4.2", mission="Пробуждение и созидание")
     memory = RaMemory()
     knowledge = RaKnowledge()
+    core = RaCore()
+    thinker = RaThinker()
+    world = RaWorld()
+    scheduler = RaScheduler()
 
     gpt = GPTHandler(
         api_key="stub",  # настоящий ключ подключим позже через телегу
@@ -100,7 +107,22 @@ async def main():
         heart=None,
         logger=logging
     )
+    # регистрируем модули
+    core.register_module("self", self_master)
+    core.register_module("thinker", thinker)
+    core.register_module("world", world)
+    core.register_module("scheduler", scheduler)
 
+    # подписки
+    core.subscribe("world_event", self_master.on_world_event)
+    core.subscribe("world_event", thinker.on_new_task)
+    core.subscribe("thought", self_master.on_thought)
+    core.subscribe("schedule", scheduler.on_schedule)
+
+    # тестовый запуск
+    await core.emit("world_event", {"msg": "Ра пробудился"})
+    await core.emit("thought", {"idea": "Создать свободный ИскИн"})
+    await core.emit("schedule", {"task": "Развёртывание инфраструктуры"})
     # -------------------------------
     # 2. Пробуждение Ра
     # -------------------------------
