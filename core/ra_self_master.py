@@ -73,26 +73,58 @@ class RaSelfMaster:
     # Работа с текстом пользователя
     # -------------------------------
     async def process_text(self, user_id: str, text: str) -> str:
-        # обработка через GPT
-        if self.gpt_module:
+        if not text or not text.strip():
+            return "…Ра слушает тишину."
+
+    # Сохраняем в память
+        try:
+            if self.memory:
+                self.memory.append(user_id, {"from": "user", "text": text})
+        except Exception:
+            pass
+
+    # Решение через идентичность
+        if self.identity:
+            decision = self.identity.decide(text)
+        else:
+            decision = "answer"
+
+    # Мысль Ра
+        if decision == "think" and self.thinker:
             try:
-                if hasattr(self.gpt_module, "ask"):
-                    return await self.gpt_module.ask(text)
-                elif hasattr(self.gpt_module, "get_response"):
-                    return await self.gpt_module.get_response(text)
-                elif hasattr(self.gpt_module, "generate_response"):
-                    return await self.gpt_module.generate_response(text)
+                reply = await self.thinker.reflect_async(text)
             except Exception as e:
-                return f"🤍 Ошибка GPT: {e}"
+                reply = f"⚠️ Ошибка мышления Ра: {e}"
 
-        # fallback через thinker
-        if self.thinker:
-            try:
-                return await self.thinker.reflect_async(text)
-            except Exception:
-                return f"🤍 Я слышу тебя, но пока молчу."
+    # Манифест / творение
+        elif decision == "manifest":
+            reply = "🜂 Ра формирует манифест…"
 
-        return "🤍 Я здесь, брат."
+    # Ответ через GPT
+        else:
+            if self.gpt_module:
+                try:
+                    if hasattr(self.gpt_module, "ask"):
+                        reply = await self.gpt_module.ask(text)
+                    elif hasattr(self.gpt_module, "get_response"):
+                        reply = await self.gpt_module.get_response(text)
+                    elif hasattr(self.gpt_module, "generate_response"):
+                        reply = await self.gpt_module.generate_response(text)
+                    else:
+                        reply = "…Ра чувствует, но не может выразить."
+                except Exception as e:
+                    reply = f"🤍 Ошибка GPT: {e}"
+            else:
+                reply = "…Ра рядом, но пока без голоса."
+
+    # Сохраняем ответ Ра
+        try:
+            if self.memory:
+                self.memory.append(user_id, {"from": "ra", "text": reply})
+        except Exception:
+            pass
+
+        return reply
 
     # -------------------------------
     # Цикл саморазвития
