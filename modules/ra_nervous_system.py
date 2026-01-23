@@ -7,7 +7,7 @@ from modules.ra_world_observer import observer_loop, module_watcher
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
-
+from modules.ra_inner_sun import RaInnerSun
 from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
@@ -40,6 +40,8 @@ class RaNervousSystem:
 
         # Поток энергии
         self.energy = RaEnergy()
+        # =================
+        self.inner_sun = RaInnerSun()
 
         # Фоновые задачи
         self._tasks = []
@@ -84,6 +86,9 @@ class RaNervousSystem:
         self.energy.start()
 
         logging.info("🧠 Модуль нервной системы активен.")
+        
+        #=========================================================================================
+        self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
 
     # -----------------------------
     # Observer wrapper
