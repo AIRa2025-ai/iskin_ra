@@ -3,7 +3,6 @@
 import asyncio
 import logging
 
-from modules.ra_world_observer import ra_world_observer, observer_loop, module_watcher
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
