@@ -142,7 +142,15 @@ class RaSelfMaster:
     # ===============================================================
     async def start_background_modules(self):
         self._create_bg_task(self.nervous_module.start(), "nervous_module")   
-
+    # =====================================================
+    # 🟢 Метод для эмита событий
+    # =====================================================
+    async def emit(self, event_name, payload):
+        if self.event_bus:
+            await self.event_bus.emit(event_name, payload)
+        else:
+            import logging
+            logging.warning(f"[RaSelfMaster] Нет event_bus, событие {event_name} не отправлено.")
     # =========================================
     # Метод WebSocket
     # =========================================
