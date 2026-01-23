@@ -112,7 +112,7 @@ class RaSelfMaster:
             except Exception:
                 pass
             finally:
-                self.ws_clients.remove(ws)
+                self.event_bus.detach_ws(ws)
                 
         @self.app.get("/api/state")
         async def ra_state():
