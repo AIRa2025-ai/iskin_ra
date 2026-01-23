@@ -98,8 +98,8 @@ class RaSelfMaster:
         self.world.set_event_bus(self.event_bus)
         
         # Нервная система
-        from modules.ra_nervous_system import RaNervousSystemModule
-        self.nervous_module = RaNervousSystemModule(self, self.event_bus)
+        from modules.ra_nervous_system import RaNervousSystem
+        self.nervous_module = RaNervousSystem(self, self.event_bus)
         self._create_bg_task(self.nervous_module.start(), "nervous_module")
         
         # FastAPI
