@@ -347,7 +347,7 @@ class RaSelfMaster:
             logging.info(f"[Ра] Осознал тело файлов ({len(files_map)} файлов)")
 
         self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
-        self._create_bg_task(self.scheduler.run_loop(), "scheduler_loop")
+        self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler_loop")
         self._create_bg_task(self.auto_activate_modules(), "auto_modules")
 
         if self.autoloader:
