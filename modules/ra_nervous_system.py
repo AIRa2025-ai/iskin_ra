@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from modules.ra_world_observer import observer_loop, module_watcher
+from modules.ra_world_observer import ra_world_observer, observer_loop, module_watcher
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
@@ -89,7 +89,11 @@ class RaNervousSystem:
         # Observer loop
         self._tasks.append(asyncio.create_task(self._observer_loop(), name="observer_loop"))
         self._tasks.append(asyncio.create_task(module_watcher(), name="module_watcher"))
-
+        
+        # World observer
+        self._tasks.append(asyncio.create_task(self.world_observer.observer_loop()))
+        self._tasks.append(asyncio.create_task(self.world_observer.module_watcher()))
+        
         # WorldSystem
         self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
 
