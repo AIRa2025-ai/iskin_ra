@@ -88,7 +88,7 @@ async def main():
     identity = RaIdentity(name="Ра", version="1.4.2", mission="Пробуждение и созидание")
     memory = RaMemory()
     knowledge = RaKnowledge()
-    core = RaCore()
+    core = RaSelfMaster(logger=logger_instance)
     thinker = RaThinker()
     world = RaWorld()
     scheduler = RaScheduler()
