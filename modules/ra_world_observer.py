@@ -80,6 +80,8 @@ class RaWorldObserver:
                 pass
         await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
+        
+ra_world_observer = RaWorldObserver()
 
     # --- Автозагрузка модулей ---
     async def auto_load_modules(self):
