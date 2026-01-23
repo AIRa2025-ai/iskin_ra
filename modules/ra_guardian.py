@@ -14,7 +14,7 @@ def import_repo_manager():
         logging.warning(f"⚠️ ra_repo_manager пока недоступен: {e}")
         return None, None, None
 
-class Guardian:
+class RaGuardian:
     TRUSTED_USERS = [5694569448, 6300409407]
     MANIFEST_PATH = "ra_manifest.json"
     BACKUP_FOLDER = "backups"
