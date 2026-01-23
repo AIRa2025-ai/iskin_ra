@@ -8,7 +8,7 @@ import asyncio
 import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
-
+from fastapi import WebSocket
 from fastapi import FastAPI
 from core.ra_event_bus import RaEventBus
 from modules.ra_file_manager import load_rasvet_files
