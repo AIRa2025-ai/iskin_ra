@@ -101,25 +101,6 @@ class RaNervousSystem:
         logging.info("🧠 Модуль нервной системы активен.")
 
     # -----------------------------
-    # Observer wrapper
-    # -----------------------------
-    async def _observer_loop(self):
-        while True:
-            try:
-                if hasattr(observer_loop, "__call__"):
-                    await observer_loop()
-                    if hasattr(self.event_bus, "emit"):
-                        await self.event_bus.emit(
-                            "observer_tick", "Observer наблюдал мир", source="NervousModule"
-                        )
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logging.exception(f"[NervousModule observer] Ошибка: {e}")
-                await asyncio.sleep(5)
-
-    # -----------------------------
     # Остановка
     # -----------------------------
     async def stop(self):
