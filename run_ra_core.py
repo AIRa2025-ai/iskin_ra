@@ -43,7 +43,12 @@ from core.ra_bot_gpt import (
 from aiogram import Bot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
-
+logger_instance = logging.getLogger("RaSelfMaster")
+logger_instance.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger_instance.addHandler(ch)
 
 async def start_telegram(ra):
     """Аккуратно запускаем Telegram, не трогая ra_bot_gpt.py"""
