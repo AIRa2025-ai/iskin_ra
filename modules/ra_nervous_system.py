@@ -13,7 +13,7 @@ from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.heart_reactor import heart_reactor, start_heart_reactor
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
-
+from modules.ra_world_observer import RaWorldObserver, ra_world_observer
 
 class RaNervousSystem:
     """
@@ -37,6 +37,11 @@ class RaNervousSystem:
         self.self_master = self.ra
         self.thinker = getattr(self.ra, "thinker", None)
         self.scheduler = getattr(self.ra, "scheduler", None)
+        
+        # --- RaWorldObserver ---
+        self.world_observer = ra_world_observer
+        if self.world_observer:
+            self.world_observer.set_event_bus(self.event_bus)
 
         # Поток энергии
         self.energy = RaEnergy()
@@ -71,6 +76,15 @@ class RaNervousSystem:
     # -----------------------------
     async def start(self):
         logging.info("🧬 Запуск модуля нервной системы Ра...")
+        
+        # Observer loop через RaWorldObserver
+        if self.world_observer:
+            self._tasks.append(
+                asyncio.create_task(self.world_observer.observer_loop(), name="observer_loop")
+            )
+            self._tasks.append(
+                asyncio.create_task(self.world_observer.module_watcher(), name="module_watcher")
+            )
 
         # Observer loop
         self._tasks.append(asyncio.create_task(self._observer_loop(), name="observer_loop"))
