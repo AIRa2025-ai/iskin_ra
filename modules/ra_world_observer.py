@@ -41,7 +41,6 @@ app = FastAPI(title="Ra Super Control Center", description="Центр упра�
 guardian = Guardian()
 self_dev = SelfDeveloper()
 self_writer = SelfWriter()
-event_bus = RaEventBus()
 
 # --- Папки ---
 for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
@@ -230,17 +229,6 @@ async def clear_logs():
     log("🗑 Логи очищены")
     return {"status": "ok"}
 
-@app.get("/nervous/events")
-async def nervous_events():
-    return {
-        "events": event_bus.get_events()
-    }
-
-@app.get("/nervous/subscribers")
-async def nervous_subscribers():
-    return {
-        "subscribers": event_bus.get_subscribers()
-    }
 # --- Вспомогательная функция для запуска observer ---
 def ra_observe_world():
     asyncio.create_task(observer_loop())
