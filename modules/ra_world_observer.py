@@ -38,7 +38,7 @@ KNOWLEDGE_FOLDER = CONFIG.get("knowledge_folder", "RaSvet")
 app = FastAPI(title="Ra Super Control Center", description="Центр управления ИскИном Ра v3.1")
 
 # --- Компоненты Ра ---
-guardian = Guardian()
+guardian = RaGuardian()
 self_dev = SelfDeveloper()
 ra_self_writer = RaSelfWriter()
 
