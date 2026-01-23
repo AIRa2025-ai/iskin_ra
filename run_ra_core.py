@@ -111,6 +111,7 @@ async def main():
         heart=None,
         logger=logging
     )
+    ra.event_bus = ra.event_bus or core.event_bus
     # Регистрируем модули
     core.register_module("self", ra)
     core.register_module("thinker", thinker)
