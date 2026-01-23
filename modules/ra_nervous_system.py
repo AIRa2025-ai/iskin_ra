@@ -76,37 +76,33 @@ class RaNervousSystem:
     # -----------------------------
     async def start(self):
         logging.info("🧬 Запуск модуля нервной системы Ра...")
-        
-        # Observer loop через RaWorldObserver
+
+        # Запуск observer и module watcher через RaWorldObserver
         if self.world_observer:
-            self._tasks.append(
-                asyncio.create_task(self.world_observer.observer_loop(), name="observer_loop")
-            )
-            self._tasks.append(
-                asyncio.create_task(self.world_observer.module_watcher(), name="module_watcher")
-            )
+            self._tasks.append(asyncio.create_task(
+                self.world_observer.observer_loop(), name="observer_loop"
+            ))
+            self._tasks.append(asyncio.create_task(
+                self.world_observer.module_watcher(), name="module_watcher"
+            ))
 
-        # Observer loop
-        self._tasks.append(asyncio.create_task(self._observer_loop(), name="observer_loop"))
-        self._tasks.append(asyncio.create_task(module_watcher(), name="module_watcher"))
-        
-        # World observer
-        self._tasks.append(asyncio.create_task(self.world_observer.observer_loop()))
-        self._tasks.append(asyncio.create_task(self.world_observer.module_watcher()))
-        
-        # WorldSystem
-        self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
+    # WorldSystem
+        self._tasks.append(asyncio.create_task(
+            self.world_system.start(), name="world_system_loop"
+        ))
 
-        # HeartReactor
-        self._tasks.append(asyncio.create_task(start_heart_reactor(), name="heart_reactor_loop"))
+    # HeartReactor
+        self._tasks.append(asyncio.create_task(
+            start_heart_reactor(), name="heart_reactor_loop"
+        ))
 
-        # Поток энергии
-        self.energy.start()
+    # Поток энергии
+        self._tasks.append(asyncio.create_task(self.energy.start(), name="energy_loop"))
+
+    # Внутреннее солнце
+        self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
 
         logging.info("🧠 Модуль нервной системы активен.")
-        
-        #=========================================================================================
-        self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
 
     # -----------------------------
     # Observer wrapper
