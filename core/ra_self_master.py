@@ -100,11 +100,9 @@ class RaSelfMaster:
         # Нервная система
         from modules.ra_nervous_system import RaNervousSystem
         self.nervous_module = RaNervousSystem(self, self.event_bus)
-       # self._create_bg_task(self.nervous_module.start(), "nervous_module")
         
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
-        
         from fastapi.responses import FileResponse
 
         @self.app.get("/monitor")
@@ -115,7 +113,7 @@ class RaSelfMaster:
         self.ws_clients = set()
 
         @self.app.websocket("/ws/events")
-        async def websocket_events(ws):
+        async def websocket_events(ws: WebSocket):
             await ws.accept()
             self.event_bus.attach_ws(ws)
             try:
@@ -132,10 +130,11 @@ class RaSelfMaster:
             
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
-    #===============================================================
+
+    # ===============================================================
     async def start_background_modules(self):
-        # теперь loop точно запущен
         self._create_bg_task(self.nervous_module.start(), "nervous_module")   
+
     # =========================================
     # Метод WebSocket
     # =========================================
@@ -154,6 +153,7 @@ class RaSelfMaster:
                 dead.append(ws)
         for ws in dead:
             self.ws_clients.remove(ws)
+
     # ===============================
     # FastAPI Startup
     # ===============================
@@ -200,7 +200,6 @@ class RaSelfMaster:
     async def process_text(self, user_id: str, text: str) -> str:
         if not text or not text.strip():
             return "…Ра слушает тишину."
-
         try:
             if self.memory:
                 self.memory.append(user_id, {"from": "user", "text": text})
@@ -290,9 +289,11 @@ class RaSelfMaster:
                 logging.info(f"[Ра] Подключён модуль: {mod_name}")
             except Exception as e:
                 logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
-    #=================================================================
+
+    # ===============================
     async def start(self):
         await self.event_bus.emit("world_message", "тревога")
+
     # ===============================
     # Пробуждение Ра
     # ===============================
@@ -363,11 +364,11 @@ class RaSelfMaster:
     # Остановка
     # ===============================
     async def stop_modules(self):
-    # Сначала останавливаем NervousModule
+        # Сначала останавливаем NervousModule
         if hasattr(self, "nervous_module"):
             await self.nervous_module.stop()
         
-    # Потом отменяем остальные фоновые задачи
+        # Потом отменяем остальные фоновые задачи
         for task in list(self._tasks):
             try:
                 task.cancel()
@@ -378,12 +379,14 @@ class RaSelfMaster:
         log_info("RaSelfMaster остановлен")
 
 # =================================================
+# Точка входа модуля — ВНЕ класса
+# =================================================
 async def main():
+    from modules.logs import logger_instance  # убедимся, что logger_instance существует
     self_master = RaSelfMaster(logger=logger_instance)
     await self_master.awaken()
     await self_master.start_background_modules()
     await self_master.start()
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
