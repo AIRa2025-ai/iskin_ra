@@ -19,6 +19,7 @@ class RaThinker:
         root_path: str = ".",
         context=None,
         file_consciousness=None,
+        event_bus=None,
         gpt_module=None
     ):
         self.root_path = root_path
@@ -28,7 +29,8 @@ class RaThinker:
 
         self.last_thought = None
         self.thoughts = []
-
+        self.event_bus = event_bus
+        
         # Контекст РаСвета
         try:
             self.rasvet_context = load_rasvet_files(limit_chars=3000)
@@ -227,3 +229,9 @@ class RaThinker:
 
     async def on_new_task(self, data):
         print("[RaThinker] Думаю над задачей:", data)
+#================================================================================================
+    async def process_world_message(self, message):
+        self.last_world_event = message
+        if self.event_bus:
+            self.event_bus.subscribe("world_message", self.process_world_message)
+        
