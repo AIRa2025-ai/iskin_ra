@@ -20,6 +20,7 @@ from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
 from modules.security import log_action
 from modules.ra_world_observer import RaWorld
+from modules.ra_nervous_system import RaNervousSystemModule
 
 # -------------------------------
 # Police модуль (опционально)
@@ -96,7 +97,11 @@ class RaSelfMaster:
         # Мир Ра
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
-
+        
+        # Нервная система
+        self.nervous_module = RaNervousSystemModule(self, self.event_bus)
+        self._create_bg_task(self.nervous_module.start(), "nervous_module")
+        
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
         
@@ -359,3 +364,5 @@ class RaSelfMaster:
                 pass
         self._tasks.clear()
         log_info("RaSelfMaster остановлен")
+        if hasattr(self, "nervous_module"):
+            await self.nervous_module.stop()
