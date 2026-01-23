@@ -208,9 +208,15 @@ async def main():
     # уведомляем админа, что бот стартует
     await send_admin("🌞 Ра стартует!", bot)
 
+    #=========== Cоздание =============================
+    self_master = RaSelfMaster(logger=logger_instance)
+    
     # ----------------- ПРОБУЖДЕНИЕ -----------------
     if self_master:
         await self_master.awaken()  # сначала пробуждение
+        
+    #============ Старт ========================
+    await self_master.start()
 
     # ----------------- GPT HANDLER -----------------
     if GPTHandler and self_master:
