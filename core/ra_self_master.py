@@ -99,7 +99,14 @@ class RaSelfMaster:
 
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
-            # --- WebSocket клиенты для визуальной панели ---
+        
+        from fastapi.responses import FileResponse
+
+        @self.app.get("/monitor")
+        async def monitor():
+            return FileResponse("web/monitor.html")
+
+        # --- WebSocket клиенты для визуальной панели ---
         self.ws_clients = set()
 
         @self.app.websocket("/ws/events")
