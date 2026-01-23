@@ -64,7 +64,8 @@ class RaNervousSystemModule:
         self._tasks.append(asyncio.create_task(self._observer_loop(), name="observer_loop"))
         self._tasks.append(asyncio.create_task(module_watcher(), name="module_watcher"))
         self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
-
+        self._tasks.append(asyncio.create_task(start_heart_reactor(), name="heart_reactor_loop"))
+        
         logging.info("🧠 Модуль нервной системы активен.")
 
     # -----------------------------
