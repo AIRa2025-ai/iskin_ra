@@ -79,12 +79,8 @@ class RaNervousSystem:
 
         # Запуск observer и module watcher через RaWorldObserver
         if self.world_observer:
-            self._tasks.append(asyncio.create_task(
-                self.world_observer.observer_loop(), name="observer_loop"
-            ))
-            self._tasks.append(asyncio.create_task(
-                self.world_observer.module_watcher(), name="module_watcher"
-            ))
+            self._tasks.append(asyncio.create_task(self.world_observer.observer_loop(), name="observer_loop"))
+            self._tasks.append(asyncio.create_task(self.world_observer.module_watcher(), name="module_watcher"))
 
     # WorldSystem
         self._tasks.append(asyncio.create_task(
