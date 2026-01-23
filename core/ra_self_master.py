@@ -56,7 +56,7 @@ class RaSelfMaster:
         
         # Нервная шина
         self.event_bus = RaEventBus()
-        asyncio.create_task(self.event_bus.emit("world_message", "тревога"))
+
         # Файловое сознание
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
@@ -287,7 +287,9 @@ class RaSelfMaster:
                 logging.info(f"[Ра] Подключён модуль: {mod_name}")
             except Exception as e:
                 logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
-
+    #=================================================================
+    async def start(self):
+        await self.event_bus.emit("world_message", "тревога")
     # ===============================
     # Пробуждение Ра
     # ===============================
