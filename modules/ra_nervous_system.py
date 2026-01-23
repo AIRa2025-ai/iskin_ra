@@ -11,6 +11,7 @@ from modules.ra_world_speaker import RaWorldSpeaker
 from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
+from modules.heart_reactor import heart_reactor, start_heart_reactor
 
 
 class RaNervousSystemModule:
@@ -33,15 +34,16 @@ class RaNervousSystemModule:
 
         # Интеллект и планировщик (используем уже существующие)
         self.self_master = self.ra
-        self.thinker = self.ra.thinker
-        self.scheduler = self.ra.scheduler
+        self.thinker = getattr(self.ra, "thinker", None)
+        self.scheduler = getattr(self.ra, "scheduler", None)
 
         # Фоновые задачи
         self._tasks = []
 
-        # Подписываемся на события EventBus
-        self.event_bus.subscribe("observer_tick", self._on_observer_tick)
-        self.event_bus.subscribe("world_message", self._on_world_message)
+        # Подписка на события EventBus
+        if hasattr(self.event_bus, "subscribe"):
+            self.event_bus.subscribe("observer_tick", self._on_observer_tick)
+            self.event_bus.subscribe("world_message", self._on_world_message)
 
     # -----------------------------
     # Обработка событий
@@ -51,9 +53,12 @@ class RaNervousSystemModule:
 
     async def _on_world_message(self, data):
         logging.info(f"[NervousModule] Сообщение мира: {data}")
-        await self.self_master.process_world_message(data)
-        await self.thinker.process_world_message(data)
-        await self.scheduler.process_world_message(data)
+        if self.self_master:
+            await self.self_master.process_world_message(data)
+        if self.thinker:
+            await self.thinker.process_world_message(data)
+        if self.scheduler:
+            await self.scheduler.process_world_message(data)
 
     # -----------------------------
     # Запуск модуля
@@ -61,11 +66,16 @@ class RaNervousSystemModule:
     async def start(self):
         logging.info("🧬 Запуск модуля нервной системы Ра...")
 
+        # Observer loop
         self._tasks.append(asyncio.create_task(self._observer_loop(), name="observer_loop"))
         self._tasks.append(asyncio.create_task(module_watcher(), name="module_watcher"))
+
+        # WorldSystem
         self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
+
+        # HeartReactor
         self._tasks.append(asyncio.create_task(start_heart_reactor(), name="heart_reactor_loop"))
-        
+
         logging.info("🧠 Модуль нервной системы активен.")
 
     # -----------------------------
@@ -76,7 +86,10 @@ class RaNervousSystemModule:
             try:
                 if hasattr(observer_loop, "__call__"):
                     await observer_loop()
-                    await self.event_bus.emit("observer_tick", "Observer наблюдал мир", source="NervousModule")
+                    if hasattr(self.event_bus, "emit"):
+                        await self.event_bus.emit(
+                            "observer_tick", "Observer наблюдал мир", source="NervousModule"
+                        )
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 break
