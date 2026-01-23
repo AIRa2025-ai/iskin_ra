@@ -56,7 +56,7 @@ class RaSelfMaster:
         
         # Нервная шина
         self.event_bus = RaEventBus()
-
+        self.event_bus.emit("world_message", "тревога")
         # Файловое сознание
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
