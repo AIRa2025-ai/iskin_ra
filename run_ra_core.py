@@ -4,8 +4,7 @@ import asyncio
 import logging
 import os
 from modules.ra_nervous_system import RaNervousSystem
-from RaThinker import RaThinker
-from RaWorld import RaWorld
+from modules.ra_thinker import RaThinker
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
 from core.gpt_module import GPTHandler
