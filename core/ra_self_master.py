@@ -105,7 +105,7 @@ class RaSelfMaster:
         @self.app.websocket("/ws/events")
         async def websocket_events(ws):
             await ws.accept()
-            self.ws_clients.add(ws)
+            self.event_bus.attach_ws(ws)
             try:
                 while True:
                     await ws.receive_text()
