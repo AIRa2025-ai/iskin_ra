@@ -16,7 +16,7 @@ TRUSTED_USERS = [5694569448, 6300409407]
 
 logging.basicConfig(level=logging.INFO)
 
-class SelfWriter:
+class RaSelfWriter:  # ✅ Переименовали в то, что ищет run_ra_core.py
     @staticmethod
     async def generate_code_from_idea(idea_text: str, user: int):
         if user not in TRUSTED_USERS:
@@ -78,6 +78,6 @@ def main():
                 data = json.load(f)
             proposed = data.get("proposed_ideas", []) if isinstance(data, dict) else []
             for idea in proposed:
-                await SelfWriter.generate_code_from_idea(idea, user)
+                await RaSelfWriter.generate_code_from_idea(idea, user)
         except Exception as e:
             logging.error(f"⚠️ Ошибка при обработке идей: {e}")
