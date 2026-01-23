@@ -19,11 +19,6 @@ class RaScheduler:
         self._tasks = []
         self._running = False
         
-    async def scheduler_loop(self):
-        while True:
-            await self.process_tasks()
-            await asyncio.sleep(1)  # пауза между итерациями
-
     def add_task(self, coro, interval_seconds):
         self.jobs.append((coro, interval_seconds))
         logging.info(
@@ -107,9 +102,10 @@ class RaScheduler:
     # =====================================================
     # 🗓 Метод обработки события schedule
     # =====================================================
-    async def on_schedule(self, event):
-        logging.info(f"[RaScheduler] Получено событие schedule: {event}")
-        # здесь можешь добавить обработку события
-        # например, запуск каких-то задач или проверку статуса
+    async def scheduler_loop(self):
+        while True:
+            await self.process_tasks()
+            await asyncio.sleep(1)  # пауза между итерациями
+
         for coro, interval in self.jobs:
             logging.info(f"[RaScheduler] Задача {coro.__name__} с интервалом {interval} сек.")
