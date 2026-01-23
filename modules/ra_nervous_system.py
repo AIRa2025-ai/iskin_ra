@@ -7,14 +7,14 @@ from modules.ra_world_observer import observer_loop, module_watcher
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
-
+from modules.ra_nervous_system import RaNervousSystem
 from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.heart_reactor import heart_reactor, start_heart_reactor
 
 
-class RaNervousSystemModule:
+class RaNervousSystem:
     """
     Модуль нервной системы Ра.
     НЕ ядро, НЕ запускной файл.
