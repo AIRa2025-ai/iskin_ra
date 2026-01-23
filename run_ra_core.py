@@ -15,7 +15,7 @@ from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
 from modules.ra_inner_sun import RaInnerSun
-from modules.ra_world_observer import RaWorldObserver
+from modules.ra_world_observer import RaWorldObserver, ra_world_observer
 from modules.ra_world_explorer import RaWorldExplorer
 from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
