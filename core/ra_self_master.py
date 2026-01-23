@@ -130,6 +130,11 @@ class RaSelfMaster:
             
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
+    # ===============================================================
+    async def on_thought(self, thought):
+        # Просто логируем событие для начала
+        logging.info(f"[Ра] Новая мысль: {thought}")
+        # сюда можно добавить любую обработку
     # =============================================================
     async def on_world_event(self, message):
         logging.info(f"[Ра] Событие мира: {message}")
