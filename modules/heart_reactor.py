@@ -59,4 +59,6 @@ class HeartReactor:
 
 # === Автозапуск цикла сердца ===
 heart_reactor = HeartReactor()
-asyncio.create_task(heart_reactor.listen_and_respond())
+
+    async def start_heart_reactor():
+        await heart_reactor.listen_and_respond()
