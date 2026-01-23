@@ -12,6 +12,7 @@ from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.heart_reactor import heart_reactor, start_heart_reactor
+from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 
 
 class RaNervousSystem:
@@ -36,6 +37,9 @@ class RaNervousSystem:
         self.self_master = self.ra
         self.thinker = getattr(self.ra, "thinker", None)
         self.scheduler = getattr(self.ra, "scheduler", None)
+
+        # Поток энергии
+        self.energy = RaEnergy()
 
         # Фоновые задачи
         self._tasks = []
@@ -76,6 +80,9 @@ class RaNervousSystem:
         # HeartReactor
         self._tasks.append(asyncio.create_task(start_heart_reactor(), name="heart_reactor_loop"))
 
+        # Поток энергии
+        self.energy.start()
+
         logging.info("🧠 Модуль нервной системы активен.")
 
     # -----------------------------
@@ -109,4 +116,8 @@ class RaNervousSystem:
                 pass
         await asyncio.gather(*self._tasks, return_exceptions=True)
         await self.world_system.stop()
+
+        # Остановка потока энергии
+        await self.energy.stop()
+
         logging.info("✅ Модуль нервной системы остановлен.")
