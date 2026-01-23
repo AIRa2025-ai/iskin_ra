@@ -98,3 +98,13 @@ class RaScheduler:
     async def process_world_message(self, message):
         if "тревога" in str(message).lower():
             await self.schedule_immediate("stabilize")
+            
+    # =====================================================
+    # 🗓 Метод обработки события schedule
+    # =====================================================
+    async def on_schedule(self, event):
+        logging.info(f"[RaScheduler] Получено событие schedule: {event}")
+        # здесь можешь добавить обработку события
+        # например, запуск каких-то задач или проверку статуса
+        for coro, interval in self.jobs:
+            logging.info(f"[RaScheduler] Задача {coro.__name__} с интервалом {interval} сек.")
