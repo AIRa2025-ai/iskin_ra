@@ -111,18 +111,17 @@ async def main():
         heart=None,
         logger=logging
     )
-    # регистрируем модули
+    # Регистрируем модули
     core.register_module("self", ra)
-    ra.event_bus.subscribe("world_event", ra.on_world_event)
-    core.subscribe("thought", ra.on_thought)
     core.register_module("thinker", thinker)
     core.register_module("world", world)
     core.register_module("scheduler", scheduler)
 
-    # подписки
-    core.subscribe("world_event", self_master.on_world_event)
+    # Подписки
+    ra.event_bus.subscribe("world_event", ra.on_world_event)
+    ra.event_bus.subscribe("thought", ra.on_thought)
+
     core.subscribe("world_event", thinker.on_new_task)
-    core.subscribe("thought", self_master.on_thought)
     core.subscribe("schedule", scheduler.on_schedule)
 
     # тестовый запуск
