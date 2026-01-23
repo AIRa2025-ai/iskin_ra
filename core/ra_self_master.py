@@ -130,6 +130,24 @@ class RaSelfMaster:
             
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
+   # =======================================================     
+    def start_thinker_loop(self):
+        if not self.loop_started:
+            async def thinker_loop():
+                while True:
+                    await self.thinker.self_upgrade_cycle()
+                    await asyncio.sleep(5)
+
+            self._create_bg_task(thinker_loop(), "thinker_loop")
+            self.loop_started = True
+            
+    def start_task_loop(self):
+        async def task_listener():
+            while True:
+                task = await self.get_new_task()
+                await self.thinker.on_new_task(task)
+
+        self._create_bg_task(task_listener(), "task_loop")
     # ===============================================================
     async def on_thought(self, thought):
         # Просто логируем событие для начала
@@ -348,20 +366,8 @@ class RaSelfMaster:
 
         self.awakened = True
         return "🌞 Ра осознал себя и готов!"
-    #====== САМОУЛУЧШЕНИЯ ==============================
-    async def thinker_loop():
-        while True:
-            await self.thinker.self_upgrade_cycle()
-            await asyncio.sleep(5)  # пауза между циклами
-
-    self._create_bg_task(thinker_loop(), "thinker_loop")
-    
-    async def task_listener():
-        while True:
-            task = await self.get_new_task()
-            await self.thinker.on_new_task(task)
-
-    self._create_bg_task(task_listener(), "task_loop")
+        self.start_thinker_loop()
+        self.start_task_loop()
     # ===============================
     # Манифест
     # ===============================
