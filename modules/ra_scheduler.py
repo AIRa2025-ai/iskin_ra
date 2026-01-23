@@ -15,17 +15,22 @@ class RaScheduler:
         self.thinker = thinker
         self.upgrade_loop = upgrade_loop
 
-        self.jobs = []          # (coro, interval)
-        self._tasks = []
-        self._running = False
-        
+        self.jobs = []          # список задач: (coro, interval)
+        self._tasks = []        # внутренние asyncio-таски
+        self._running = False   # флаг работы планировщика
+
     def add_task(self, coro, interval_seconds):
+        """
+        Добавляет задачу в планировщик.
+        coro — асинхронная функция, interval_seconds — интервал запуска
+        """
         self.jobs.append((coro, interval_seconds))
-        logging.info(
-            f"[RaScheduler] Добавлена задача {coro.__name__} каждые {interval_seconds} сек."
-        )
+        logging.info(f"[RaScheduler] Добавлена задача {coro.__name__} каждые {interval_seconds} сек.")
 
     async def start(self):
+        """
+        Запуск всех задач в отдельные таски.
+        """
         if self._running:
             logging.warning("[RaScheduler] Планировщик уже запущен.")
             return
@@ -35,23 +40,25 @@ class RaScheduler:
         for coro, interval in self.jobs:
             task = asyncio.create_task(self._runner(coro, interval))
             self._tasks.append(task)
-            logging.info(
-                f"[RaScheduler] Задача {coro.__name__} запущена (интервал {interval} сек)."
-            )
+            logging.info(f"[RaScheduler] Задача {coro.__name__} запущена (интервал {interval} сек).")
 
         logging.info(f"[RaScheduler] Всего активных задач: {len(self._tasks)}")
 
     async def _runner(self, coro, interval):
+        """
+        Внутренний цикл для каждой задачи: выполняет её, ждёт интервал, повторяет.
+        """
         while True:
             try:
                 await coro()
             except Exception as e:
-                logging.exception(
-                    f"[RaScheduler] Ошибка в задаче {coro.__name__}: {e}"
-                )
+                logging.exception(f"[RaScheduler] Ошибка в задаче {coro.__name__}: {e}")
             await asyncio.sleep(interval)
 
     async def stop(self):
+        """
+        Остановка всех задач.
+        """
         if not self._running:
             return
 
@@ -64,6 +71,9 @@ class RaScheduler:
         logging.info("[RaScheduler] Все задачи остановлены.")
 
     def status(self):
+        """
+        Статус планировщика.
+        """
         return {
             "jobs": len(self.jobs),
             "running_tasks": len(self._tasks),
@@ -71,10 +81,12 @@ class RaScheduler:
         }
 
     # =====================================================
-    # 🧠 НОВОЕ: тик саморазвития Ра
+    # 🧠 Тик саморазвития Ра
     # =====================================================
-
     async def self_upgrade_tick(self):
+        """
+        Запускает тик саморазвития через thinker и upgrade_loop
+        """
         if not self.thinker or not self.upgrade_loop:
             return
 
@@ -94,21 +106,35 @@ class RaScheduler:
 
         except Exception as e:
             logging.exception(f"[RaScheduler] Ошибка self_upgrade_tick: {e}")
-    #=========================================================================
+
+    # =====================================================
+    # 🛠 Обработка сообщений из мира
+    # =====================================================
     async def process_world_message(self, message):
+        """
+        Реакция на внешние события
+        """
         if "тревога" in str(message).lower():
+            # тут пока заглушка, можно подключить свои задачи
             await self.schedule_immediate("stabilize")
-            
+
     # =====================================================
     # 🗓 Метод обработки события schedule
     # =====================================================
-    async def scheduler_loop(self):
-    """
-    Основной цикл планировщика.
-    Запускает все задачи и держит цикл живым.
-    """
-        await self.start()  # запускаем все добавленные задачи
-        while True:
-            await asyncio.sleep(1)  # удерживаем цикл живым
+    async def on_schedule(self, event):
+        logging.info(f"[RaScheduler] Получено событие schedule: {event}")
         for coro, interval in self.jobs:
             logging.info(f"[RaScheduler] Задача {coro.__name__} с интервалом {interval} сек.")
+
+    # =====================================================
+    # 🔄 Главный цикл планировщика (замена run_loop)
+    # =====================================================
+    async def scheduler_loop(self):
+        """
+        Основной цикл планировщика, который нужно запускать как bg_task
+        """
+        # запускаем все задачи
+        await self.start()
+        logging.info("[RaScheduler] scheduler_loop запущен")
+        while True:
+            await asyncio.sleep(1)  # держим цикл живым
