@@ -113,7 +113,7 @@ async def main():
     )
     # регистрируем модули
     core.register_module("self", ra)
-    core.subscribe("world_event", ra.on_world_event)
+    ra.event_bus.subscribe("world_event", ra.on_world_event)
     core.subscribe("thought", ra.on_thought)
     core.register_module("thinker", thinker)
     core.register_module("world", world)
