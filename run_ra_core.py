@@ -29,6 +29,7 @@ from modules.ra_forex_manager import RaForexManager, TelegramSender
 from modules.ra_scheduler import RaScheduler
 from modules.ra_guardian import RaGuardian
 from modules.ra_police import RaPolice
+from modules.ra_world_observer import RaWorld
 
 # аккуратно подтягиваем телегу, не вырезая её логики
 from core.ra_bot_gpt import (
