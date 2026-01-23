@@ -358,12 +358,7 @@ class RaSelfMaster:
             "active_modules": self.active_modules,
             "last_thought": self.last_thought
         }
-    # =====================================================
-    async def main():
-        self_master = RaSelfMaster(logger=logger_instance)
-        await self_master.awaken()
-        await self_master.start_background_modules()  # вот сюда
-        await self_master.start()
+
     # ===============================
     # Остановка
     # ===============================
@@ -371,7 +366,7 @@ class RaSelfMaster:
     # Сначала останавливаем NervousModule
         if hasattr(self, "nervous_module"):
             await self.nervous_module.stop()
-
+        
     # Потом отменяем остальные фоновые задачи
         for task in list(self._tasks):
             try:
@@ -381,3 +376,14 @@ class RaSelfMaster:
         self._tasks.clear()
 
         log_info("RaSelfMaster остановлен")
+
+# =================================================
+async def main():
+    self_master = RaSelfMaster(logger=logger_instance)
+    await self_master.awaken()
+    await self_master.start_background_modules()
+    await self_master.start()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
