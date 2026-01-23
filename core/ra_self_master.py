@@ -358,6 +358,12 @@ class RaSelfMaster:
             "active_modules": self.active_modules,
             "last_thought": self.last_thought
         }
+    # =====================================================
+    async def main():
+        self_master = RaSelfMaster(logger=logger_instance)
+        await self_master.awaken()
+        await self_master.start_background_modules()  # вот сюда
+        await self_master.start()
     # ===============================
     # Остановка
     # ===============================
