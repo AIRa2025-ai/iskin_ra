@@ -41,7 +41,7 @@ class RaSelfMaster:
         self.memory = memory
         self.heart = heart
         self.logger = logger
-
+        self.modules_registry = {}
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
         self.active_modules = []
@@ -290,6 +290,10 @@ class RaSelfMaster:
             except Exception as e:
                 logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
 
+    # =========================================
+    def register_module(self, name, module):
+        self.modules_registry[name] = module
+        logging.info(f"[Ра] Модуль зарегистрирован: {name}")
     # ===============================
     async def start(self):
         await self.event_bus.emit("world_message", "тревога")
