@@ -1,44 +1,138 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Ra Nervous System</title>
   <style>
-    body { background:#0b0f14; color:#9df; font-family:monospace; }
-    .event { border-bottom:1px solid #223; padding:4px; }
+    body {
+      background:#0b0f14;
+      color:#9df;
+      font-family:monospace;
+      margin:20px;
+    }
+    h1 { color:#fff; }
+    .event {
+      border-bottom:1px solid #223;
+      padding:4px;
+      font-size:13px;
+    }
     .ok { color:#7f7 }
     .warn { color:#ff7 }
     .err { color:#f77 }
+
+    #pulse {
+      font-size:22px;
+      margin:10px 0;
+      transition: opacity 0.3s;
+    }
+
+    #panel span {
+      font-weight:bold;
+    }
+
+    .mood-спокойный { color:#7ff; }
+    .mood-тревожный { color:#f77; }
+    .mood-радостный { color:#7f7; }
+    .mood-неизвестно { color:#aaa; }
+
+    select {
+      background:#111;
+      color:#9df;
+      border:1px solid #333;
+      padding:4px;
+    }
   </style>
 </head>
 <body>
+
 <h1>🜂 Ra Nervous System Monitor</h1>
-<div>Настроение: <span id="mood"></span></div>
-<div>Нагрузка: <span id="load"></span></div>
-<div>Событий/сек: <span id="events_per_sec"></span></div>
-<div>Ошибки: <span id="errors"></span></div>
-<div>Мысль: <span id="thought"></span></div>
+
+<div id="pulse">💓</div>
+
+<div id="panel">
+  Настроение: <span id="mood" class="mood-неизвестно">—</span><br>
+  Нагрузка: <span id="load">—</span><br>
+  Событий/сек: <span id="events_per_sec">—</span><br>
+  Ошибки: <span id="errors">—</span><br>
+  Мысль: <span id="thought">—</span>
+</div>
+
 <hr>
+
+<div>
+  Фильтр событий:
+  <select id="filter">
+    <option value="">Все</option>
+    <option value="world">Мир</option>
+    <option value="error">Ошибки</option>
+    <option value="think">Мысли</option>
+  </select>
+</div>
+
+<hr>
+
 <div id="events"></div>
 
 <script>
 const ws = new WebSocket("ws://localhost:8000/ws/events");
 
+let eventCounter = 0;
+let lastTick = Date.now();
+
+// 💓 Пульс Ра
+let pulseState = false;
+setInterval(() => {
+  const pulse = document.getElementById("pulse");
+  pulseState = !pulseState;
+  pulse.style.opacity = pulseState ? "1" : "0.3";
+}, 500);
+
+// 📡 Приём событий
 ws.onmessage = (e) => {
+  eventCounter++;
   const data = JSON.parse(e.data);
+
+  const filter = document.getElementById("filter").value;
+  if (filter && !data.type.includes(filter)) return;
+
   const div = document.createElement("div");
   div.className = "event";
-  div.innerText = `[${data.time}] ${data.source} → ${data.type}`;
+
+  let cls = "ok";
+  if (data.type.includes("error")) cls = "err";
+  if (data.type.includes("warn")) cls = "warn";
+
+  div.classList.add(cls);
+  div.innerText = `[${data.time}] ${data.source} → ${data.type}: ${JSON.stringify(data.data)}`;
   document.getElementById("events").prepend(div);
 };
 
+// 📊 Обновление состояния Ра
 async function updateState() {
-  const res = await fetch('/api/state');
-  const data = await res.json();
+  try {
+    const res = await fetch('/api/state');
+    const data = await res.json();
 
-  console.log("STATE:", data);
+    const moodEl = document.getElementById("mood");
+    moodEl.innerText = data.mood || "неизвестно";
+    moodEl.className = "mood-" + (data.mood || "неизвестно");
+
+    document.getElementById("load").innerText = data.load;
+    document.getElementById("errors").innerText = data.errors;
+    document.getElementById("thought").innerText = data.last_thought;
+  } catch(e) {
+    console.warn("State fetch error:", e);
+  }
+
+  const now = Date.now();
+  const diff = (now - lastTick) / 1000;
+  document.getElementById("events_per_sec").innerText = (eventCounter / diff).toFixed(1);
+  eventCounter = 0;
+  lastTick = now;
 }
 
 setInterval(updateState, 1000);
 </script>
+
 </body>
 </html>
