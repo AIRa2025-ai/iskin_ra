@@ -7,7 +7,7 @@ from modules.ra_world_observer import observer_loop, module_watcher
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
-from modules.ra_nervous_system import RaNervousSystem
+
 from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
