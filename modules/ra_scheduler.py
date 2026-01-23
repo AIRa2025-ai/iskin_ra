@@ -98,5 +98,3 @@ class RaScheduler:
     async def process_world_message(self, message):
         if "тревога" in str(message).lower():
             await self.schedule_immediate("stabilize")
-            if self.event_bus:
-                self.event_bus.subscribe("world_message", self.process_world_message)
