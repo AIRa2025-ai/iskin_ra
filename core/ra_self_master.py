@@ -357,12 +357,16 @@ class RaSelfMaster:
     # Остановка
     # ===============================
     async def stop_modules(self):
+    # Сначала останавливаем NervousModule
+        if hasattr(self, "nervous_module"):
+            await self.nervous_module.stop()
+
+    # Потом отменяем остальные фоновые задачи
         for task in list(self._tasks):
             try:
                 task.cancel()
             except Exception:
                 pass
         self._tasks.clear()
+
         log_info("RaSelfMaster остановлен")
-        if hasattr(self, "nervous_module"):
-            await self.nervous_module.stop()
