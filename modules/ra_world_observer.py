@@ -20,7 +20,7 @@ if str(MODULES_PATH) not in sys.path:
 # --- Импорт внутренних модулей ---
 from modules.ra_guardian import Guardian
 from modules.ra_self_dev import SelfDeveloper
-from modules.ra_self_writer import SelfWriter
+from modules.ra_self_writer import RaSelfWriter
 from modules.heart_reactor import heart_reactor  # 🌟 подключаем сердце
 
 # --- Конфиг ---
@@ -40,7 +40,7 @@ app = FastAPI(title="Ra Super Control Center", description="Центр упра�
 # --- Компоненты Ра ---
 guardian = Guardian()
 self_dev = SelfDeveloper()
-self_writer = SelfWriter()
+ra_self_writer = RaSelfWriter()
 
 # --- Папки ---
 for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
