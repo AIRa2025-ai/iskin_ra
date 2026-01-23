@@ -232,6 +232,3 @@ class RaThinker:
 #================================================================================================
     async def process_world_message(self, message):
         self.last_world_event = message
-        if self.event_bus:
-            self.event_bus.subscribe("world_message", self.process_world_message)
-        
