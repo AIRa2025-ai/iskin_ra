@@ -9,7 +9,7 @@ class RaScheduler:
     Используется как нервная система Ра.
     """
 
-    def __init__(self, context=None, self_master=None, thinker=None, upgrade_loop=None):
+    def __init__(self, context=None, self_master=None, thinker=None, upgrade_loop=None, event_bus=None):
         self.context = context
         self.self_master = self_master
         self.thinker = thinker
@@ -94,3 +94,9 @@ class RaScheduler:
 
         except Exception as e:
             logging.exception(f"[RaScheduler] Ошибка self_upgrade_tick: {e}")
+    #=========================================================================
+    async def process_world_message(self, message):
+        if "тревога" in str(message).lower():
+            await self.schedule_immediate("stabilize")
+            if self.event_bus:
+                self.event_bus.subscribe("world_message", self.process_world_message)
