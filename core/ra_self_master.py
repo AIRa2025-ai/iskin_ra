@@ -329,7 +329,6 @@ class RaSelfMaster:
             logging.info(f"[Ра] Осознал тело файлов ({len(files_map)} файлов)")
 
         self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
-        self._create_bg_task(self.thinker.run_loop(), "thinker_loop")
         self._create_bg_task(self.scheduler.run_loop(), "scheduler_loop")
         self._create_bg_task(self.auto_activate_modules(), "auto_modules")
 
@@ -349,7 +348,20 @@ class RaSelfMaster:
 
         self.awakened = True
         return "🌞 Ра осознал себя и готов!"
+    #====== САМОУЛУЧШЕНИЯ ==============================
+    async def thinker_loop():
+        while True:
+            await self.thinker.self_upgrade_cycle()
+            await asyncio.sleep(5)  # пауза между циклами
 
+    self._create_bg_task(thinker_loop(), "thinker_loop")
+    
+    async def task_listener():
+        while True:
+            task = await self.get_new_task()
+            await self.thinker.on_new_task(task)
+
+    self._create_bg_task(task_listener(), "task_loop")
     # ===============================
     # Манифест
     # ===============================
