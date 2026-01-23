@@ -100,7 +100,7 @@ class RaSelfMaster:
         # Нервная система
         from modules.ra_nervous_system import RaNervousSystem
         self.nervous_module = RaNervousSystem(self, self.event_bus)
-        self._create_bg_task(self.nervous_module.start(), "nervous_module")
+       # self._create_bg_task(self.nervous_module.start(), "nervous_module")
         
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
@@ -132,7 +132,10 @@ class RaSelfMaster:
             
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
-        
+    #===============================================================
+    async def start_background_modules(self):
+        # теперь loop точно запущен
+        self._create_bg_task(self.nervous_module.start(), "nervous_module")   
     # =========================================
     # Метод WebSocket
     # =========================================
