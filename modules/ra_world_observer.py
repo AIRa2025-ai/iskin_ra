@@ -57,7 +57,9 @@ def log(msg: str):
     if len(logs) > 500:
         logs.pop(0)
 
-# --- RaWorldObserver класс ---
+# -----------------------------
+# Класс RaWorldObserver
+# -----------------------------
 class RaWorldObserver:
     def __init__(self):
         self._tasks = []
@@ -80,10 +82,7 @@ class RaWorldObserver:
                 pass
         await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
-        
-ra_world_observer = RaWorldObserver()
 
-    # --- Автозагрузка модулей ---
     async def auto_load_modules(self):
         loaded = []
         modules_dir = Path(__file__).parent / "modules"
@@ -104,7 +103,6 @@ ra_world_observer = RaWorldObserver()
                 log(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
         return loaded
 
-    # --- Observer Loop ---
     async def observer_loop(self):
         while True:
             try:
@@ -150,6 +148,9 @@ ra_world_observer = RaWorldObserver()
         if hasattr(heart_reactor, "send_event"):
             heart_reactor.send_event("Природа излучает свет")
             heart_reactor.send_event("В городе тревога")
+
+# --- Экземпляр ---
+ra_world_observer = RaWorldObserver()
 
 # --- RaWorld для интеграции с RaSelfMaster ---
 class RaWorld:
