@@ -1,15 +1,20 @@
 # core/ra_self_reflect.py
-import os # noqa: F401
+import os  # noqa: F401
 import json
-import logging # noqa: F401
+import logging  # noqa: F401
 from datetime import datetime
 from pathlib import Path
 
+# -------------------------------
+# Пути и конфиги
+# -------------------------------
 REFLECTION_LOG = Path("logs/self_reflection.log")
 KNOWLEDGE_FOLDER = Path("RaSvet")
-
 REFLECTION_LOG.parent.mkdir(parents=True, exist_ok=True)
 
+# -------------------------------
+# Класс саморефлексии
+# -------------------------------
 class RaSelfReflector:
     def __init__(self):
         self.last_reflection = None
@@ -75,3 +80,8 @@ class RaSelfReflector:
             except Exception:
                 return {"message": "Не удалось прочитать лог саморефлексии."}
         return {"message": "Пока нет записей саморефлексии."}
+
+# -------------------------------
+# Экспорт под ожидаемое имя
+# -------------------------------
+RaSelfReflect = RaSelfReflector
