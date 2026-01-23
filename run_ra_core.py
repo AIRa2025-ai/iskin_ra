@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from ra_nervous_system import RaCore
+from modules.ra_nervous_system import RaNervousSystem
 from RaThinker import RaThinker
 from RaWorld import RaWorld
 from core.ra_self_master import RaSelfMaster
