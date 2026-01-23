@@ -289,7 +289,10 @@ class RaSelfMaster:
                 logging.info(f"[Ра] Подключён модуль: {mod_name}")
             except Exception as e:
                 logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
-
+                
+    # ===============================================
+    def subscribe(self, event_name, callback):
+        self.event_bus.subscribe(event_name, callback)
     # =========================================
     def register_module(self, name, module):
         self.modules_registry[name] = module
