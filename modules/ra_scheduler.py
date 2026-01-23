@@ -18,6 +18,11 @@ class RaScheduler:
         self.jobs = []          # (coro, interval)
         self._tasks = []
         self._running = False
+        
+    async def scheduler_loop(self):
+        while True:
+            await self.process_tasks()
+            await asyncio.sleep(1)  # пауза между итерациями
 
     def add_task(self, coro, interval_seconds):
         self.jobs.append((coro, interval_seconds))
