@@ -1,23 +1,30 @@
 # core/ra_event_bus.py
 
-import asyncio
 import time
 from collections import defaultdict, deque
+from datetime import datetime
+import asyncio
 
 class RaEventBus:
     def __init__(self, history_limit=500):
         self.subscribers = defaultdict(list)
         self.event_log = deque(maxlen=history_limit)
-        self.lock = asyncio.Lock()
-        self.subscribers = {}
         self.ws_clients = set()
+        self.lock = asyncio.Lock()
 
     def subscribe(self, event_type: str, callback):
-        if event_type not in self.subscribers:
-            self.subscribers[event_type] = []
         self.subscribers[event_type].append(callback)
 
     async def emit(self, event_type: str, data, source="system"):
+        payload = {
+            "time": datetime.utcnow().isoformat(),
+            "type": event_type,
+            "data": data,
+            "source": source
+        }
+
+        self.event_log.append(payload)
+
         # Локальные подписчики
         if event_type in self.subscribers:
             for cb in list(self.subscribers[event_type]):
@@ -29,16 +36,10 @@ class RaEventBus:
                 except Exception as e:
                     print(f"[EventBus] Callback error: {e}")
 
-        # Отправка в WebSocket
-        await self._emit_ws(event_type, data, source)
+        # WebSocket клиенты
+        await self._emit_ws(payload)
 
-    async def _emit_ws(self, event_type, data, source):
-        payload = {
-            "time": datetime.now().isoformat(),
-            "type": event_type,
-            "data": data,
-            "source": source
-        }
+    async def _emit_ws(self, payload):
         dead = []
         for ws in self.ws_clients:
             try:
@@ -47,7 +48,13 @@ class RaEventBus:
                 dead.append(ws)
         for ws in dead:
             self.ws_clients.remove(ws)
-            
+
+    def attach_ws(self, ws):
+        self.ws_clients.add(ws)
+
+    def detach_ws(self, ws):
+        self.ws_clients.discard(ws)
+
     def get_events(self):
         return list(self.event_log)
 
