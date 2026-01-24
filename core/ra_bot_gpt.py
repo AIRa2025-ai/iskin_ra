@@ -102,7 +102,10 @@ if RaThinker and self_master:
         )
         self_master.thinker = thinker
     log.info("[RaBot] RaThinker инициализирован и связан с self_master")
-
+    
+# =============================== Подписки на события ======================
+ra.event_bus.subscribe("world_event", ra.scheduler.process_world_message)
+ra.event_bus.subscribe("schedule", ra.scheduler.on_schedule)
 # ------------------------------- SCHEDULER -------------------------------
 ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
 ra.scheduler.add_task(ra.scheduler.self_upgrade_tick, 60)
