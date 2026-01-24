@@ -105,7 +105,7 @@ if RaThinker and self_master:
 
 # ------------------------------- SCHEDULER -------------------------------
 ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
-
+ra.scheduler.add_task(ra.scheduler.self_upgrade_tick, 60)
 # ------------------------------- COMMAND LOGGING -------------------------------
 def log_command(user_id, text):
     try:
@@ -217,7 +217,7 @@ async def main():
         
     #============ Старт ========================
     await self_master.start()
-
+    asyncio.create_task(ra.scheduler.scheduler_loop())
     # ----------------- GPT HANDLER -----------------
     if GPTHandler and self_master:
         gpt_handler = GPTHandler(
