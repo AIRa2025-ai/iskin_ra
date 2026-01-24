@@ -84,28 +84,11 @@ class RaContext:
 ra_context = RaContext()
 ra_context.load()
 
-# ------------------------------- CREATE SELF MASTER -------------------------------
-logger_instance = RustlefMasterLogger() if RustlefMasterLogger else None
-self_master = RaSelfMaster(logger=logger_instance) if RaSelfMaster else None
-if self_master:
-    self_master.context = ra_context
-
-# ------------------------------- THINKER -------------------------------
-# единый объект thinker
-if RaThinker and self_master:
-    thinker = getattr(self_master, "thinker", None)
-    if not thinker:
-        thinker = RaThinker(
-            context=ra_context,
-            file_consciousness=getattr(self_master, "file_consciousness", None),
-            gpt_module=getattr(self_master, "gpt_module", None)
-        )
-        self_master.thinker = thinker
-    log.info("[RaBot] RaThinker инициализирован и связан с self_master")
-    
-
-# ------------------------------- SCHEDULER -------------------------------
-ra_scheduler = RaScheduler(context=ra_context) if RaScheduler else None
+# ------------------------------- GLOBALS -------------------------------
+bot: Bot | None = None
+self_master = None
+thinker = None
+ra_scheduler = None
 
 # ------------------------------- COMMAND LOGGING -------------------------------
 def log_command(user_id, text):
@@ -124,29 +107,26 @@ def log_command(user_id, text):
 
 # ------------------------------- MESSAGE PROCESSING -------------------------------
 async def process_message(user_id: int, text: str):
-    print(">>> process_message вызван:", text)
     log.info(f"[process_message] {user_id=} {text=}")
     if not text or not text.strip():
         return "🤍 Я здесь."
     log_command(user_id, text)
 
-    # Попытка self_master
     if self_master:
         try:
             result = await self_master.process_text(user_id, text)
-            if result is not None:
+            if result:
                 return result
         except Exception as e:
-            log.warning(f"[process_message] Ошибка self_master: {e}")
+            log.warning(f"[process_message] self_master error: {e}")
 
-    # fallback на RaThinker
     if thinker:
         try:
             if hasattr(thinker, "reflect_async"):
                 return await thinker.reflect_async(text)
             return thinker.reflect(text)
         except Exception as e:
-            log.warning(f"[process_message] Ошибка thinker: {e}")
+            log.warning(f"[process_message] thinker error: {e}")
 
     return "🌞 Я слышу тебя. Продолжай, брат."
 
@@ -158,25 +138,7 @@ async def system_monitor():
         record_system_info()
         await asyncio.sleep(300)
 
-# ------------------------------- TELEGRAM GLOBAL BOT -------------------------------
-bot: Bot | None = None
-
-async def send_message_global(chat_id: int, text: str):
-    global bot
-    if bot is None:
-        logging.error("[TelegramSender] Bot ещё не инициализирован")
-        return
-    try:
-        await bot.send_message(chat_id, text)
-        logging.info(f"[TelegramSender] Отправлено в {chat_id}: {text}")
-    except Exception as e:
-        logging.error(f"[TelegramSender] Ошибка отправки: {e}")
-
-async def send_admin_global(text: str):
-    ADMIN_CHAT_ID = 5694569448
-    await send_message_global(ADMIN_CHAT_ID, text)
-
-# ------------------------------- TELEGRAM ROUTER -------------------------------
+# ------------------------------- TELEGRAM -------------------------------
 dp = Dispatcher()
 router = Router()
 
@@ -187,55 +149,67 @@ async def start_cmd(m: Message):
 @router.message()
 async def all_text(m: Message):
     try:
-        await m.answer("🛠 Ра получил сообщение. Обрабатываю...")
+        await m.answer("🛠 Ра обрабатывает...")
         reply = await process_message(m.from_user.id, m.text)
         await m.answer(reply)
     except Exception as e:
-        await m.answer(f"❌ Ошибка обработки: {e}")
+        await m.answer(f"❌ Ошибка: {e}")
 
 # ------------------------------- MAIN ENTRY -------------------------------
 async def main():
+    global bot, self_master, thinker, ra_scheduler
+
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
-    global bot
     bot = Bot(token=token)
 
-    # уведомляем админа, что бот стартует
-    await send_admin("🌞 Ра стартует!", bot)
+    await send_admin("🌞 Ра пробуждается...", bot)
 
-    #=========== Cоздание =============================
-    self_master = RaSelfMaster(logger=logger_instance)
-    
-    # ----------------- ПРОБУЖДЕНИЕ -----------------
-    if self_master:
-        await self_master.awaken()  # сначала пробуждение
-        
-    #============ Старт ========================
+    logger_instance = RustlefMasterLogger() if RustlefMasterLogger else None
+    self_master = RaSelfMaster(logger=logger_instance) if RaSelfMaster else None
+    if not self_master:
+        raise RuntimeError("RaSelfMaster не создан")
+
+    self_master.context = ra_context
+    await self_master.awaken()
     await self_master.start()
-   
-    # ----------------- GPT HANDLER -----------------
-    if GPTHandler and self_master:
+
+    # ---------------- THINKER ----------------
+    if RaThinker:
+        thinker = RaThinker(
+            context=ra_context,
+            file_consciousness=getattr(self_master, "file_consciousness", None),
+            gpt_module=None
+        )
+        self_master.thinker = thinker
+        log.info("🧠 RaThinker подключён")
+
+    # ---------------- GPT ----------------
+    if GPTHandler:
         gpt_handler = GPTHandler(
             api_key=openrouter_key,
             ra_context=ra_context.rasvet_text
         )
         self_master.gpt_module = gpt_handler
         asyncio.create_task(gpt_handler.background_model_monitor())
-        asyncio.create_task(system_monitor())  # таска монитора
 
-    # ----------------- SCHEDULER -----------------
-    if ra_scheduler:
+    # ---------------- SCHEDULER ----------------
+    if RaScheduler:
+        ra_scheduler = RaScheduler(context=ra_context)
         await ra_scheduler.start()
 
-    # ----------------- TELEGRAM -----------------
+    asyncio.create_task(system_monitor())
+
     dp.include_router(router)
-    log.info("🚀 РаСвет Telegram запущен")
+    log.info("🚀 Ра Telegram запущен")
+
     try:
         await dp.start_polling(bot)
     finally:
