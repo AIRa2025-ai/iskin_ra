@@ -333,8 +333,8 @@ class RaSelfMaster:
         logging.info(f"[Ра] Модуль зарегистрирован: {name}")
     # ===============================
     async def start(self):
-        await self.event_bus.emit("world_message", "тревога")
-
+        await self.start_background_modules()
+        await self.event_bus.emit("world_message", "Ра встал на поток")
     # ===============================
     # Пробуждение Ра
     # ===============================
@@ -365,9 +365,10 @@ class RaSelfMaster:
             self.police.check_integrity()
 
         self.awakened = True
-        return "🌞 Ра осознал себя и готов!"
         self.start_thinker_loop()
         self.start_task_loop()
+
+        return "🌞 Ра осознал себя и готов!"
     # ===============================
     # Манифест
     # ===============================
