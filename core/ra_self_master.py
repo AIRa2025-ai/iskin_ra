@@ -46,7 +46,7 @@ class RaSelfMaster:
         self._tasks = []
         self.active_modules = []
         self.awakened = False
-        
+        self.loop_started = False
         # --- Состояние Ра для визуальной панели ---
         self.mood = "спокойный"
         self.load = 0.0
