@@ -12,7 +12,8 @@ class ForexBrain:
         self.data = {}
         self.master = master
         self.logger = master.logger
-
+        self.logger.attach_module("ra_forex")
+        
     def fetch_history(self, pair, limit=500):
         url = f"https://www.freeforexapi.com/api/live?pairs={pair}"
         try:
@@ -201,8 +202,8 @@ class ForexBrain:
         print(f"[ForexBrain] Сигналы сохранены в {filename}")
         
     def generate_signal(self, symbol, side, data):
-        self.logger.forex_signal(symbol, side, data
-                                 
+        self.logger.forex_signal(symbol, side, data)
+                             
     def get_market_snapshot(self, pair):
         df = self.data.get(pair)
         if df is None or df.empty:
