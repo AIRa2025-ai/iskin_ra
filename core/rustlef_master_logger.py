@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 from typing import Callable, Dict, List, Any
-
+from threading import Lock
 
 # ============================================================
 # 🔔 RaEvent — универсальное событие нервной системы
@@ -72,12 +72,13 @@ class RustlefMasterLogger:
         # логгер файловый
         self.logger = logging.getLogger("RustlefMaster")
         self.logger.setLevel(logging.INFO)
-
+        self._event_lock = Lock()
+        
         log_file = self.log_dir / f"{datetime.utcnow().strftime('%Y-%m-%d')}.log"
         fh = logging.FileHandler(log_file, encoding="utf-8")
         fh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
-        self.logger.addHandler(fh)
-
+        if not self.logger.handlers:
+            self.logger.addHandler(fh)
         # события
         self.events_file = self.log_dir / "events.json"
         if not self.events_file.exists():
@@ -121,15 +122,15 @@ class RustlefMasterLogger:
     # ========================================================
 
     def emit_event(self, event: RaEvent):
-        try:
-            events = json.loads(self.events_file.read_text(encoding="utf-8"))
-            events.append(event.to_dict())
-            events = events[-500:]
-            self.events_file.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception as e:
-            self.logger.error(f"[RustlefMasterLogger] Ошибка записи события: {e}")
+        with self._event_lock:
+            try:
+                events = json.loads(self.events_file.read_text(encoding="utf-8"))
+                events.append(event.to_dict())
+                events = events[-500:]
+                self.events_file.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception as e:
+                self.logger.error(f"[RustlefMasterLogger] Ошибка записи события: {e}")
 
-        # передаём событие в шину
         self.bus.emit(event)
 
     def log_event(self, category: str, description: str, module: str = None, data: dict = None):
@@ -139,7 +140,12 @@ class RustlefMasterLogger:
     # ========================================================
     # 🧠 Специализированные категории
     # ========================================================
+    def system_state(self, state: str, data: dict = None):
+        self.log_event("system", state, module="RaSelfMaster", data=data)
 
+    def resource_usage(self, cpu=None, ram=None):
+        self.log_event("resources", "Состояние ресурсов", module="system", data={"cpu": cpu, "ram": ram})
+    
     def log_thinker(self, msg: str, context: dict = None):
         self.log_event("thinker", msg, module="RaThinker", data=context)
 
@@ -194,7 +200,13 @@ class RustlefMasterLogger:
         except Exception:
             return []
 
-
+    def get_events_by_category(self, category: str, limit=50):
+        try:
+            events = json.loads(self.events_file.read_text(encoding="utf-8"))
+            filtered = [e for e in events if e["category"] == category]
+            return filtered[-limit:]
+        except Exception:
+            return []
 # ============================================================
 # 🧪 Тестирование вручную
 # ============================================================
