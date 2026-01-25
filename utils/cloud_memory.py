@@ -3,7 +3,9 @@ import os
 import zipfile
 import logging
 from mega import Mega
+from utils.cloud_memory import upload_memory_to_mega, download_memory_from_mega
 
+upload_memory_to_mega()
 MEMORY_FOLDER = "/data/RaSvet/memory"
 BACKUP_PATH = "/data/memory_backup.zip"
 
