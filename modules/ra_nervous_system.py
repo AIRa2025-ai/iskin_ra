@@ -41,18 +41,14 @@ class RaNervousSystem:
         self.world_observer = ra_world_observer
         if self.world_observer:
             self.world_observer.set_event_bus(self.event_bus)
-            
-        if self.self_master:
-            self.self_master.git.commit_and_optionally_push(
-                "Ра обновил нервную систему",
-                push=False
-            )
 
-        create_commit_push(
-            "ra-nervous-upgrade",
-            files_dict,
-            "🧠 Ра улучшил нервную систему"
-        )
+        if self.self_master:
+            # Локальный коммит
+            self.self_master.evolve_and_commit(
+                "Ра обновил нервную систему",
+                push=False,
+                files_dict={"modules/ra_nervous_system.py": "...код..."}
+            )
         # Поток энергии
         self.energy = RaEnergy()
         # =================
