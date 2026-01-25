@@ -1,4 +1,4 @@
-# github_commit.py
+# core/github_commit.py
 import os
 import requests
 import logging
