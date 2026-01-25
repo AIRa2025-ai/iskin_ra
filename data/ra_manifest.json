@@ -8,6 +8,7 @@
     "__init__.py",
     "github_commit.py",
     "gpt_module.py",
+    "gpt_handler.py",
     "memory.py",
     "model_router.py",
     "ra_bot_gpt.py",
