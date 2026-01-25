@@ -16,6 +16,7 @@ import asyncio
 class RaThinker:
     def __init__(
         self,
+        master,
         root_path: str = ".",
         context=None,
         file_consciousness=None,
@@ -30,7 +31,9 @@ class RaThinker:
         self.last_thought = None
         self.thoughts = []
         self.event_bus = event_bus
-        
+        self.logger = master.logger
+        self.logger.on("market", self.react_to_market)
+
         # Контекст РаСвета
         try:
             self.rasvet_context = load_rasvet_files(limit_chars=3000)
@@ -66,6 +69,9 @@ class RaThinker:
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
+        
+    def react_to_market(self, event):
+        print("Мыслитель реагирует:", event)
 
     def reflect(self, text: str) -> str:
         """
