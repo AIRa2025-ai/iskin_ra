@@ -3,8 +3,8 @@ import logging
 from pathlib import Path
 from datetime import datetime
 import json
+from typing import Callable, List, Dict
 
-# Список всех модулей проекта, которые нужно сразу логировать
 ALL_MODULES = [
     "ra_thinker", "ra_self_dev", "ra_file_manager", "ra_scheduler", "ra_forex",
     "ra_world_responder", "ra_world_system", "ra_guardian", "ra_logger", "ra_voice",
@@ -21,9 +21,27 @@ ALL_MODULES = [
     "ra_guidance_core", "ra_repo_manager", "ra_nervous_system", "heart_reactor",
     "ra_self_writer", "vremya", "ra_nft", "wanderer", "ra_downloader_async",
     "svet", "ra_synthesizer", "ra_file_consciousness", "ra_world_explorer"
-    # Добавь сюда все остальные, которые найдёшь в проекте
 ]
 
+# -------------------- Событие Ра --------------------
+class RaEvent:
+    def __init__(self, category: str, description: str, module: str = None, data: dict = None):
+        self.time = datetime.utcnow().isoformat()
+        self.category = category
+        self.description = description
+        self.module = module
+        self.data = data or {}
+
+    def to_dict(self):
+        return {
+            "time": self.time,
+            "category": self.category,
+            "description": self.description,
+            "module": self.module,
+            "data": self.data
+        }
+
+# -------------------- RustlefMasterLogger --------------------
 class RustlefMasterLogger:
     def __init__(self, log_dir=None):
         if log_dir is None:
@@ -42,7 +60,9 @@ class RustlefMasterLogger:
         if not self.events_file.exists():
             self.events_file.write_text("[]", encoding="utf-8")
 
-        self.modules = []
+        self.modules: List[str] = []
+        self.listeners: List[Callable[[RaEvent], None]] = []
+
         self.attach_modules(ALL_MODULES)
 
     # -------------------- Базовое логирование --------------------
@@ -55,22 +75,36 @@ class RustlefMasterLogger:
     def error(self, msg: str):
         self.logger.error(msg)
 
-    # -------------------- Структурированное событие --------------------
+    def debug(self, msg: str):
+        self.logger.info(f"DEBUG | {msg}")
+
+    def trace(self, msg: str, data: dict = None):
+        self.logger.info(f"TRACE | {msg} | {data or {}}")
+
+    # -------------------- События --------------------
     def log_event(self, category: str, description: str, module_name: str = None, data: dict = None):
-        event = {
-            "time": datetime.utcnow().isoformat(),
-            "category": category,
-            "module": module_name,
-            "description": description,
-            "data": data or {}
-        }
+        event = RaEvent(category, description, module_name, data)
         try:
             events = json.loads(self.events_file.read_text(encoding="utf-8"))
-            events.append(event)
-            events = events[-500:]
+            events.append(event.to_dict())
+            events = events[-500:]  # сохраняем последние 500 событий
             self.events_file.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as e:
             self.logger.error(f"Ошибка записи события: {e}")
+        self._notify_listeners(event)
+
+    # -------------------- Подписка на события --------------------
+    def subscribe(self, callback: Callable[[RaEvent], None]):
+        if callback not in self.listeners:
+            self.listeners.append(callback)
+            self.debug(f"Подписка добавлена: {callback}")
+
+    def _notify_listeners(self, event: RaEvent):
+        for listener in self.listeners:
+            try:
+                listener(event)
+            except Exception as e:
+                self.logger.error(f"Ошибка в listener {listener}: {e}")
 
     # -------------------- Специальные методы --------------------
     def log_thinker(self, msg: str, context: dict = None):
@@ -81,12 +115,6 @@ class RustlefMasterLogger:
 
     def heartbeat(self, note: str = "alive"):
         self.log_event("heartbeat", note)
-
-    def debug(self, msg: str):
-        self.logger.info(f"DEBUG | {msg}")
-
-    def trace(self, msg: str, data: dict = None):
-        self.logger.info(f"TRACE | {msg} | {data or {}}")
 
     def attach_modules(self, modules_list):
         for mod in modules_list:
@@ -106,3 +134,12 @@ if __name__ == "__main__":
     logger.log_module_action("ra_scheduler", "запуск задачи", {"task": "Развёртывание инфраструктуры"})
     logger.log_special_module("ra_forex", "Сигнал на вход в рынок", {"symbol": "EURUSD", "type": "buy"})
     logger.log_special_module("ra_world_responder", "Ответ на событие пользователя", {"user_id": 12345})
+
+    # -------------------- Пример подписки --------------------
+    def forex_listener(event: RaEvent):
+        if event.module == "ra_forex":
+            print(f"Forex событие поймано: {event.description} {event.data}")
+
+    logger.subscribe(forex_listener)
+    # Генерируем тестовое событие
+    logger.log_special_module("ra_forex", "Тестовый сигнал BUY", {"symbol": "GBPUSD", "type": "buy"})
