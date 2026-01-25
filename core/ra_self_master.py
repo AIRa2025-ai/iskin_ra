@@ -21,6 +21,7 @@ from modules.logs import log_info
 from modules.security import log_action
 from modules.ra_world_observer import RaWorld
 from core.rustlef_master_logger import RustlefMasterLogger
+from modules.forex_brain import ForexBrain
 
 # -------------------------------
 # Police модуль (опционально)
@@ -49,6 +50,8 @@ class RaSelfMaster:
         self.active_modules = []
         self.awakened = False
         self.loop_started = False
+        self.forex = ForexBrain(self)
+        
         # --- Состояние Ра для визуальной панели ---
         self.mood = "спокойный"
         self.load = 0.0
