@@ -9,22 +9,48 @@ from core.model_router import ModelRouter
 
 log = logging.getLogger("RaGPT")
 
+
 class GPTHandler:
     CACHE_FILE = "data/gpt_cache.json"
-    MODEL_COOLDOWN_HOURS = 2
 
     def __init__(self, api_key: str, ra_context: str):
         self.OPENROUTER_API_KEY = api_key
         self.ra_context_text = ra_context
         self.model_router = ModelRouter()
-        self.excluded_models = {}  # model_name -> datetime, когда возвращается
         self.last_working_model = None
         self.GPT_ENABLED = True
+
+        os.makedirs(os.path.dirname(self.CACHE_FILE), exist_ok=True)
+        self._cache = self._load_cache_file()
+
+    # -----------------------------
+    # Кэш
+    # -----------------------------
+    def _load_cache_file(self):
+        if os.path.exists(self.CACHE_FILE):
+            try:
+                with open(self.CACHE_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                log.warning(f"[GPT] Ошибка чтения кэша: {e}")
+        return {}
+
+    def _save_cache_file(self):
+        os.makedirs(os.path.dirname(self.CACHE_FILE), exist_ok=True)
+        with open(self.CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(self._cache, f, ensure_ascii=False, indent=2)
+
+    def load_cache(self, user_id: str, text: str):
+        return self._cache.get(user_id, {}).get(text)
+
+    def save_cache(self, user_id: str, text: str, answer: str):
+        self._cache.setdefault(user_id, {})[text] = answer
+        self._save_cache_file()
 
     # -----------------------------
     # Запрос к одной модели
     # -----------------------------
-    async def ask_openrouter_single(self, session, messages, model):
+    async def ask_model(self, session, messages, model):
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.OPENROUTER_API_KEY}",
@@ -35,9 +61,12 @@ class GPTHandler:
             "messages": messages,
             "temperature": 0.6
         }
+
         start = datetime.now()
         async with session.post(url, headers=headers, json=payload) as resp:
             data = await resp.json()
+            if "choices" not in data or not data["choices"]:
+                raise ValueError("Нет ответа от модели")
             answer = data["choices"][0]["message"]["content"].strip()
 
         elapsed = (datetime.now() - start).total_seconds()
@@ -56,10 +85,7 @@ class GPTHandler:
         if not self.GPT_ENABLED:
             return "⚠️ GPT временно недоступен"
 
-        self.refresh_excluded_models()
         text = messages[-1]["content"]
-
-        # сначала проверим кэш
         cached = self.load_cache(user_id, text)
         if cached:
             return cached
@@ -80,62 +106,25 @@ class GPTHandler:
         full_messages = [system_message] + messages
 
         async with aiohttp.ClientSession() as session:
-            for _ in range(len(self.model_router.MODELS)):
+            tried_models = set()
+            while len(tried_models) < len(self.model_router.MODELS):
                 model = self.model_router.get_model()
-                if model in self.excluded_models:
+                if model in tried_models:
                     continue
+                tried_models.add(model)
                 try:
-                    answer = await self.ask_openrouter_single(session, full_messages, model)
+                    answer = await self.ask_model(session, full_messages, model)
                     self.save_cache(user_id, text, answer)
                     return answer
                 except Exception as e:
                     log.warning(f"[GPT] Ошибка модели {model}: {e}")
-                    self.excluded_models[model] = datetime.utcnow() + timedelta(
-                        hours=self.MODEL_COOLDOWN_HOURS
-                    )
+                    self.model_router.mark_failed(model)
 
-        # если все модели на кулдауне — берём последнюю рабочую
+        # Если все модели упали
         if self.last_working_model:
-            log.warning("[GPT] Все модели временно недоступны, используем последнюю рабочую модель")
-            return f"⚠️ Все модели временно недоступны, возвращаем ответ с последней рабочей модели {self.last_working_model}"
-
+            log.warning("[GPT] Все модели временно недоступны, возвращаем последний рабочий ответ")
+            return f"⚠️ Все модели временно недоступны. Используем последнюю рабочую модель {self.last_working_model}"
         return "⚠️ Все модели временно недоступны и нет последней рабочей модели"
-
-    # -----------------------------
-    # Кэш
-    # -----------------------------
-    def load_cache(self, user_id: str, text: str):
-        if os.path.exists(self.CACHE_FILE):
-            try:
-                with open(self.CACHE_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return data.get(user_id, {}).get(text)
-            except Exception as e:
-                log.warning(f"[GPT] Ошибка чтения кэша: {e}")
-        return None
-
-    def save_cache(self, user_id: str, text: str, answer: str):
-        data = {}
-        if os.path.exists(self.CACHE_FILE):
-            try:
-                with open(self.CACHE_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-            except Exception:
-                pass
-        data.setdefault(user_id, {})[text] = answer
-        os.makedirs(os.path.dirname(self.CACHE_FILE), exist_ok=True)
-        with open(self.CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    # -----------------------------
-    # Исключённые модели
-    # -----------------------------
-    def refresh_excluded_models(self):
-        now = datetime.utcnow()
-        for m in list(self.excluded_models):
-            if self.excluded_models[m] <= now:
-                log.info(f"[GPT] Модель {m} возвращена из кулдауна")
-                self.excluded_models.pop(m)
 
     # -----------------------------
     # Фоновый монитор моделей
@@ -148,18 +137,16 @@ class GPTHandler:
             try:
                 async with aiohttp.ClientSession() as session:
                     for model in self.model_router.MODELS:
-                        if model in self.excluded_models:
+                        if model in self.model_router.excluded:
                             continue
                         try:
-                            await self.ask_openrouter_single(
+                            await self.ask_model(
                                 session,
                                 [{"role": "system", "content": "ping"}],
                                 model
                             )
                         except Exception:
-                            self.excluded_models[model] = datetime.utcnow() + timedelta(
-                                hours=self.MODEL_COOLDOWN_HOURS
-                            )
+                            self.model_router.mark_failed(model)
                             log.warning(f"[GPT] Модель {model} поставлена на кулдаун фоном")
             except Exception as e:
                 log.warning(f"[GPT] Ошибка фонового мониторинга: {e}")
