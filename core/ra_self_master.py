@@ -6,23 +6,23 @@ import json
 import logging
 import asyncio
 import importlib.util
+from .ra_identity import RaIdentity
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import WebSocket, FastAPI
-from core.ra_event_bus import RaEventBus
-from modules.ra_file_manager import load_rasvet_files
-from .ra_identity import RaIdentity
-from modules.ra_thinker import RaThinker
-from modules.ra_scheduler import RaScheduler
 from core.ra_git_keeper import RaGitKeeper
 from core.github_commit import create_commit_push
+from core.rustlef_master_logger import RustlefMasterLogger
+from core.ra_event_bus import RaEventBus
+from modules.ra_file_manager import load_rasvet_files
+from modules.ra_thinker import RaThinker
+from modules.ra_scheduler import RaScheduler
 from modules.ra_file_consciousness import RaFileConsciousness
-from modules.logs import log_info
-from modules.security import log_action
 from modules.ra_world_observer import RaWorld
 from modules.ra_world_system import RaWorldSystem   # ✅ ДОБАВЛЕН
-from core.rustlef_master_logger import RustlefMasterLogger
 from modules.forex_brain import ForexBrain
+from modules.logs import log_info
+from modules.security import log_action
 
 # Police
 _police = None
