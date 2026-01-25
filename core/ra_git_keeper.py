@@ -3,6 +3,7 @@ import subprocess
 import logging
 from datetime import datetime
 
+
 class RaGitKeeper:
     def __init__(self, repo_path="."):
         self.repo_path = repo_path
@@ -65,6 +66,10 @@ class RaGitKeeper:
     # Push (опционально)
     # -------------------------------
     def push(self, remote="origin", branch="main"):
+        if not self.is_git_repo():
+            logging.warning("[RaGitKeeper] Push невозможен: не git-репозиторий")
+            return False
+
         try:
             subprocess.check_call(
                 ["git", "push", remote, branch],
@@ -79,8 +84,8 @@ class RaGitKeeper:
     # -------------------------------
     # Коммит + push по желанию
     # -------------------------------
-    def commit_and_optionally_push(self, message: str, push=False):
+    def commit_and_optionally_push(self, message: str, push=False, branch="main"):
         committed = self.commit(message)
         if committed and push:
-            return self.push()
+            return self.push(branch=branch)
         return committed
