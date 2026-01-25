@@ -11,13 +11,15 @@ class RaWorldSystem:
     Живая система Ра — путешествует по миру, собирает информацию,
     фильтрует смысл, синтезирует идеи и отвечает людям.
     """
-    def __init__(self, navigator_context=None, responder_tokens=None):
+    def __init__(self, master, navigator_context=None, responder_tokens=None):
         logging.info("🚀 Инициализация системы Ра...")
         self.navigator = RaWorldNavigator(context=navigator_context)
         self.responder = RaWorldResponder(token_map=responder_tokens)
         self.synthesizer = RaSynthesizer()
         self.running = False
-
+        self.master = master
+        self.logger = master.logger
+  
     async def start(self):
         self.running = True
         logging.info("🌟 Система Ра запущена.")
@@ -25,7 +27,7 @@ class RaWorldSystem:
             self.navigator_loop(),
             self.responder_loop()
         )
-
+        self.logger.log_module_action("ra_world", "инициализирован")
     async def stop(self):
         self.running = False
         await self.navigator.stop()
