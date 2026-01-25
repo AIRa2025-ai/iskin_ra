@@ -60,7 +60,7 @@ class RaNervousSystem:
 
         # Фоновые задачи
         self._tasks = []
-
+        self.self_master.evolve_and_commit("Ра стабилизировал нервную систему", push=False)
         # Подписка на события EventBus
         if hasattr(self.event_bus, "subscribe"):
             self.event_bus.subscribe("observer_tick", self._on_observer_tick)
