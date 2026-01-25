@@ -41,10 +41,12 @@ class RaSelfMaster:
 
         # ✅ ЛОГГЕР БЕЗ ЗАТИРАНИЯ
         self.logger = logger if logger else RustlefMasterLogger()
-        # локальный коммит
-        self.git.commit_and_optionally_push("Ра обновил архитектуру", push=False)
+
         self.modules_registry = {}
         self.git = RaGitKeeper(repo_path=".")
+        # локальный коммит
+        self.git.commit_and_optionally_push("Ра обновил архитектуру", push=False)
+        
         self._tasks = []
         self.active_modules = []
         self.awakened = False
@@ -100,10 +102,6 @@ class RaSelfMaster:
 
         self.app = FastAPI(title="Ra Self Master")
         from fastapi.responses import FileResponse
-
-        # облачный PR
-        from core.github_commit import create_commit_push
-        create_commit_push("ra-evolution", files_dict, "🧬 Ра эволюционирует")
 
         @self.app.get("/monitor")
         async def monitor():
@@ -405,7 +403,6 @@ class RaSelfMaster:
             "active_modules": self.active_modules,
             "last_thought": self.last_thought
         }
-        self.logger.on("market", self.on_market_event)
         
     def on_market_event(self, event):
         print("Ра получил событие рынка:", event)
