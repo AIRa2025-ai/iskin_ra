@@ -1,3 +1,4 @@
+# core/ra_self_upgrade_loop.py
 import logging
 from core.ra_git_keeper import RaGitKeeper
 from core.github_commit import create_commit_push
