@@ -8,7 +8,15 @@ class RaSelfUpgradeLoop:
         self.self_master = self_master
         self.file_consciousness = getattr(self_master, "file_consciousness", None)
         self.git = RaGitKeeper()
-
+        self.self_master.evolve_and_commit(
+            "Ра эволюционирует",
+            push=True,
+            files_dict=files_dict
+        )
+        {
+          "modules/ra_thinker.py": "...код...",
+          "core/ra_self_master.py": "...код..."
+        }
     async def apply_upgrade(self, target_file: str, proposed_code: str, approved: bool):
         if not self.file_consciousness:
             logging.warning("[UpgradeLoop] Нет file_consciousness")
