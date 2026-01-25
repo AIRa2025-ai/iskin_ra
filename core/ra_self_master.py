@@ -20,6 +20,7 @@ from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
 from modules.security import log_action
 from modules.ra_world_observer import RaWorld
+from core.rustlef_master_logger import RustlefMasterLogger
 
 # -------------------------------
 # Police модуль (опционально)
@@ -41,6 +42,7 @@ class RaSelfMaster:
         self.memory = memory
         self.heart = heart
         self.logger = logger
+        self.logger = RustlefMasterLogger()
         self.modules_registry = {}
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
@@ -56,7 +58,7 @@ class RaSelfMaster:
         
         # Нервная шина
         self.event_bus = RaEventBus()
-
+       
         # Файловое сознание
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
@@ -68,9 +70,10 @@ class RaSelfMaster:
             root_path=".",
             context=None,
             file_consciousness=self.file_consciousness,
+            self,
             gpt_module=self.gpt_module
         )
-
+        self.world = RaWorldSystem(self)
         # Планировщик
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
