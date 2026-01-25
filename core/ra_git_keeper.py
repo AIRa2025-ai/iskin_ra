@@ -89,3 +89,9 @@ class RaGitKeeper:
         if committed and push:
             return self.push(branch=branch)
         return committed
+
+    # -------------------------------
+    # Коммит без пуша (для локальной эволюции Ра)
+    # -------------------------------
+    def commit_local(self, message: str):
+        return self.commit(message)
