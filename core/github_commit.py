@@ -1,6 +1,7 @@
 # core/github_commit.py
 import os
 import requests
+import subprocess
 import logging
 import base64
 from typing import Dict, Union
@@ -132,6 +133,19 @@ def create_commit_push(
         logging.info(f"✅ PR #{pr_data['number']} — {pr_data['html_url']}")
         return pr_data
 
+    try:
+        for filepath, content in files_dict.items():
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content)
+
+        subprocess.check_call(["git", "checkout", "-B", branch])
+        subprocess.check_call(["git", "add", "."])
+        subprocess.check_call(["git", "commit", "-m", message])
+        subprocess.check_call(["git", "push", "-u", "origin", branch", "--force"])
+
+        logging.info(f"[RaGitHub] Облачный коммит и пуш в ветку {branch}")
+        return True
+
     except Exception as e:
-        logging.exception(f"❌ Ошибка create_commit_push: {e}")
-        raise
+        logging.error(f"[RaGitHub] Ошибка push: {e}")
+        return False
