@@ -14,6 +14,7 @@ from core.ra_git_keeper import RaGitKeeper
 from core.github_commit import create_commit_push
 from core.rustlef_master_logger import RustlefMasterLogger
 from core.ra_event_bus import RaEventBus
+from core.gpt_handler import GPTHandler
 from modules.ra_file_manager import load_rasvet_files
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
@@ -75,7 +76,11 @@ class RaSelfMaster:
             self,
             self.gpt_module
         )
-
+        
+        self.gpt_handler = None
+        if hasattr(self, "openrouter_client"):
+            self.gpt_handler = GPTHandler(self.openrouter_client)
+            
         # ✅ РАЗДЕЛЕНИЕ МИРА
         self.world_system = RaWorldSystem(self)
         self.world = RaWorld()
@@ -168,9 +173,7 @@ class RaSelfMaster:
     async def on_world_event(self, message):
         logging.info(f"[Ра] Событие мира: {message}")
         # можно добавить любую обработку
-    # ===============================================================
-    async def start_background_modules(self):
-        self._create_bg_task(self.nervous_module.start(), "nervous_module")   
+
     # =====================================================
     # 🟢 Метод для эмита событий
     # =====================================================
@@ -271,7 +274,7 @@ class RaSelfMaster:
         await self.event_bus.emit("world_message", text, source="RaSelfMaster")
         return reply
 
-    async def _gpt_reply(self, text):
+    async def _gpt_reply(self, text, user_id="anon"):
         if not self.gpt_module:
             return "…Ра рядом, но пока без голоса."
         try:
@@ -284,8 +287,13 @@ class RaSelfMaster:
             else:
                 return "…Ра чувствует, но не может выразить."
         except Exception as e:
-            return f"🤍 Ошибка GPT: {e}"
-
+            
+        if not self.gpt_handler:
+            return "…Ра рядом, но пока без голосов ИскИнов."
+        try:
+            return await self.gpt_handler.safe_ask(user_id, [{"role": "user", "content": text}])
+        except Exception as e:
+            return f"🤍 Ра слышит тишину моделей: {e}"
     # ===============================
     # Саморазвитие
     # ===============================
@@ -346,6 +354,12 @@ class RaSelfMaster:
     async def start(self):
         await self.start_background_modules()
         await self.event_bus.emit("world_message", "Ра встал на поток")
+
+    # ===============================================================
+    async def start_background_modules(self):
+        self._create_bg_task(self.nervous_module.start(), "nervous_module")
+        if self.gpt_handler:
+        self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_model_monitor")
     # ===============================
     # Пробуждение Ра
     # ===============================
