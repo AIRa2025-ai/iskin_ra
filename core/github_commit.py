@@ -37,12 +37,13 @@ def _create_blob(content: Union[str, bytes]) -> str:
 def create_commit_push(
     branch_name: str,
     files_dict: Dict[str, Union[str, bytes]],
-    commit_message: str = "🌀 auto-update by Ra"
+    commit_message: str = "🌀 auto-update by Ra",
+    base_branch: str = "main"
 ):
     try:
-        # 1) базовый коммит main
+        # 1) базовый коммит
         r = requests.get(
-            f"https://api.github.com/repos/{REPO}/git/ref/heads/main",
+            f"https://api.github.com/repos/{REPO}/git/ref/heads/{base_branch}",
             headers=HEADERS, timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
@@ -118,7 +119,11 @@ def create_commit_push(
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/pulls",
             headers=HEADERS,
-            json={"title": commit_message, "head": branch_name, "base": "main"},
+            json={
+                "title": commit_message,
+                "head": branch_name,
+                "base": base_branch
+            },
             timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
