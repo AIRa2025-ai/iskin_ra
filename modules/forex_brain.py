@@ -6,10 +6,11 @@ from datetime import datetime
 import json
 
 class ForexBrain:
-    def __init__(self, pairs=None, timeframe='H1'):
+    def __init__(self, master, pairs=None, timeframe='H1'):
         self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframe = timeframe
         self.data = {}
+        self.logger = master.logger
 
     def fetch_history(self, pair, limit=500):
         url = f"https://www.freeforexapi.com/api/live?pairs={pair}"
@@ -197,7 +198,10 @@ class ForexBrain:
         with open(filename, 'w') as f:
             json.dump(signals, f, indent=2)
         print(f"[ForexBrain] Сигналы сохранены в {filename}")
-
+        
+    def generate_signal(self, symbol, side, data):
+        self.logger.forex_signal(symbol, side, data
+                                 
     def get_market_snapshot(self, pair):
         df = self.data.get(pair)
         if df is None or df.empty:
@@ -214,6 +218,9 @@ class ForexBrain:
         }
         return snapshot
         
+    def generate_signal(self, symbol, side, data):
+        self.logger.forex_signal(symbol, side, data)
+                
 if __name__ == "__main__":
     brain = ForexBrain()
     signals = brain.analyze_all()
