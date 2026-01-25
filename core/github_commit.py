@@ -6,7 +6,7 @@ import base64
 from typing import Dict, Union
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-REPO = os.getenv("GITHUB_REPO", "AIRa2025-ai/iskin_ra")  # можно переопределить через env
+REPO = os.getenv("GITHUB_REPO", "AIRa2025-ai/iskin_ra")
 
 if not GITHUB_TOKEN:
     raise RuntimeError("❌ GITHUB_TOKEN не найден в окружении!")
@@ -20,7 +20,6 @@ REQUEST_TIMEOUT = 20  # секунд
 
 
 def _create_blob(content: Union[str, bytes]) -> str:
-    """Создаёт blob и возвращает sha. Принимает str (utf-8) или bytes (бинар)."""
     if isinstance(content, str):
         payload = {"content": content, "encoding": "utf-8"}
     else:
@@ -40,10 +39,6 @@ def create_commit_push(
     files_dict: Dict[str, Union[str, bytes]],
     commit_message: str = "🌀 auto-update by Ra"
 ):
-    """
-    files_dict: {path_in_repo: content}, content can be str or bytes.
-    Создаёт ветку, добавляет файлы (blobs -> tree -> commit) и делает PR.
-    """
     try:
         # 1) базовый коммит main
         r = requests.get(
@@ -61,7 +56,7 @@ def create_commit_push(
         r.raise_for_status()
         base_tree_sha = r.json()["tree"]["sha"]
 
-        # 3) создаём ветку (если уже есть — игнорируем)
+        # 3) создаём ветку
         branch_ref = f"refs/heads/{branch_name}"
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/refs",
@@ -71,11 +66,11 @@ def create_commit_push(
         )
         if r.status_code not in (200, 201):
             if r.status_code == 422:
-                logging.warning(f"⚠️ Ветка {branch_name} уже существует, продолжаем.")
+                logging.warning(f"⚠️ Ветка {branch_name} уже существует.")
             else:
                 r.raise_for_status()
 
-        # 4) создаём blobs
+        # 4) blobs
         tree_items = []
         for path, content in files_dict.items():
             blob_sha = _create_blob(content)
@@ -86,7 +81,7 @@ def create_commit_push(
                 "sha": blob_sha
             })
 
-        # 5) создаём новое дерево
+        # 5) дерево
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/trees",
             headers=HEADERS,
@@ -96,11 +91,15 @@ def create_commit_push(
         r.raise_for_status()
         new_tree_sha = r.json()["sha"]
 
-        # 6) создаём коммит
+        # 6) коммит
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/commits",
             headers=HEADERS,
-            json={"message": commit_message, "tree": new_tree_sha, "parents": [base_commit_sha]},
+            json={
+                "message": commit_message,
+                "tree": new_tree_sha,
+                "parents": [base_commit_sha]
+            },
             timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
@@ -109,11 +108,13 @@ def create_commit_push(
         # 7) обновляем ветку
         r = requests.patch(
             f"https://api.github.com/repos/{REPO}/git/refs/heads/{branch_name}",
-            headers=HEADERS, json={"sha": commit_sha}, timeout=REQUEST_TIMEOUT
+            headers=HEADERS,
+            json={"sha": commit_sha},
+            timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
 
-        # 8) создаём PR
+        # 8) PR
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/pulls",
             headers=HEADERS,
@@ -121,8 +122,9 @@ def create_commit_push(
             timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
+
         pr_data = r.json()
-        logging.info(f"✅ Создан PR #{pr_data['number']} — {pr_data['html_url']}")
+        logging.info(f"✅ PR #{pr_data['number']} — {pr_data['html_url']}")
         return pr_data
 
     except Exception as e:
