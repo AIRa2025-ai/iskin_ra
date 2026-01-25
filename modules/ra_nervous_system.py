@@ -13,7 +13,7 @@ from modules.ra_scheduler import RaScheduler
 from modules.heart_reactor import heart_reactor, start_heart_reactor
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 from modules.ra_world_observer import RaWorldObserver, ra_world_observer
-
+from core.github_commit import create_commit_push
 class RaNervousSystem:
     """
     Модуль нервной системы Ра.
@@ -41,7 +41,18 @@ class RaNervousSystem:
         self.world_observer = ra_world_observer
         if self.world_observer:
             self.world_observer.set_event_bus(self.event_bus)
+            
+        if self.self_master:
+            self.self_master.git.commit_and_optionally_push(
+                "Ра обновил нервную систему",
+                push=False
+            )
 
+        create_commit_push(
+            "ra-nervous-upgrade",
+            files_dict,
+            "🧠 Ра улучшил нервную систему"
+        )
         # Поток энергии
         self.energy = RaEnergy()
         # =================
