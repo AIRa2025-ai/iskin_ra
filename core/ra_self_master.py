@@ -15,6 +15,7 @@ from .ra_identity import RaIdentity
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from core.ra_git_keeper import RaGitKeeper
+from core.github_commit import create_commit_push
 from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
 from modules.security import log_action
@@ -150,6 +151,14 @@ class RaSelfMaster:
                 await self.thinker.on_new_task(task)
 
         self._create_bg_task(task_listener(), "task_loop")
+
+    def evolve_and_commit(self, message, push=False, files_dict=None):
+        # локальный коммит
+        self.git.commit_local(message)
+
+        # если нужно — пуш в облако
+        if push and files_dict:
+            create_commit_push("ra-evolution", files_dict, f"🧬 Ра: {message}")
     # ===============================================================
     async def on_thought(self, thought):
         # Просто логируем событие для начала
