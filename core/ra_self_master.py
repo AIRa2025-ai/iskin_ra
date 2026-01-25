@@ -15,6 +15,7 @@ from core.github_commit import create_commit_push
 from core.rustlef_master_logger import RustlefMasterLogger
 from core.ra_event_bus import RaEventBus
 from core.gpt_handler import GPTHandler
+from core.openrouter_client import OpenRouterClient
 from modules.ra_file_manager import load_rasvet_files
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
@@ -77,10 +78,12 @@ class RaSelfMaster:
             self.gpt_module
         )
         
+        # создаём клиента один раз
+        self.openrouter_client = OpenRouterClient(api_key="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")
         self.gpt_handler = None
         if hasattr(self, "openrouter_client"):
             self.gpt_handler = GPTHandler(self.openrouter_client)
-            
+  
         # ✅ РАЗДЕЛЕНИЕ МИРА
         self.world_system = RaWorldSystem(self)
         self.world = RaWorld()
