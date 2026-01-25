@@ -74,6 +74,7 @@ class RaSelfMaster:
             gpt_module=self.gpt_module
         )
         self.world = RaWorldSystem(self)
+        
         # Планировщик
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
@@ -404,6 +405,10 @@ class RaSelfMaster:
             "active_modules": self.active_modules,
             "last_thought": self.last_thought
         }
+        self.logger.on("market", self.on_market_event)
+        
+    def on_market_event(self, event):
+        print("Ра получил событие рынка:", event)
 
     # ===============================
     # Остановка
