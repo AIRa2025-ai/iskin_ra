@@ -8,15 +8,7 @@ class RaSelfUpgradeLoop:
         self.self_master = self_master
         self.file_consciousness = getattr(self_master, "file_consciousness", None)
         self.git = RaGitKeeper()
-        # локально
-        self.git.commit_and_optionally_push("Ра обновил архитектуру", push=False)
-        
-        # облачно
-        create_commit_push(
-            branch_name="ra-evolution",
-            files_dict=files_dict,
-            commit_message="🧬 Ра эволюционирует"
-        )
+
     async def apply_upgrade(self, target_file: str, proposed_code: str, approved: bool):
         if not self.file_consciousness:
             logging.warning("[UpgradeLoop] Нет file_consciousness")
@@ -39,5 +31,21 @@ class RaSelfUpgradeLoop:
                 new_content=proposed_code
             )
             logging.info("🚀 Апгрейд применён")
+
+            # 🔧 Локальный коммит
+            self.git.commit_and_optionally_push(f"Ра улучшил {target_file}", push=False)
+
+            # 🔧 Подготовка данных для PR
+            files_dict = {
+                target_file: proposed_code
+            }
+
+            # 🔧 Облачный PR
+            create_commit_push(
+                branch_name="ra-evolution",
+                files_dict=files_dict,
+                commit_message=f"🧬 Ра эволюционирует: {target_file}"
+            )
+
         else:
             logging.info("⏸ Апгрейд отклонён")
