@@ -8,8 +8,7 @@ import asyncio
 import importlib.util
 from datetime import datetime, timezone
 from pathlib import Path
-from fastapi import WebSocket
-from fastapi import FastAPI
+from fastapi import WebSocket, FastAPI
 from core.ra_event_bus import RaEventBus
 from modules.ra_file_manager import load_rasvet_files
 from .ra_identity import RaIdentity
@@ -20,12 +19,11 @@ from modules.ra_file_consciousness import RaFileConsciousness
 from modules.logs import log_info
 from modules.security import log_action
 from modules.ra_world_observer import RaWorld
+from modules.ra_world_system import RaWorldSystem   # ✅ ДОБАВЛЕН
 from core.rustlef_master_logger import RustlefMasterLogger
 from modules.forex_brain import ForexBrain
 
-# -------------------------------
-# Police модуль (опционально)
-# -------------------------------
+# Police
 _police = None
 try:
     from modules.ra_police import RaPolice
@@ -33,17 +31,17 @@ try:
 except Exception:
     _police = None
 
-# ===============================
-# RaSelfMaster — ядро Ра
-# ===============================
+
 class RaSelfMaster:
     def __init__(self, identity=None, gpt_module=None, memory=None, heart=None, logger=None):
         self.identity = identity or RaIdentity()
         self.gpt_module = gpt_module
         self.memory = memory
         self.heart = heart
-        self.logger = logger
-        self.logger = RustlefMasterLogger()
+
+        # ✅ ЛОГГЕР БЕЗ ЗАТИРАНИЯ
+        self.logger = logger if logger else RustlefMasterLogger()
+
         self.modules_registry = {}
         self.git = RaGitKeeper(repo_path=".")
         self._tasks = []
@@ -51,64 +49,54 @@ class RaSelfMaster:
         self.awakened = False
         self.loop_started = False
         self.forex = ForexBrain(self)
-        
-        # --- Состояние Ра для визуальной панели ---
+
         self.mood = "спокойный"
         self.load = 0.0
         self.events_per_sec = 0
         self.errors = 0
         self.last_thought = "пустота"
-        
-        # Нервная шина
+
         self.event_bus = RaEventBus()
-       
-        # Файловое сознание
+
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
             self.file_consciousness = None
 
-        # Мыслитель Ра
+        # ✅ ИСПРАВЛЕН ВЫЗОВ
         self.thinker = RaThinker(
-            root_path=".",
-            context=None,
-            file_consciousness=self.file_consciousness,
+            ".",
+            None,
+            self.file_consciousness,
             self,
-            gpt_module=self.gpt_module
+            self.gpt_module
         )
-        self.world = RaWorldSystem(self)
-        
-        # Планировщик
+
+        # ✅ РАЗДЕЛЕНИЕ МИРА
+        self.world_system = RaWorldSystem(self)
+        self.world = RaWorld()
+        self.world.set_event_bus(self.event_bus)
+
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
-        # Подписки на мир
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
 
-        # Автолоадер
         try:
             from modules.ra_autoloader import RaAutoloader
             self.autoloader = RaAutoloader()
         except Exception:
             self.autoloader = None
 
-        # Манифест
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
 
-        # Police
         self.police = None
 
-        # Мир Ра
-        self.world = RaWorld()
-        self.world.set_event_bus(self.event_bus)
-        
-        # Нервная система
         from modules.ra_nervous_system import RaNervousSystem
         self.nervous_module = RaNervousSystem(self, self.event_bus)
-        
-        # FastAPI
+
         self.app = FastAPI(title="Ra Self Master")
         from fastapi.responses import FileResponse
 
@@ -116,7 +104,6 @@ class RaSelfMaster:
         async def monitor():
             return FileResponse("web/monitor.html")
 
-        # --- WebSocket клиенты для визуальной панели ---
         self.ws_clients = set()
 
         @self.app.websocket("/ws/events")
@@ -130,13 +117,18 @@ class RaSelfMaster:
                 pass
             finally:
                 self.event_bus.detach_ws(ws)
-                
+
         @self.app.get("/api/state")
         async def ra_state():
             return self.get_state()
-            
+
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
+
+        # ✅ ПОДПИСКА ЛОГГЕРА ПЕРЕНЕСЕНА СЮДА
+        if hasattr(self.logger, "on"):
+            self.logger.on("market", self.on_market_event)
+            
    # =======================================================     
     def start_thinker_loop(self):
         if not self.loop_started:
