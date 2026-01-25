@@ -10,6 +10,7 @@ class ForexBrain:
         self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframe = timeframe
         self.data = {}
+        self.master = master
         self.logger = master.logger
 
     def fetch_history(self, pair, limit=500):
