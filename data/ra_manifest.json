@@ -20,6 +20,7 @@
     "ra_knowledge.py",
     "ra_memory.py",
     "ra_self_master.py",
+    "rustlef_master_logger.py",
     "ra_self_reflect.py",
     "ra_self_upgrade_loop.py",
     "telegram_sender.py"
@@ -82,7 +83,6 @@
     "ra_world_speaker.py",
     "ra_world_system.py",
     "ritualy_vody.py",
-    "rustlef_master.py",
     "scheduler.py",
     "security.py",
     "serdze.py",
