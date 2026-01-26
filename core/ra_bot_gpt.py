@@ -50,12 +50,12 @@ ra_thinker_mod = safe_import("modules.ra_thinker")
 rustlef_master_mod = safe_import("modules.rustlef_master")
 ra_scheduler_mod = safe_import("modules.ra_scheduler")
 
-GPTHandler = getattr(gpt_module, "GPTHandler", None)
-RaSelfMaster = getattr(ra_self_master_mod, "RaSelfMaster", None)
+GPTHandlerClass = getattr(gpt_module, "GPTHandler", None)
+RaSelfMasterClass = getattr(ra_self_master_mod, "RaSelfMaster", None)
 load_rasvet_files = getattr(ra_file_manager_mod, "load_rasvet_files", None)
-RaThinker = getattr(ra_thinker_mod, "RaThinker", None)
+RaThinkerClass = getattr(ra_thinker_mod, "RaThinker", None)
 RustlefMasterLogger = getattr(rustlef_master_mod, "RustlefMasterLogger", None)
-RaScheduler = getattr(ra_scheduler_mod, "RaScheduler", None)
+RaSchedulerClass = getattr(ra_scheduler_mod, "RaScheduler", None)
 
 # ------------------------------- GLOBAL ERROR HOOK -------------------------------
 from modules.errors import report_error
@@ -176,53 +176,51 @@ async def main():
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
     bot = Bot(token=token)
-
     await send_admin("🌞 Ра пробуждается...", bot)
 
     logger_instance = RustlefMasterLogger() if RustlefMasterLogger else None
-    self_master = RaSelfMaster(logger=logger_instance) if RaSelfMaster else None
+
+    # ---------------- RaSelfMaster ----------------
+    self_master = RaSelfMasterClass(logger=logger_instance) if RaSelfMasterClass else None
     if not self_master:
         raise RuntimeError("RaSelfMaster не создан")
 
     self_master.context = ra_context
     await self_master.awaken()
-    await self_master.start()
+    await self_master.start_background_modules()
+
+    # ---------------- GPT ----------------
+    gpt_handler = GPTHandlerClass(api_key=openrouter_key, ra_context=ra_context.rasvet_text) if GPTHandlerClass else None
+    self_master.gpt_module = gpt_handler
 
     # ---------------- THINKER ----------------
-    if RaThinker:
-        thinker = RaThinker(
+    if RaThinkerClass:
+        thinker = RaThinkerClass(
+            master=self_master,
             context=ra_context,
             file_consciousness=getattr(self_master, "file_consciousness", None),
-            gpt_module=None
+            gpt_module=gpt_handler
         )
         self_master.thinker = thinker
         memory.subscribe(thinker.on_memory_update)
-        log.info("🧠 RaThinker подключён")
-
-    # ---------------- GPT ----------------
-    if GPTHandler:
-        gpt_handler = GPTHandler(
-            api_key=openrouter_key,
-            ra_context=ra_context.rasvet_text
-        )
-        self_master.gpt_module = gpt_handler
-        asyncio.create_task(gpt_handler.background_model_monitor())
+        log.info("🧠 RaThinker подключён с GPT")
 
     # ---------------- SCHEDULER ----------------
-    if RaScheduler:
-        ra_scheduler = RaScheduler(context=ra_context)
+    ra_scheduler = RaSchedulerClass(context=ra_context) if RaSchedulerClass else None
+    if ra_scheduler:
         await ra_scheduler.start()
+        self_master.scheduler = ra_scheduler
 
+    # ---------------- SYSTEM MONITOR ----------------
     asyncio.create_task(system_monitor())
 
+    # ---------------- TELEGRAM ----------------
     dp.include_router(router)
     log.info("🚀 Ра Telegram запущен")
-
     try:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
 
-# ------------------------------- ENTRY POINT -------------------------------
 if __name__ == "__main__":
     asyncio.run(main())
