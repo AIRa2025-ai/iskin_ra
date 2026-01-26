@@ -33,7 +33,8 @@ class RaThinker:
         self.thoughts = []
         self.event_bus = event_bus
         self.logger = master.logger
-        self.logger.on("market", self.react_to_market)
+        if hasattr(self.logger, "on"):
+            self.logger.on("market", self.react_to_market)
 
         # Контекст РаСвета
         try:
