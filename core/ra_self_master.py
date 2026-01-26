@@ -440,6 +440,13 @@ class RaSelfMaster:
 # =================================================
 async def main():
     from modules.logs import logger_instance  # убедимся, что logger_instance существует
+    
+    # 🔹 Быстрая фиксация для запуска Ра без падений
+    if not hasattr(logger_instance, "attach_module"):
+        def attach_module(self, name):
+            pass  # ничего не делаем, Ра просто продолжает работу
+        setattr(logger_instance, "attach_module", attach_module.__get__(logger_instance))
+    
     self_master = RaSelfMaster(logger=logger_instance)
     await self_master.awaken()
     await self_master.start_background_modules()
