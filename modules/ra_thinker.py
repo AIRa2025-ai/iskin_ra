@@ -4,6 +4,7 @@
 Модуль мышления Ра — RaThinker.
 Отвечает за осмысление данных, анализ и вывод инсайтов.
 """
+
 import os
 import ast
 import asyncio
@@ -31,33 +32,33 @@ class RaThinker:
 
         self.last_thought = None
         self.thoughts = []
+        self.last_world_event = None
         self.event_bus = event_bus
-        self.logger = master.logger
+        self.logger = master.logger if hasattr(master, "logger") else logging
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.react_to_market)
 
         # Контекст РаСвета
         try:
             self.rasvet_context = load_rasvet_files(limit_chars=3000)
-        except Exception:
+        except Exception as e:
             self.rasvet_context = ""
+            log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
 
         self.architecture = {}
         self.import_graph = defaultdict(set)
 
         logging.info("🌞 RaThinker инициализирован")
 
-    # -----------------------------------------------------------------
-
+    # -------------------------------
+    # Асинхронная рефлексия
+    # -------------------------------
     async def reflect_async(self, text: str) -> str:
-        """
-        Асинхронная версия reflect, чтобы использовать GPT
-        """
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
-        logging.info(f"[RaThinker] reflect called: {text}")
+        logging.info(f"[RaThinker] reflect_async called: {text}")
         log_info(f"RaThinker thought: {text}")
 
-        # если есть GPT-модуль, используем его для ответа
+        # если есть GPT-модуль, используем его
         if self.gpt_module:
             try:
                 reply = await self.gpt_module.generate_response(text)
@@ -65,20 +66,16 @@ class RaThinker:
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        # fallback: стандартный шаблон ответа
         return (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
-        
-    def react_to_market(self, event):
-        print("Мыслитель реагирует:", event)
 
+    # -------------------------------
+    # Синхронная рефлексия
+    # -------------------------------
     def reflect(self, text: str) -> str:
-        """
-        Синхронная версия reflect для старого кода
-        """
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(f"[RaThinker] reflect called: {text}")
         log_info(f"RaThinker thought: {text}")
@@ -88,20 +85,35 @@ class RaThinker:
             f"Действуй осознанно. Истина внутри."
         )
 
+    # -------------------------------
+    # Реакция на рынок
+    # -------------------------------
+    def react_to_market(self, event):
+        print("Мыслитель реагирует:", event)
+
+    # -------------------------------
+    # Краткое резюме текста
+    # -------------------------------
     def summarize(self, data: str) -> str:
         return f"Резюме Ра: {data[:200]}..."
 
+    # -------------------------------
+    # Идеи улучшений модулей
+    # -------------------------------
     def suggest_improvement(self, module_name: str, issue: str) -> str:
         idea = f"В модуле {module_name} стоит улучшить: {issue}"
         self.thoughts.append(idea)
         logging.info(f"[RaThinker] 💡 {idea}")
         return idea
 
+    # -------------------------------
+    # Получение известных файлов
+    # -------------------------------
     def get_known_files(self):
         if not self.file_consciousness:
             return {}
         return self.file_consciousness.files
-        
+
     # -------------------------------
     # Сканирование архитектуры
     # -------------------------------
@@ -111,10 +123,8 @@ class RaThinker:
         self.import_graph.clear()
 
         for root, _, files in os.walk(self.root_path):
-            # Игнорируем скрытые папки и бэкапы
             if any(part.startswith(".") or part == "backups" for part in root.split(os.sep)):
                 continue
-
             for file in files:
                 if not file.endswith(".py"):
                     continue
@@ -128,14 +138,10 @@ class RaThinker:
                     "classes": [],
                     "functions": []
                 }
-
                 self._analyze_file(full_path, module_name)
 
         return self.architecture
 
-    # -------------------------------
-    # Анализ одного файла
-    # -------------------------------
     def _analyze_file(self, path: str, module_name: str):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -149,44 +155,31 @@ class RaThinker:
                 for alias in node.names:
                     self.architecture[module_name]["imports"].add(alias.name)
                     self.import_graph[module_name].add(alias.name)
-
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
                     self.architecture[module_name]["imports"].add(node.module)
                     self.import_graph[module_name].add(node.module)
-
             elif isinstance(node, ast.ClassDef):
                 self.architecture[module_name]["classes"].append(node.name)
-
             elif isinstance(node, ast.FunctionDef):
                 self.architecture[module_name]["functions"].append(node.name)
 
-    # -------------------------------
-    # Краткое резюме архитектуры
-    # -------------------------------
     def architecture_summary(self):
         summary = {
             "modules": len(self.architecture),
             "heavy_modules": [],
             "isolated_modules": [],
         }
-
         for module, data in self.architecture.items():
             if len(data["imports"]) > 10:
                 summary["heavy_modules"].append(module)
-
             if not data["imports"]:
                 summary["isolated_modules"].append(module)
-
         return summary
 
-    # -------------------------------
-    # Идеи самоулучшений
-    # -------------------------------
     def propose_self_improvements(self):
         ideas = []
         summary = self.architecture_summary()
-
         for module in summary["heavy_modules"]:
             ideas.append({
                 "type": "refactor",
@@ -194,7 +187,6 @@ class RaThinker:
                 "reason": "Слишком много зависимостей",
                 "risk": "medium"
             })
-
         for module in summary["isolated_modules"]:
             ideas.append({
                 "type": "review",
@@ -202,24 +194,19 @@ class RaThinker:
                 "reason": "Модуль изолирован, возможно мёртвый",
                 "risk": "low"
             })
-
         return ideas
 
     # -------------------------------
-    # Цикл саморазвития (асинхронный)
+    # Асинхронные циклы
     # -------------------------------
     async def self_upgrade_cycle(self):
         return self.propose_self_improvements()
 
-    # -------------------------------
-    # Цикл саморефлексии (для RaBot)
-    # -------------------------------
     async def self_reflection_cycle(self):
-        # Можем использовать его для анализа новых изменений и идей
         return self.propose_self_improvements()
 
     # -------------------------------
-    # Метод синка для файлового сознания
+    # Синк файлового сознания
     # -------------------------------
     def sync_file_consciousness(self):
         if self.file_consciousness:
@@ -228,25 +215,35 @@ class RaThinker:
                 logging.info("[RaThinker] File consciousness синхронизирован")
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка синка: {e}")
-#================================================================================================
+
+    # -------------------------------
+    # Сетеры
+    # -------------------------------
     def set_event_bus(self, event_bus):
         self.event_bus = event_bus
 
     def set_context(self, context):
         self.context = context
 
+    # -------------------------------
+    # Новые задачи и события мира
+    # -------------------------------
     async def on_new_task(self, data):
         print("[RaThinker] Думаю над задачей:", data)
-#================================================================================================
+
     async def process_world_message(self, message):
         self.last_world_event = message
-# ====================================================================================================
+        # Сохраняем в память, если есть
+        if memory:
+            await memory.append("world_events", message, source="RaThinker", layer="shared")
+
     async def on_memory_update(self, data):
         user_id = data.get("user_id")
         message = data.get("message")
         layer = data.get("layer")
-
         print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
-
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
+        # Можно сохранять в долговременную память
+        if memory and layer:
+            await memory.append("user_memory", message, source=user_id, layer=layer)
