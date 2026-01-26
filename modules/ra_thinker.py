@@ -34,7 +34,8 @@ class RaThinker:
         self.thoughts = []
         self.last_world_event = None
         self.event_bus = event_bus
-        self.logger = master.logger if hasattr(master, "logger") else logging
+        self.logger = master.logger 
+        if hasattr(master, "logger") else logging
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.react_to_market)
 
@@ -61,7 +62,10 @@ class RaThinker:
         # если есть GPT-модуль, используем его
         if self.gpt_module:
             try:
-                reply = await self.gpt_module.generate_response(text)
+                reply = await asyncio.wait_for(
+                    self.gpt_module.generate_response(text),
+                    timeout=20
+                )
                 return reply
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
@@ -239,7 +243,7 @@ class RaThinker:
     async def process_world_message(self, message):
         self.last_world_event = message
         # Сохраняем в память, если есть
-        if memory:
+        if memory and hasattr(memory, "append"):
             await memory.append("world_events", message, source="RaThinker", layer="shared")
 
     async def on_memory_update(self, data):
