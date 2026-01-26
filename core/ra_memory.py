@@ -1,11 +1,12 @@
 # core/ra_memory.py
+
 import json
 import os
 import logging
 from datetime import datetime
 from pathlib import Path
 
-# try import sync helper — optional
+# optional sync helper
 try:
     from utils.memory_sync import sync_to_github
 except Exception:
@@ -20,91 +21,101 @@ AUTO_SYNC = True
 MAX_MESSAGES = 200
 KEEP_FULL_MEMORY_USERS = [5694569448, 6300409407]
 
-class RaMemory:
-    def __init__(self):
-        self.memory_folder = MEMORY_FOLDER
-        # Слои памяти
-        self.layers = {
-            "short_term": {},
-            "long_term": {},
-            "shared": {}
-        }
 
-    def get_file(self, user_id, layer="short_term"):
+class RaMemory:
+    def __init__(self, event_bus=None):
+        self.memory_folder = MEMORY_FOLDER
+        self.event_bus = event_bus
+
+    # -----------------------------
+    # Внутренние утилиты
+    # -----------------------------
+
+    def get_file(self, user_id, layer):
         return self.memory_folder / f"{layer}_{user_id}.json"
 
-    def load(self, user_id, layer="short_term"):
+    def load(self, user_id, layer):
         path = self.get_file(user_id, layer)
         if path.exists():
             try:
                 return json.loads(path.read_text(encoding="utf-8"))
             except Exception as e:
-                logging.warning(f"⚠️ Ошибка загрузки памяти {user_id}: {e}")
-        return {"messages": []}
+                logging.warning(f"⚠️ Ошибка загрузки памяти {user_id} [{layer}]: {e}")
+        return {
+            "meta": {
+                "user_id": user_id,
+                "layer": layer,
+                "created_at": datetime.utcnow().isoformat()
+            },
+            "messages": []
+        }
 
-    def save(self, user_id, memory, layer="short_term"):
+    def save(self, user_id, layer, memory):
         try:
             with open(self.get_file(user_id, layer), "w", encoding="utf-8") as f:
                 json.dump(memory, f, ensure_ascii=False, indent=2)
-            logging.info(f"💾 Память {layer} пользователя {user_id} сохранена ({len(memory.get('messages', []))} сообщений)")
+            logging.info(f"💾 Память {layer}:{user_id} сохранена ({len(memory['messages'])} сообщений)")
         except Exception as e:
             logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
-    def choose_layer(self, message):
+    def choose_layer(self, message: str):
         if len(message) > 300:
             return "long_term"
         return "short_term"
 
-    async def append(self, user_id, message, layer="short_term", source="local"):
+    # -----------------------------
+    # Основная логика
+    # -----------------------------
+
+    async def append(self, user_id, message, layer="auto", source="local"):
+        # определяем слой
         if layer == "auto":
             layer = self.choose_layer(message)
-        memory = self.load(user_id, layer)
-        memory.setdefault("messages", [])
 
-        memory["messages"].append({
+        memory = self.load(user_id, layer)
+
+        entry = {
             "message": message,
             "timestamp": datetime.utcnow().isoformat(),
-            "layer": layer,
             "source": source
-        })
-        memory.setdefault("meta", {})
-        memory["meta"]["user_id"] = user_id
-        memory["meta"]["layer"] = layer
-        memory["meta"]["updated_at"] = datetime.utcnow().isoformat()
-        self.save(user_id, memory)
+        }
 
-        # 🔔 Сигнал в нервную систему
-        if hasattr(self, "event_bus") and self.event_bus:
-            await self.event_bus.emit(
-                "memory_updated",
-                {
-                    "user_id": user_id,
-                    "message": message,
-                    "layer": layer,
-                    "source": source
-                },
-                source="RaMemory"
-            )
+        memory["messages"].append(entry)
 
-        # Ограничение по short_term
-        if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS and len(memory["messages"]) > MAX_MESSAGES:
+        # ограничиваем short_term
+        if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS:
             memory["messages"] = memory["messages"][-MAX_MESSAGES:]
 
-        self.save(user_id, memory, layer)
+        memory["meta"]["updated_at"] = datetime.utcnow().isoformat()
 
-        # Авто-синхронизация с Git
+        self.save(user_id, layer, memory)
+
+        # событие в нервную систему
+        if self.event_bus:
+            try:
+                await self.event_bus.emit(
+                    "memory_updated",
+                    {
+                        "user_id": user_id,
+                        "message": message,
+                        "layer": layer,
+                        "source": source
+                    },
+                    source="RaMemory"
+                )
+            except Exception as e:
+                logging.warning(f"⚠️ Не удалось отправить событие памяти: {e}")
+
+        # автосинк с git
         if AUTO_SYNC and sync_to_github:
             try:
-                sync_to_github(f"Memory update for user {user_id} ({layer})")
+                sync_to_github(f"Memory update: {user_id} [{layer}]")
             except Exception as e:
-                logging.error(f"❌ Ошибка авто-пуша памяти: {e}")
-                
+                logging.error(f"❌ Ошибка git-синхронизации памяти: {e}")
+
     async def append_shared(self, message, source="system"):
         await self.append("shared", message, layer="shared", source=source)
 
-    def sync_to_github(commit_message):
-        os.system("git add memory/")
-        os.system(f'git commit -m "{commit_message}"')
-        os.system("git push")
-# Создаём глобальный объект памяти для удобства
+
+# глобальный объект для удобства
 memory = RaMemory()
