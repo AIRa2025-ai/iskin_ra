@@ -13,7 +13,6 @@ from core.ra_knowledge import RaKnowledge
 from core.ra_self_reflect import RaSelfReflect
 from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from core.ra_event_bus import RaEventBus
-from core.ra_memory import RaMemory
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
@@ -23,7 +22,7 @@ from modules.ra_world_explorer import RaWorldExplorer
 from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_nervous_system import RaNervousSystem
-from modules.ra_thinker import RaThinkeronder 
+from modules.ra_thinker import RaThinker 
 from modules.ra_world_speaker import RaWorldSpeaker
 from modules.ra_autoloader import RaAutoloader
 from modules.ra_self_learning import RaSelfLearning
@@ -54,7 +53,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger_instance.addHandler(ch)
-memory = RaMemory(event_bus=event_bus)
+
 start_auto_sync()
 async def start_telegram(ra):
     """Аккуратно запускаем Telegram, не трогая ra_bot_gpt.py"""
@@ -75,10 +74,11 @@ async def start_telegram(ra):
     ra_context.created_by = ra.identity.name
 
     await send_admin("🌞 Ра запущен через единый core!", bot)
-
+    
+    async def start_telegram(ra):
     ra.gpt_module = gpt_handler
-
     asyncio.create_task(gpt_handler.background_model_monitor())
+    
     asyncio.create_task(system_monitor())
 
     dp.include_router(router)
@@ -134,6 +134,10 @@ async def main():
         logger=logging
     )
     ra.event_bus = ra.event_bus or core.event_bus
+    
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if not openrouter_key:
+        raise RuntimeError("OPENROUTER_API_KEY не установлен")
     # Регистрируем модули
     core.register_module("self", ra)
     core.register_module("thinker", thinker)
