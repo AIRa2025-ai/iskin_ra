@@ -1,15 +1,15 @@
-# utils/mega_memory.py — адаптированная версия для Ра с рабочим restore
+# utils/mega_memory.py — полный рабочий вариант для Ра
 import os
 import time
 import zipfile
 import hashlib
 from datetime import datetime
-from collections import deque
+from mega_wrapper import upload_file_sync
 import threading
 import signal
-
+from collections import deque
 from utils.notify import notify
-from mega_wrapper import upload_file_sync, Mega  # теперь можно и скачивать
+from async_mega_py import Mega
 
 # === Конфигурация ===
 MEGA_EMAIL = os.getenv("MEGA_EMAIL") or "osvobozhdenie.ra@gmail.com"
@@ -24,10 +24,11 @@ MAX_ARCHIVES = 5
 SYNC_INTERVAL = 600  # секунд (10 минут)
 MAX_RETRIES = 3
 RETRY_DELAY = 10
+QUIET_START_DELAY = 3
 
 stop_flag = False  # мягкий стоп-флаг
 
-# === Сигналы для корректного завершения ===
+# === Сигналы ===
 def signal_handler(signum, frame):
     global stop_flag
     log(f"✋ Получен сигнал {signum}, подготовка к завершению...")
@@ -96,14 +97,32 @@ def cleanup_local_archives(base_name, keep=MAX_ARCHIVES):
         except Exception as e:
             log(f"⚠️ Не удалось удалить архив {f}: {e}")
 
-# === Загрузка архива в Mega через wrapper ===
+# === Подключение к Mega с ретраями ===
+def connect_to_mega():
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            m = Mega()
+            m.login(MEGA_EMAIL, MEGA_PASSWORD)
+            log("✅ Подключено к Mega.nz")
+            return m
+        except Exception as e:
+            log(f"❌ Попытка {attempt} — ошибка подключения к Mega: {e}")
+            notify(f"❌ Попытка {attempt} — ошибка подключения к Mega: {e}")
+            time.sleep(RETRY_DELAY)
+    log("⚠️ Не удалось подключиться к Mega после нескольких попыток")
+    return None
+
+# === Загрузка архива в Mega ===
 def upload_to_mega(archive_name, archive_path):
     if stop_flag:
         log(f"✋ Пропускаем загрузку {archive_name} — стоп активен")
         return
+    m = connect_to_mega()
+    if not m:
+        return
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            upload_file_sync(MEGA_EMAIL, MEGA_PASSWORD, archive_path)
+            m.upload(archive_path)
             log(f"💾 Архив {archive_name} успешно загружен")
             notify(f"💾 Архив {archive_name} успешно загружен")
             cleanup_local_archives(os.path.splitext(archive_name)[0])
@@ -113,7 +132,7 @@ def upload_to_mega(archive_name, archive_path):
             time.sleep(RETRY_DELAY)
     log(f"⚠️ Не удалось загрузить {archive_name} после {MAX_RETRIES} попыток")
 
-# === Восстановление памяти из Mega (рабочее) ===
+# === Восстановление памяти из Mega с проверкой контрольной суммы ===
 def restore_from_mega():
     ensure_dirs()
     if stop_flag:
@@ -133,16 +152,49 @@ def restore_from_mega():
                 log(f"⚠️ Архив памяти {ARCHIVE_MEMORY} не найден в Mega")
                 notify(f"⚠️ Архив памяти {ARCHIVE_MEMORY} не найден в Mega")
                 return
+
             archive_path = f"/app/{ARCHIVE_MEMORY}"
-            m.download(files[archive_id], dest_filename=archive_path)
+            temp_path = f"/app/tmp_{ARCHIVE_MEMORY}"
+            m.download(files[archive_id], dest_filename=temp_path)
+
+            # вычисляем md5 скачанного архива
+            hash_md5 = hashlib.md5()
+            with open(temp_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            new_checksum = hash_md5.hexdigest()
+
+            old_checksum = None
+            if os.path.exists(CHECKSUM_FILE):
+                try:
+                    with open(CHECKSUM_FILE, "r") as f:
+                        old_checksum = f.read().strip()
+                except Exception as e:
+                    log(f"⚠️ Не удалось прочитать локальную контрольную сумму: {e}")
+
+            if new_checksum == old_checksum:
+                log("✅ Память не изменилась, перезапись не нужна")
+                os.remove(temp_path)
+                return
+
+            os.replace(temp_path, archive_path)
             with zipfile.ZipFile(archive_path, "r") as zipf:
                 zipf.extractall(LOCAL_MEMORY_DIR)
-            log("🧠 Память Ра успешно восстановлена из Mega")
-            notify("🧠 Память Ра успешно восстановлена")
+
+            try:
+                with open(CHECKSUM_FILE, "w") as f:
+                    f.write(new_checksum)
+            except Exception as e:
+                log(f"⚠️ Не удалось записать контрольную сумму после восстановления: {e}")
+
+            log("🧠 Память Ра успешно восстановлена и обновлена из Mega")
+            notify("🧠 Память Ра успешно восстановлена и обновлена")
             return
+
         except Exception as e:
             log(f"❌ Попытка {attempt} — ошибка восстановления памяти: {e}")
             time.sleep(RETRY_DELAY)
+
     log(f"⚠️ Не удалось восстановить память после {MAX_RETRIES} попыток")
 
 # === Резервное копирование памяти и логов ===
@@ -155,6 +207,7 @@ def backup_memory_and_logs():
                 old_checksum = f.read().strip()
         except Exception as e:
             log(f"⚠️ Не удалось прочитать контрольную сумму: {e}")
+
     if new_checksum != old_checksum:
         archive_path = create_zip(LOCAL_MEMORY_DIR, ARCHIVE_MEMORY)
         upload_to_mega(ARCHIVE_MEMORY, archive_path)
@@ -163,6 +216,7 @@ def backup_memory_and_logs():
                 f.write(new_checksum)
         except Exception as e:
             log(f"⚠️ Не удалось записать контрольную сумму: {e}")
+
     archive_path_logs = create_zip(LOCAL_LOGS_DIR, ARCHIVE_LOGS)
     upload_to_mega(ARCHIVE_LOGS, archive_path_logs)
 
