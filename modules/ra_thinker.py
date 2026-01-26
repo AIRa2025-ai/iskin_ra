@@ -99,7 +99,7 @@ class RaThinker:
         if not self.file_consciousness:
             return {}
         return self.file_consciousness.files
-
+        
     # -------------------------------
     # Сканирование архитектуры
     # -------------------------------
@@ -238,3 +238,14 @@ class RaThinker:
 #================================================================================================
     async def process_world_message(self, message):
         self.last_world_event = message
+# ====================================================================================================
+    async def on_memory_update(self, data):
+        user_id = data.get("user_id")
+        message = data.get("message")
+        layer = data.get("layer")
+
+        print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
+
+        # Можно сразу осмысливать
+        if layer == "short_term":
+            self.last_thought = f"Осмысливаю: {message}"
