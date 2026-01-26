@@ -42,23 +42,21 @@ def create_commit_push(
     base_branch: str = "main"
 ):
     try:
-        # 1) базовый коммит
+        # --- GitHub API коммит/PR ---
         r = requests.get(
             f"https://api.github.com/repos/{REPO}/git/ref/heads/{base_branch}",
             headers=HEADERS, timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
         base_commit_sha = r.json()["object"]["sha"]
-
-        # 2) получаем tree SHA
+        
         r = requests.get(
             f"https://api.github.com/repos/{REPO}/git/commits/{base_commit_sha}",
             headers=HEADERS, timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
         base_tree_sha = r.json()["tree"]["sha"]
-
-        # 3) создаём ветку
+        
         branch_ref = f"refs/heads/{branch_name}"
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/refs",
@@ -71,8 +69,7 @@ def create_commit_push(
                 logging.warning(f"⚠️ Ветка {branch_name} уже существует.")
             else:
                 r.raise_for_status()
-
-        # 4) blobs
+        
         tree_items = []
         for path, content in files_dict.items():
             blob_sha = _create_blob(content)
@@ -82,8 +79,7 @@ def create_commit_push(
                 "type": "blob",
                 "sha": blob_sha
             })
-
-        # 5) дерево
+        
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/trees",
             headers=HEADERS,
@@ -92,8 +88,7 @@ def create_commit_push(
         )
         r.raise_for_status()
         new_tree_sha = r.json()["sha"]
-
-        # 6) коммит
+        
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/git/commits",
             headers=HEADERS,
@@ -106,8 +101,7 @@ def create_commit_push(
         )
         r.raise_for_status()
         commit_sha = r.json()["sha"]
-
-        # 7) обновляем ветку
+        
         r = requests.patch(
             f"https://api.github.com/repos/{REPO}/git/refs/heads/{branch_name}",
             headers=HEADERS,
@@ -115,8 +109,7 @@ def create_commit_push(
             timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
-
-        # 8) PR
+        
         r = requests.post(
             f"https://api.github.com/repos/{REPO}/pulls",
             headers=HEADERS,
@@ -128,24 +121,22 @@ def create_commit_push(
             timeout=REQUEST_TIMEOUT
         )
         r.raise_for_status()
-
         pr_data = r.json()
         logging.info(f"✅ PR #{pr_data['number']} — {pr_data['html_url']}")
-        return pr_data
-
-    try:
+        
+        # --- Локальный push через git ---
         for filepath, content in files_dict.items():
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
 
-        subprocess.check_call(["git", "checkout", "-B", branch])
+        subprocess.check_call(["git", "checkout", "-B", branch_name])
         subprocess.check_call(["git", "add", "."])
-        subprocess.check_call(["git", "commit", "-m", message])
-        subprocess.check_call(["git", "push", "-u", "origin", branch, "--force"])
+        subprocess.check_call(["git", "commit", "-m", commit_message])
+        subprocess.check_call(["git", "push", "-u", "origin", branch_name, "--force"])
 
-        logging.info(f"[RaGitHub] Облачный коммит и пуш в ветку {branch}")
-        return True
+        logging.info(f"[RaGitHub] Облачный коммит и пуш в ветку {branch_name}")
+        return pr_data
 
     except Exception as e:
-        logging.error(f"[RaGitHub] Ошибка push: {e}")
+        logging.error(f"[RaGitHub] Ошибка: {e}")
         return False
