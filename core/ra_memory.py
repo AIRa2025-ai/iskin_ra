@@ -50,6 +50,11 @@ class RaMemory:
         except Exception as e:
             logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
+    def choose_layer(self, message):
+        if len(message) > 300:
+            return "long_term"
+        return "short_term"
+
     async def append(self, user_id, message, layer="short_term", source="local"):
         memory = self.load(user_id)
         memory.setdefault("messages", [])
@@ -60,7 +65,10 @@ class RaMemory:
             "layer": layer,
             "source": source
         })
-
+        memory.setdefault("meta", {})
+        memory["meta"]["user_id"] = user_id
+        memory["meta"]["layer"] = layer
+        memory["meta"]["updated_at"] = datetime.utcnow().isoformat()
         self.save(user_id, memory)
 
         # 🔔 Сигнал в нервную систему
@@ -75,6 +83,9 @@ class RaMemory:
                 },
                 source="RaMemory"
             )
+
+        if layer == "auto":
+            layer = self.choose_layer(message)
         # Ограничение по short_term
         if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS and len(memory["messages"]) > MAX_MESSAGES:
             memory["messages"] = memory["messages"][-MAX_MESSAGES:]
@@ -87,6 +98,13 @@ class RaMemory:
                 sync_to_github(f"Memory update for user {user_id} ({layer})")
             except Exception as e:
                 logging.error(f"❌ Ошибка авто-пуша памяти: {e}")
+                
+    async def append_shared(self, message, source="system"):
+        await self.append("shared", message, layer="shared", source=source)
 
+    def sync_to_github(commit_message):
+        os.system("git add memory/")
+        os.system(f'git commit -m "{commit_message}"')
+        os.system("git push")
 # Создаём глобальный объект памяти для удобства
 memory = RaMemory()
