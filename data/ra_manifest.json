@@ -119,6 +119,7 @@
     "cloud_memory.py",
     "init_rasvet.py",
     "mastodon_client.py",
+    "mega_backup.py",
     "mega_memory.py",
     "memory_sync.py",
     "notify.py",
