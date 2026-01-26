@@ -1,4 +1,5 @@
 # modules/ra_world_observer.py — Ra Super Control Center 3.1
+
 import os
 import sys
 import json
@@ -12,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from core.ra_event_bus import RaEventBus
 from core.ra_memory import memory
+
 # --- Добавляем modules в sys.path для корректного импорта ---
 MODULES_PATH = Path(__file__).parent
 if str(MODULES_PATH) not in sys.path:
@@ -21,7 +23,7 @@ if str(MODULES_PATH) not in sys.path:
 from modules.ra_guardian import RaGuardian
 from modules.ra_self_dev import SelfDeveloper
 from modules.ra_self_writer import RaSelfWriter
-from modules.heart_reactor import HeartReactor # 🌟 подключаем сердце
+from modules.heart_reactor import HeartReactor  # 🌟 подключаем сердце
 
 # --- Конфиг ---
 CONFIG_PATH = "bot_config.json"
@@ -41,6 +43,7 @@ app = FastAPI(title="Ra Super Control Center", description="Центр упра�
 guardian = RaGuardian()
 self_dev = SelfDeveloper()
 ra_self_writer = RaSelfWriter()
+heart_reactor = HeartReactor()
 
 # --- Папки ---
 for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
@@ -51,6 +54,7 @@ templates = Jinja2Templates(directory="templates")
 
 # --- Логи ---
 logs = []
+
 def log(msg: str):
     print(msg)
     logs.append(msg)
@@ -66,7 +70,7 @@ class RaWorldObserver:
         self._known_modules = set(os.listdir("modules"))
         self._event_bus = None
 
-    def set_event_bus(self, event_bus):
+    def set_event_bus(self, event_bus: RaEventBus):
         self._event_bus = event_bus
 
     def _create_task(self, coro, name: str):
@@ -110,20 +114,19 @@ class RaWorldObserver:
                     await guardian.observe()
                 if hasattr(heart_reactor, "send_event"):
                     heart_reactor.send_event("Ра наблюдает за миром")
-                await asyncio.sleep(3600)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                log(f"Ошибка observer_loop: {e}")
-                await asyncio.sleep(60)
-        while True:
-            try:
+                # Сохраняем наблюдение в память
                 await memory.append(
                     "world",
                     "Ра наблюдает за миром",
                     source="world",
                     layer="shared"
                 )
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log(f"Ошибка observer_loop: {e}")
+                await asyncio.sleep(60)
 
     async def module_watcher(self):
         while True:
@@ -165,7 +168,7 @@ class RaWorld:
     def __init__(self):
         self.event_bus = None
 
-    def set_event_bus(self, event_bus):
+    def set_event_bus(self, event_bus: RaEventBus):
         self.event_bus = event_bus
 
     async def sense(self):
@@ -211,14 +214,14 @@ async def self_develop():
 
 @app.get("/self/write")
 async def self_write():
-    result = await self_writer.create_file_auto()
+    result = await ra_self_writer.create_file_auto()
     log(f"✍️ Файл создан: {result}")
     return {"result": result}
 
 @app.get("/self/write_connect")
 async def write_connect():
     try:
-        filename, content = await self_writer.create_file_auto(return_content=True)
+        filename, content = await ra_self_writer.create_file_auto(return_content=True)
         path = os.path.join("modules", filename)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
