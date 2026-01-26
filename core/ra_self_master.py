@@ -10,6 +10,7 @@ from .ra_identity import RaIdentity
 from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import WebSocket, FastAPI
+from core.openrouter_client import OpenRouterClient
 from core.ra_git_keeper import RaGitKeeper
 from core.github_commit import create_commit_push
 from core.rustlef_master_logger import RustlefMasterLogger
@@ -87,11 +88,9 @@ class RaSelfMaster:
         )
 
         # GPT и OpenRouter
-        self.openrouter_client = OpenRouterClient(
-            api_key="sk-or-v1-5cbfadccc5926512d1c7a6d5168e1a9cdf2049af3684c236b815e6c09fbf"
-        )
+        # создаём клиент один раз
+        self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
-
         # Мир
         self.world_system = RaWorldSystem(self)   # порядок важен
         self.world = RaWorld()
@@ -151,7 +150,9 @@ class RaSelfMaster:
         # Подписка логгера
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.on_market_event)
-            
+        # Прокидываем в Thinker, если он есть
+        if hasattr(self, "thinker") and self.thinker:
+            self.thinker.gpt_module = self.gpt_handler   
     # ===============================
     # Background loops
     # ===============================
