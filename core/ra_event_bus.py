@@ -60,6 +60,4 @@ class RaEventBus:
 
     def get_subscribers(self):
         return {k: [cb.__name__ for cb in v] for k, v in self.subscribers.items()}
-        
-    async def schedule_immediate(self, task_name):
-        logging.info(f"[RaScheduler] Немедленная задача: {task_name}")
+}
