@@ -56,9 +56,3 @@ class HeartReactor:
                 await listener(event)
             except Exception as e:
                 logging.warning(f"⚠️ Ошибка в listener: {e}")
-
-# === Автозапуск цикла сердца ===
-heart_reactor = HeartReactor()
-
-async def start_heart_reactor():
-    await heart_reactor.listen_and_respond()
