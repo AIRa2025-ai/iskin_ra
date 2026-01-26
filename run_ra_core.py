@@ -3,8 +3,7 @@
 import asyncio
 import logging
 import os
-from modules.ra_nervous_system import RaNervousSystem
-from modules.ra_thinker import RaThinker
+from utils.mega_memory_pro import start_auto_sync
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
 from core.gpt_module import GPTHandler
@@ -23,6 +22,8 @@ from modules.ra_world_observer import RaWorldObserver, ra_world_observer
 from modules.ra_world_explorer import RaWorldExplorer
 from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
+from modules.ra_nervous_system import RaNervousSystem
+from modules.ra_thinker import RaThinkeronder 
 from modules.ra_world_speaker import RaWorldSpeaker
 from modules.ra_autoloader import RaAutoloader
 from modules.ra_self_learning import RaSelfLearning
@@ -53,7 +54,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger_instance.addHandler(ch)
-
+start_auto_sync()
 async def start_telegram(ra):
     """Аккуратно запускаем Telegram, не трогая ra_bot_gpt.py"""
     from dotenv import load_dotenv
