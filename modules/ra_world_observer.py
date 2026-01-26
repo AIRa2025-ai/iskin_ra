@@ -21,7 +21,7 @@ if str(MODULES_PATH) not in sys.path:
 from modules.ra_guardian import RaGuardian
 from modules.ra_self_dev import SelfDeveloper
 from modules.ra_self_writer import RaSelfWriter
-from modules.heart_reactor import heart_reactor  # 🌟 подключаем сердце
+from modules.heart_reactor import HeartReactor # 🌟 подключаем сердце
 
 # --- Конфиг ---
 CONFIG_PATH = "bot_config.json"
