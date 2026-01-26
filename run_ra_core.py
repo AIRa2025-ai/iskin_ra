@@ -91,6 +91,11 @@ async def main():
     event_bus = RaEventBus()
     memory = RaMemory(event_bus=event_bus)
     knowledge = RaKnowledge()
+    # 🔹 FIX: если нет attach_module — создаём пустой метод
+    if not hasattr(logger_instance, "attach_module"):
+        def attach_module(self, name):
+            pass
+        setattr(logger_instance, "attach_module", attach_module.__get__(logger_instance))
 
     core = RaSelfMaster(logger=logger_instance)
     core.event_bus = event_bus
