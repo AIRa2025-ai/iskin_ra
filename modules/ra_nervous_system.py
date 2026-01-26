@@ -33,9 +33,12 @@ class RaNervousSystem:
             self.world_observer.set_event_bus(self.event_bus)
 
         # Используем существующие модули Ра
-        self.thinker = getattr(self.ra, "thinker", None)
-        self.scheduler = getattr(self.ra, "scheduler", None)
+        if self.thinker:
+            self.thinker.set_event_bus(self.event_bus)
 
+        if self.scheduler and self.event_bus:
+            self.event_bus.subscribe("schedule", self.scheduler.on_schedule)
+        self.scheduler.thinker = self.thinker
         # World system (если нет — создаём)
         self.world_system = getattr(self.ra, "world_system", None) or RaWorldSystem()
         self.world_responder = self.world_system.responder
