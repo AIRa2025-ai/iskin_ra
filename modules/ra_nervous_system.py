@@ -60,8 +60,8 @@ class RaNervousSystem:
 
     async def _on_world_message(self, data):
         logging.info(f"[NervousModule] Сообщение мира: {data}")
-        if self.self_master:
-            await self.self_master.process_world_message(data)
+        if self.self_ra:
+            await self.self_ra.process_world_message(data)
         if self.thinker:
             await self.thinker.process_world_message(data)
         if self.scheduler:
