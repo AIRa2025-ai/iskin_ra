@@ -81,7 +81,7 @@ class RaMemory:
         }
 
         memory["messages"].append(entry)
-
+        log_event(f"Memory updated: short_term user {user_id}")
         # ограничиваем short_term
         if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS:
             memory["messages"] = memory["messages"][-MAX_MESSAGES:]
@@ -89,7 +89,7 @@ class RaMemory:
         memory["meta"]["updated_at"] = datetime.utcnow().isoformat()
 
         self.save(user_id, layer, memory)
-
+        log_event(f"Memory updated: short_term user {user_id}")
         # событие в нервную систему
         if self.event_bus:
             try:
