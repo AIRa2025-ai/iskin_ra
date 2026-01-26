@@ -9,7 +9,7 @@
     "github_commit.py",
     "gpt_module.py",
     "gpt_handler.py",
-    "memory.py",
+
     "model_router.py",
     "ra_bot_gpt.py",
     "ra_core_mirolub.py",
@@ -116,7 +116,7 @@
     "agent_core.py",
     "auto_commit.py",
     "build_context.py",
-    "cloud_memory.py",
+
     "init_rasvet.py",
     "mastodon_client.py",
 
