@@ -3,10 +3,11 @@ import logging
 import subprocess
 import os
 from datetime import datetime
+from utils.memory_sync import sync_to_github
 
 # Путь к корню репозитория
 GIT_REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
+sync_to_github("Ra auto memory sync")
 def sync_to_github(commit_message=None):
     """Синхронизация изменений проекта с GitHub."""
     if commit_message is None:
