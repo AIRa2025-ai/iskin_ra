@@ -26,7 +26,9 @@ class RaNervousSystem:
 
         self.ra = ra_self_master
         self.event_bus = event_bus
-
+        self.thinker = getattr(self.ra, "thinker", None)
+        self.scheduler = getattr(self.ra, "scheduler", None)
+        
         # Используем уже существующие мир и observer из Ра
         self.world_observer = getattr(self.ra, "world_observer", None)
         if self.world_observer:
@@ -63,8 +65,8 @@ class RaNervousSystem:
 
     async def _on_world_message(self, data):
         logging.info(f"[NervousModule] Сообщение мира: {data}")
-        if self.self_ra:
-            await self.self_ra.process_world_message(data)
+        if self.ra:
+            await self.ra.process_world_message(data)
         if self.thinker:
             await self.thinker.process_world_message(data)
         if self.scheduler:
@@ -85,9 +87,10 @@ class RaNervousSystem:
         self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
 
     # HeartReactor
-        self._tasks.append(asyncio.create_task(
         if self.heart_reactor:
-            self._tasks.append(asyncio.create_task(self.heart_reactor.start(), name="heart_reactor_loop"))
+            self._tasks.append(
+                asyncio.create_task(self.heart_reactor.start(), name="heart_reactor_loop")
+            )
         logging.info("🧠 Модуль нервной системы активен.")
     # -----------------------------
     # Остановка
