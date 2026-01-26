@@ -116,6 +116,14 @@ class RaWorldObserver:
             except Exception as e:
                 log(f"Ошибка observer_loop: {e}")
                 await asyncio.sleep(60)
+        while True:
+            try:
+                await memory.append(
+                    "world",
+                    "Ра наблюдает за миром",
+                    source="world",
+                    layer="shared"
+                )
 
     async def module_watcher(self):
         while True:
@@ -167,12 +175,7 @@ class RaWorld:
 
 # --- Экземпляр RaWorldObserver ---
 ra_world_observer = RaWorldObserver()
-await memory.append(
-    "world",
-    f"Мир: {url} → {сообщение}",
-    source="world",
-    layer="shared"
-)
+
 # --- FastAPI Startup/Shutdown ---
 @app.on_event("startup")
 async def on_startup():
