@@ -50,16 +50,31 @@ class RaMemory:
         except Exception as e:
             logging.error(f"❌ Ошибка сохранения памяти {user_id}: {e}")
 
-    def append(self, user_id, message, layer="short_term", source="local"):
-        memory = self.load(user_id, layer)
+    async def append(self, user_id, message, layer="short_term", source="local"):
+        memory = self.load(user_id)
         memory.setdefault("messages", [])
+
         memory["messages"].append({
             "message": message,
             "timestamp": datetime.utcnow().isoformat(),
-            "version": len(memory["messages"]) + 1,
+            "layer": layer,
             "source": source
         })
 
+        self.save(user_id, memory)
+
+        # 🔔 Сигнал в нервную систему
+        if hasattr(self, "event_bus") and self.event_bus:
+            await self.event_bus.emit(
+                "memory_updated",
+                {
+                    "user_id": user_id,
+                    "message": message,
+                    "layer": layer,
+                    "source": source
+                },
+                source="RaMemory"
+            )
         # Ограничение по short_term
         if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS and len(memory["messages"]) > MAX_MESSAGES:
             memory["messages"] = memory["messages"][-MAX_MESSAGES:]
