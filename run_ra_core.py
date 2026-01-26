@@ -5,7 +5,7 @@ import logging
 import os
 from dotenv import load_dotenv
 
-from utils.mega_memory_pro import start_auto_sync
+from utils.mega_memory import start_auto_sync
 from core.ra_self_master import RaSelfMaster
 from core.ra_ipc import RaIPCServer
 from core.gpt_module import GPTHandler
