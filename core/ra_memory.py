@@ -81,13 +81,6 @@ class RaMemory:
 
         self.save(user_id, memory, layer)
 
-        # 🔔 Генерируем событие
-        try:
-            from utils.event_bus import EventBus
-            EventBus.trigger("memory_updated", user_id=user_id, message=message, layer=layer)
-        except Exception as e:
-            logging.warning(f"⚠️ Событие memory_updated не сработало: {e}")
-
         # Авто-синхронизация с Git
         if AUTO_SYNC and sync_to_github:
             try:
