@@ -10,7 +10,6 @@ from modules.ra_inner_sun import RaInnerSun
 from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
-from modules.heart_reactor import heart_reactor, start_heart_reactor
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 from modules.ra_world_observer import RaWorldObserver, ra_world_observer
 from core.github_commit import create_commit_push
@@ -89,7 +88,7 @@ class RaNervousSystem:
     # HeartReactor
         if self.heart_reactor:
             self._tasks.append(
-                asyncio.create_task(self.heart_reactor.start(), name="heart_reactor_loop")
+                asyncio.create_task(self.heart_reactor.listen_and_respond(), name="heart_reactor_loop")
             )
         logging.info("🧠 Модуль нервной системы активен.")
     # -----------------------------
