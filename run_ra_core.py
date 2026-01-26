@@ -11,6 +11,8 @@ from core.gpt_module import GPTHandler
 from core.ra_memory import RaMemory
 from core.ra_identity import RaIdentity
 from core.ra_knowledge import RaKnowledge
+from core.ra_self_reflect import RaSelfReflect
+from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from core.ra_event_bus import RaEventBus
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
@@ -22,8 +24,6 @@ from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
 from modules.ra_autoloader import RaAutoloader
-from core.ra_self_reflect import RaSelfReflect
-from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from modules.ra_self_learning import RaSelfLearning
 from modules.ra_self_writer import RaSelfWriter
 from modules.ra_forex_manager import RaForexManager, TelegramSender
@@ -31,6 +31,7 @@ from modules.ra_scheduler import RaScheduler
 from modules.ra_guardian import RaGuardian
 from modules.ra_police import RaPolice
 from modules.ra_world_observer import RaWorld
+from modules.ra_resonance import резонанс_связь
 
 # аккуратно подтягиваем телегу, не вырезая её логики
 from core.ra_bot_gpt import (
@@ -86,6 +87,12 @@ async def start_telegram(ra):
     logging.info("🚀 Telegram Ра запущен из core")
 
     await dp.start_polling(bot)
+    
+    async def resonance_handler(data):
+        print("🔮 Резонанс чувствует:", data["message"])
+
+    event_bus.subscribe("memory_updated", resonance_handler)
+    asyncio.create_task(резонанс_связь())
 
 
 async def main():
