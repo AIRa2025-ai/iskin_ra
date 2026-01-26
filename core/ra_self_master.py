@@ -41,63 +41,64 @@ class RaSelfMaster:
         self.gpt_module = gpt_module
         self.memory = memory
         self.heart = heart
+        self.logger = logger or RustlefMasterLogger()
 
-        # ✅ ЛОГГЕР БЕЗ ЗАТИРАНИЯ
-        self.logger = logger if logger else RustlefMasterLogger()
-
-        self.modules_registry = {}
+        # Git
         self.git = RaGitKeeper(repo_path=".")
-        # локальный коммит
         self.git.commit_and_optionally_push("Ра обновил архитектуру", push=False)
-        
+
+        # Задачи и модули
         self._tasks = []
         self.active_modules = []
+        self.modules_registry = {}
         self.awakened = False
         self.loop_started = False
+
+        # Форекс
         self.forex = ForexBrain(self)
 
+        # Эмоции и статистика
         self.mood = "спокойный"
         self.load = 0.0
         self.events_per_sec = 0
         self.errors = 0
         self.last_thought = "пустота"
 
+        # Event bus
         self.event_bus = RaEventBus()
-        
-        # ❤️ Сердце Ра
+
+        # Сердце
         self.heart_reactor = HeartReactor()
-        
+
+        # File consciousness
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
             self.file_consciousness = None
 
-        # ✅ ИСПРАВЛЕН ВЫЗОВ
-        self.thinker = RaThinker(
-            ".",
-            None,
-            self.file_consciousness,
-            self,
-            self.gpt_module
+        # Thinker
+        self.thinker = RaThinker(".", None, self.file_consciousness, self, self.gpt_module)
+
+        # GPT и OpenRouter
+        self.openrouter_client = OpenRouterClient(
+            api_key="sk-or-v1-5cbfadccc5926512d1c7a6d5168e1a9cdf2049af3684c236b815e6c09fbf"
         )
-        
-        # создаём клиента один раз
-        self.openrouter_client = OpenRouterClient(api_key="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")
-        self.gpt_handler = None
-        if hasattr(self, "openrouter_client"):
-            self.gpt_handler = GPTHandler(self.openrouter_client)
-  
-        # ✅ РАЗДЕЛЕНИЕ МИРА
-        self.world_system = RaWorldSystem(self)
+        self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
+
+        # Мир
+        self.world_system = RaWorldSystem(self)   # порядок важен
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
 
+        # Планировщик
         self.scheduler = RaScheduler(event_bus=self.event_bus)
 
+        # Подписки
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
 
+        # Автозагрузчик
         try:
             from modules.ra_autoloader import RaAutoloader
             self.autoloader = RaAutoloader()
@@ -108,10 +109,10 @@ class RaSelfMaster:
         self.manifest = self._load_manifest()
 
         self.police = None
-
         from modules.ra_nervous_system import RaNervousSystem
         self.nervous_module = RaNervousSystem(self, self.event_bus)
 
+        # FastAPI
         self.app = FastAPI(title="Ra Self Master")
         from fastapi.responses import FileResponse
 
@@ -140,21 +141,25 @@ class RaSelfMaster:
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop_modules)
 
-        # ✅ ПОДПИСКА ЛОГГЕРА ПЕРЕНЕСЕНА СЮДА
+        # Подписка логгера
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.on_market_event)
             
-   # =======================================================     
+    # ===============================
+    # Background loops
+    # ===============================
     def start_thinker_loop(self):
-        if not self.loop_started:
-            async def thinker_loop():
-                while True:
-                    await self.thinker.self_upgrade_cycle()
-                    await asyncio.sleep(5)
+        if self.loop_started:
+            return
 
-            self._create_bg_task(thinker_loop(), "thinker_loop")
-            self.loop_started = True
-            
+        async def thinker_loop():
+            while True:
+                await self.thinker.self_upgrade_cycle()
+                await asyncio.sleep(5)
+
+        self._create_bg_task(thinker_loop(), "thinker_loop")
+        self.loop_started = True
+
     def start_task_loop(self):
         async def task_listener():
             while True:
@@ -162,7 +167,7 @@ class RaSelfMaster:
                 await self.thinker.on_new_task(task)
 
         self._create_bg_task(task_listener(), "task_loop")
-
+        
     def evolve_and_commit(self, message, push=False, files_dict=None):
         # локальный коммит
         self.git.commit_local(message)
@@ -226,14 +231,6 @@ class RaSelfMaster:
             except Exception as e:
                 log_info(f"[RaSelfMaster] Ошибка world_sense_loop: {e}")
             await asyncio.sleep(10)
-
-    # ===============================
-    # Background helper
-    # ===============================
-    def _create_bg_task(self, coro, name=None):
-        task = asyncio.create_task(coro, name=name)
-        self._tasks.append(task)
-        return task
 
     # ===============================
     # Обработка сообщений мира
@@ -302,7 +299,7 @@ class RaSelfMaster:
         except Exception as e:
             return f"🤍 Ра слышит тишину моделей: {e}"
     # ===============================
-    # Саморазвитие
+    # Ra self-upgrade
     # ===============================
     async def ra_self_upgrade_loop(self, interval: int = 300):
         logging.info("🧬 Цикл саморазвития Ра запущен")
@@ -322,7 +319,10 @@ class RaSelfMaster:
             await asyncio.sleep(interval)
 
     def _approve_self_upgrade(self, idea: dict) -> bool:
-        return False if idea.get("risk") == "high" and self.police else True
+        # логика: блокируем high-risk только если есть полиция
+        if idea.get("risk") == "high" and self.police:
+            return False
+        return True
 
     # ===============================
     # Автозагрузка модулей
@@ -343,8 +343,12 @@ class RaSelfMaster:
                 self.active_modules.append(mod_name)
 
                 start_fn = getattr(mod, "start", None)
-                if start_fn and asyncio.iscoroutinefunction(start_fn):
-                    self._create_bg_task(start_fn(), f"mod:{mod_name}")
+                if start_fn:
+                    if asyncio.iscoroutinefunction(start_fn):
+                        self._create_bg_task(start_fn(), f"mod:{mod_name}")
+                    else:
+                        # синхронный старт — запускаем в отдельном потоке
+                        asyncio.get_running_loop().run_in_executor(None, start_fn)
 
                 logging.info(f"[Ра] Подключён модуль: {mod_name}")
             except Exception as e:
@@ -438,23 +442,26 @@ class RaSelfMaster:
         print("Ра получил событие рынка:", event)
 
     # ===============================
-    # Остановка
+    # Stop modules
     # ===============================
     async def stop_modules(self):
-        # Сначала останавливаем NervousModule
+        # сначала nervous
         if hasattr(self, "nervous_module"):
             await self.nervous_module.stop()
-        
-        # Потом отменяем остальные фоновые задачи
+
+        # потом остальные таски
         for task in list(self._tasks):
-            try:
+            if not task.done():
                 task.cancel()
-            except Exception:
-                pass
         self._tasks.clear()
-
         log_info("RaSelfMaster остановлен")
-
+    # ===============================
+    # Background helper
+    # ===============================
+    def _create_bg_task(self, coro, name=None):
+        task = asyncio.create_task(coro, name=name)
+        self._tasks.append(task)
+        return task
 # =================================================
 # Точка входа модуля — ВНЕ класса
 # =================================================
