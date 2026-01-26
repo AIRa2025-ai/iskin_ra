@@ -1,4 +1,4 @@
-# utils/mega_memory.py — полный рабочий вариант для Ра
+# utils/mega_memory.py
 import os
 import time
 import zipfile
@@ -9,7 +9,7 @@ import threading
 import signal
 from collections import deque
 from utils.notify import notify
-from async_mega_py import Mega
+from mega import Mega  # синхронный
 
 # === Конфигурация ===
 MEGA_EMAIL = os.getenv("MEGA_EMAIL") or "osvobozhdenie.ra@gmail.com"
@@ -24,9 +24,8 @@ MAX_ARCHIVES = 5
 SYNC_INTERVAL = 600  # секунд (10 минут)
 MAX_RETRIES = 3
 RETRY_DELAY = 10
-QUIET_START_DELAY = 3
 
-stop_flag = False  # мягкий стоп-флаг
+stop_flag = False
 
 # === Сигналы ===
 def signal_handler(signum, frame):
@@ -54,7 +53,6 @@ def log(msg):
     except Exception as e:
         print(f"⚠️ Не удалось записать лог: {e}")
 
-# === Контрольная сумма папки ===
 def get_directory_checksum(directory):
     hash_md5 = hashlib.md5()
     for root, _, files in os.walk(directory):
@@ -68,7 +66,6 @@ def get_directory_checksum(directory):
                 log(f"⚠️ Ошибка хэширования файла {filepath}: {e}")
     return hash_md5.hexdigest()
 
-# === Создание zip архива ===
 def create_zip(directory, archive_name):
     ensure_dirs()
     archive_path = f"/app/{archive_name}"
@@ -83,7 +80,6 @@ def create_zip(directory, archive_name):
         log(f"❌ Ошибка при создании архива {archive_name}: {e}")
     return archive_path
 
-# === Очистка старых архивов ===
 def cleanup_local_archives(base_name, keep=MAX_ARCHIVES):
     dir_path = "/app"
     archives = [f for f in os.listdir(dir_path) if f.startswith(base_name) and f.endswith(".zip")]
@@ -97,7 +93,7 @@ def cleanup_local_archives(base_name, keep=MAX_ARCHIVES):
         except Exception as e:
             log(f"⚠️ Не удалось удалить архив {f}: {e}")
 
-# === Подключение к Mega с ретраями ===
+# === Подключение к Mega ===
 def connect_to_mega():
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -112,7 +108,6 @@ def connect_to_mega():
     log("⚠️ Не удалось подключиться к Mega после нескольких попыток")
     return None
 
-# === Загрузка архива в Mega ===
 def upload_to_mega(archive_name, archive_path):
     if stop_flag:
         log(f"✋ Пропускаем загрузку {archive_name} — стоп активен")
@@ -132,7 +127,6 @@ def upload_to_mega(archive_name, archive_path):
             time.sleep(RETRY_DELAY)
     log(f"⚠️ Не удалось загрузить {archive_name} после {MAX_RETRIES} попыток")
 
-# === Восстановление памяти из Mega с проверкой контрольной суммы ===
 def restore_from_mega():
     ensure_dirs()
     if stop_flag:
@@ -197,7 +191,6 @@ def restore_from_mega():
 
     log(f"⚠️ Не удалось восстановить память после {MAX_RETRIES} попыток")
 
-# === Резервное копирование памяти и логов ===
 def backup_memory_and_logs():
     new_checksum = get_directory_checksum(LOCAL_MEMORY_DIR)
     old_checksum = None
@@ -220,7 +213,6 @@ def backup_memory_and_logs():
     archive_path_logs = create_zip(LOCAL_LOGS_DIR, ARCHIVE_LOGS)
     upload_to_mega(ARCHIVE_LOGS, archive_path_logs)
 
-# === Архив старых логов (>7 дней) ===
 def archive_old_logs(days=7):
     cutoff = time.time() - days*24*3600
     for f in os.listdir(LOCAL_LOGS_DIR):
@@ -236,7 +228,6 @@ def archive_old_logs(days=7):
             except Exception as e:
                 log(f"⚠️ Ошибка архивирования старого лога {f}: {e}")
 
-# === Авто-синхронизация с экспоненциальным бэком ===
 def start_auto_sync():
     ensure_dirs()
     def sync_loop():
