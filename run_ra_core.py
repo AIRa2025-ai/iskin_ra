@@ -15,7 +15,7 @@ from core.ra_knowledge import RaKnowledge
 from core.ra_self_reflect import RaSelfReflect
 from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from core.ra_event_bus import RaEventBus
-
+from modules.logs import logger_instance
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
@@ -108,7 +108,7 @@ async def main():
 
     gpt_handler = GPTHandler(api_key=openrouter_key, ra_context=ra_context.rasvet_text)
 
-    ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, memory=memory, heart=None, logger=logging)
+    ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, memory=memory, heart=None, logger=logger_instance)
     ra.event_bus = ra.event_bus or core.event_bus
 
     # ----------------- Регистрация модулей -----------------
