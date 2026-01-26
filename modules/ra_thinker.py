@@ -35,7 +35,7 @@ class RaThinker:
         self.last_world_event = None
         self.event_bus = event_bus
         self.logger = master.logger 
-        if hasattr(master, "logger") else logging
+        logger = master.logger if hasattr(master, "logger") else logging
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.react_to_market)
 
