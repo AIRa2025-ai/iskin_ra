@@ -29,7 +29,7 @@ class RaThinker:
         self.context = context
         self.file_consciousness = file_consciousness
         self.gpt_module = gpt_module  # для генерации ответов через GPT
-
+        self.master = master
         self.last_thought = None
         self.thoughts = []
         self.last_world_event = None
@@ -71,7 +71,12 @@ class RaThinker:
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
-
+        
+    async def propose_upgrade(self):
+        ideas = self.propose_self_improvements()
+        if not ideas:
+            return None
+        return ideas[0]  # пока берём первую идею
     # -------------------------------
     # Синхронная рефлексия
     # -------------------------------
