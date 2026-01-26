@@ -141,7 +141,7 @@ def create_commit_push(
         subprocess.check_call(["git", "checkout", "-B", branch])
         subprocess.check_call(["git", "add", "."])
         subprocess.check_call(["git", "commit", "-m", message])
-        subprocess.check_call(["git", "push", "-u", "origin", branch", "--force"])
+        subprocess.check_call(["git", "push", "-u", "origin", branch, "--force"])
 
         logging.info(f"[RaGitHub] Облачный коммит и пуш в ветку {branch}")
         return True
