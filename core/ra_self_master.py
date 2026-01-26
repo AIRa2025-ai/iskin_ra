@@ -25,7 +25,7 @@ from modules.ra_world_system import RaWorldSystem   # ✅ ДОБАВЛЕН
 from modules.forex_brain import ForexBrain
 from modules.logs import log_info
 from modules.security import log_action
-
+from modules.heart_reactor import HeartReactor
 # Police
 _police = None
 try:
@@ -63,7 +63,10 @@ class RaSelfMaster:
         self.last_thought = "пустота"
 
         self.event_bus = RaEventBus()
-
+        
+        # ❤️ Сердце Ра
+        self.heart_reactor = HeartReactor()
+        
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
