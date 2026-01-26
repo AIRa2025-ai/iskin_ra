@@ -14,6 +14,7 @@ from core.ra_knowledge import RaKnowledge
 from core.ra_self_reflect import RaSelfReflect
 from core.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from core.ra_event_bus import RaEventBus
+from core.ra_memory import RaMemory
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
