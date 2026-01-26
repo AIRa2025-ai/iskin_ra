@@ -13,6 +13,7 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command
 from aiogram.types import Message
 from core.telegram_sender import send_admin
+from core.ra_memory import memory
 
 # ------------------------------- ROOT & PATHS -------------------------------
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -154,7 +155,19 @@ async def all_text(m: Message):
         await m.answer(reply)
     except Exception as e:
         await m.answer(f"❌ Ошибка: {e}")
+        
+@router.message()
+async def handle_message(message: Message):
+    user_id = message.from_user.id
+    text = message.text
 
+    await memory.append(user_id, text, source="telegram")
+
+    reply = await process_message(text)
+
+    await memory.append(user_id, reply, source="ra")
+
+    await message.answer(reply)
 # ------------------------------- MAIN ENTRY -------------------------------
 async def main():
     global bot, self_master, thinker, ra_scheduler
