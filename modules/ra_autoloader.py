@@ -1,4 +1,3 @@
-# modules/ra_autoloader.py
 import importlib
 import json
 import logging
@@ -47,7 +46,11 @@ class RaAutoloader:
         return True
 
     # ---------- загрузка ----------
-    def activate_modules(self) -> Dict[str, ModuleType]:
+    def load_modules(self) -> Dict[str, ModuleType]:
+        """
+        Загружает модули в память, но не запускает их.
+        RaSelfMaster будет вызывать activate_module(name) по требованию.
+        """
         module_names = self.load_manifest()
 
         for name in module_names:
@@ -56,11 +59,9 @@ class RaAutoloader:
                 continue
 
             module = None
-            # Сначала пытаемся импортировать из core
             try:
                 module = importlib.import_module(f"core.{name}")
             except ModuleNotFoundError:
-                # Если не найдено, пробуем из modules
                 try:
                     module = importlib.import_module(f"modules.{name}")
                 except Exception as e:
@@ -68,17 +69,31 @@ class RaAutoloader:
 
             if module:
                 self.modules[name] = module
-                logging.info(f"[RaAutoloader] Модуль активирован: {name}")
+                logging.info(f"[RaAutoloader] Модуль загружен в память: {name}")
 
         return self.modules
 
-    # ---------- async lifecycle ----------
-    async def start_async_modules(self):
-        for name, module in self.modules.items():
-            start_fn = getattr(module, "start", None)
-            if start_fn and asyncio.iscoroutinefunction(start_fn):
-                self.tasks[name] = asyncio.create_task(start_fn())
-                logging.info(f"[RaAutoloader] Async модуль запущен: {name}")
+    # ---------- запуск по требованию ----------
+    async def activate_module(self, name: str):
+        """
+        Запускает async-модуль по запросу, если он поддерживает start().
+        """
+        module = self.modules.get(name)
+        if not module:
+            logging.warning(f"[RaAutoloader] Модуль {name} не найден")
+            return
+
+        if name in self.tasks:
+            logging.info(f"[RaAutoloader] Модуль {name} уже активен")
+            return
+
+        start_fn = getattr(module, "start", None)
+        if start_fn and asyncio.iscoroutinefunction(start_fn):
+            task = asyncio.create_task(start_fn(), name=f"mod:{name}")
+            self.tasks[name] = task
+            logging.info(f"[RaAutoloader] Async модуль запущен: {name}")
+        else:
+            logging.info(f"[RaAutoloader] Модуль {name} не имеет async start, запуск пропущен")
 
     async def stop_async_modules(self):
         for task in self.tasks.values():
@@ -91,5 +106,5 @@ class RaAutoloader:
     def status(self):
         return {
             "modules": list(self.modules.keys()),
-            "async": list(self.tasks.keys()),
+            "async_tasks": list(self.tasks.keys()),
         }
