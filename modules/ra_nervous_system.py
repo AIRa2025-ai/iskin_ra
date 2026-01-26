@@ -44,7 +44,7 @@ class RaNervousSystem:
         # Энергетика
         self.energy = RaEnergy()
         self.inner_sun = RaInnerSun()
-
+        self.heart_reactor = getattr(self.ra, "heart_reactor", None)
         self._tasks = []
 
         # Подписка на события
@@ -83,8 +83,8 @@ class RaNervousSystem:
 
     # HeartReactor
         self._tasks.append(asyncio.create_task(
-            start_heart_reactor(), name="heart_reactor_loop"
-        ))
+        if self.heart_reactor:
+            self._tasks.append(asyncio.create_task(self.heart_reactor.start(), name="heart_reactor_loop"))
         logging.info("🧠 Модуль нервной системы активен.")
     # -----------------------------
     # Остановка
