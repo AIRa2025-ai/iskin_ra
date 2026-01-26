@@ -173,9 +173,6 @@ class RaWorld:
             await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"}, source="RaWorld")
             await self.event_bus.emit("world_message", "Сигнал из мира", source="RaWorld")
 
-# --- Экземпляр RaWorldObserver ---
-ra_world_observer = RaWorldObserver()
-
 # --- FastAPI Startup/Shutdown ---
 @app.on_event("startup")
 async def on_startup():
