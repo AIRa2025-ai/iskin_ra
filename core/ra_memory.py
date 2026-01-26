@@ -56,7 +56,9 @@ class RaMemory:
         return "short_term"
 
     async def append(self, user_id, message, layer="short_term", source="local"):
-        memory = self.load(user_id)
+        if layer == "auto":
+            layer = self.choose_layer(message)
+        memory = self.load(user_id, layer)
         memory.setdefault("messages", [])
 
         memory["messages"].append({
@@ -84,8 +86,6 @@ class RaMemory:
                 source="RaMemory"
             )
 
-        if layer == "auto":
-            layer = self.choose_layer(message)
         # Ограничение по short_term
         if layer == "short_term" and user_id not in KEEP_FULL_MEMORY_USERS and len(memory["messages"]) > MAX_MESSAGES:
             memory["messages"] = memory["messages"][-MAX_MESSAGES:]
