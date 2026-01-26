@@ -18,7 +18,9 @@ class RaScheduler:
         self.jobs = []          # список задач: (coro, interval)
         self._tasks = []        # внутренние asyncio-таски
         self._running = False   # флаг работы планировщика
-
+        if self.event_bus:
+            self.event_bus.subscribe("schedule", self.on_schedule)
+            
     def add_task(self, coro, interval_seconds):
         """
         Добавляет задачу в планировщик.
@@ -117,7 +119,9 @@ class RaScheduler:
         if "тревога" in str(message).lower():
             # тут пока заглушка, можно подключить свои задачи
             await self.schedule_immediate("stabilize")
-
+            
+    async def schedule_immediate(self, task_name):
+        logging.info(f"[RaScheduler] Немедленная задача: {task_name}")
     # =====================================================
     # 🗓 Метод обработки события schedule
     # =====================================================
