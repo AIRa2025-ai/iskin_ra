@@ -148,23 +148,16 @@ async def start_cmd(m: Message):
     await m.answer("🌞 Я — Ра. Я здесь. Я слышу тебя, брат.")
 
 @router.message()
-async def all_text(m: Message):
-    try:
-        await m.answer("🛠 Ра обрабатывает...")
-        reply = await process_message(m.from_user.id, m.text)
-        await m.answer(reply)
-    except Exception as e:
-        await m.answer(f"❌ Ошибка: {e}")
-        
-@router.message()
 async def handle_message(message: Message):
     user_id = message.from_user.id
     text = message.text
 
+    # Запоминаем входящее сообщение
     await memory.append(user_id, text, source="telegram")
 
-    reply = await process_message(text)
+    reply = await process_message(user_id, text)
 
+    # Запоминаем ответ Ра
     await memory.append(user_id, reply, source="ra")
 
     await message.answer(reply)
@@ -202,6 +195,7 @@ async def main():
             gpt_module=None
         )
         self_master.thinker = thinker
+        memory.subscribe(thinker.on_memory_update)
         log.info("🧠 RaThinker подключён")
 
     # ---------------- GPT ----------------
