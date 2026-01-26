@@ -294,7 +294,7 @@ class RaSelfMaster:
             else:
                 return "…Ра чувствует, но не может выразить."
         except Exception as e:
-            
+            logging.warning(f"[RaSelfMaster] Ошибка gpt_module: {e}")
         if not self.gpt_handler:
             return "…Ра рядом, но пока без голосов ИскИнов."
         try:
