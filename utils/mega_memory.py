@@ -1,4 +1,4 @@
-# utils/mega_memory_pro.py — супер-прокачанная версия для Ра
+# utils/mega_memory.py — супер-прокачанная версия для Ра
 import os
 import time
 import zipfile
@@ -13,8 +13,8 @@ from utils.notify import notify
 # === Конфигурация ===
 MEGA_EMAIL = os.getenv("MEGA_EMAIL") or "osvobozhdenie.ra@gmail.com"
 MEGA_PASSWORD = os.getenv("MEGA_PASSWORD") or "Dbhec19771984"
-LOCAL_MEMORY_DIR = "/app/memory"
-LOCAL_LOGS_DIR = "/app/logs"
+LOCAL_MEMORY_DIR = "memory"
+LOCAL_LOGS_DIR = "logs"
 ARCHIVE_MEMORY = "ra_memory_backup.zip"
 ARCHIVE_LOGS = "ra_logs_backup.zip"
 CHECKSUM_FILE = "/app/memory/.last_sync_checksum"
