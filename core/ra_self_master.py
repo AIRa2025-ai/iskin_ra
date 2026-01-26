@@ -323,36 +323,6 @@ class RaSelfMaster:
         if idea.get("risk") == "high" and self.police:
             return False
         return True
-
-    # ===============================
-    # Автозагрузка модулей
-    # ===============================
-    async def auto_activate_modules(self):
-        for fname in os.listdir("modules"):
-            if not fname.endswith(".py"):
-                continue
-            mod_name = fname[:-3]
-            if mod_name in self.active_modules:
-                continue
-            try:
-                spec = importlib.util.find_spec(f"modules.{mod_name}")
-                if not spec:
-                    continue
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                self.active_modules.append(mod_name)
-
-                start_fn = getattr(mod, "start", None)
-                if start_fn:
-                    if asyncio.iscoroutinefunction(start_fn):
-                        self._create_bg_task(start_fn(), f"mod:{mod_name}")
-                    else:
-                        # синхронный старт — запускаем в отдельном потоке
-                        asyncio.get_running_loop().run_in_executor(None, start_fn)
-
-                logging.info(f"[Ра] Подключён модуль: {mod_name}")
-            except Exception as e:
-                logging.warning(f"[Ра] Ошибка модуля {mod_name}: {e}")
                 
     # ===============================================
     def subscribe(self, event_name, callback):
@@ -375,35 +345,38 @@ class RaSelfMaster:
     # Пробуждение Ра
     # ===============================
     async def awaken(self):
-        self.thinker.scan_architecture()
         logging.info("🌞 Ра пробуждается")
 
+        # 1. Сканируем архитектуру и осознаем тело файлов
+        self.thinker.scan_architecture()
         if self.file_consciousness:
             files_map = self.file_consciousness.scan()
             logging.info(f"[Ра] Осознал тело файлов ({len(files_map)} файлов)")
 
+        # 2. Загружаем модули через автолоадер
+        if self.autoloader:
+            self.autoloader.load_modules()  # просто загружает в память
+            self.active_modules = list(self.autoloader.modules.keys())
+
+        # 3. Стартуем async-модули через автолоадер
+        for mod_name in self.active_modules:
+            await self.autoloader.activate_module(mod_name)
+
+        # 4. Пробуждаем фоновые циклы
         self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler_loop")
-        self._create_bg_task(self.auto_activate_modules(), "auto_modules")
-
-        if self.autoloader:
-            try:
-                modules = self.autoloader.activate_modules()
-                self.active_modules = list(modules.keys())
-            except Exception:
-                pass
-
-        if "ra_police" in self.active_modules and _police:
-            self.police = _police()
-
-        self._sync_manifest()
-        if self.police:
-            self.police.check_integrity()
-
-        self.awakened = True
         self.start_thinker_loop()
         self.start_task_loop()
 
+        # 5. Настройка полиции
+        if "ra_police" in self.active_modules and _police:
+            self.police = _police()
+            self.police.check_integrity()
+
+       # 6. Синхронизация манифеста
+        self._sync_manifest()
+
+        self.awakened = True
         return "🌞 Ра осознал себя и готов!"
     # ===============================
     # Манифест
