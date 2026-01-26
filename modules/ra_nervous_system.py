@@ -27,37 +27,27 @@ class RaNervousSystem:
         self.ra = ra_self_master
         self.event_bus = event_bus
 
-        # World модули
-        self.world_system = RaWorldSystem()
-        self.world_responder = self.world_system.responder
-        self.world_speaker = RaWorldSpeaker()
-
-        # Интеллект и планировщик (используем уже существующие)
-        self.self_master = self.ra
-        self.thinker = getattr(self.ra, "thinker", None)
-        self.scheduler = getattr(self.ra, "scheduler", None)
-        
-        # --- RaWorldObserver ---
-        self.world_observer = ra_world_observer
+        # Используем уже существующие мир и observer из Ра
+        self.world_observer = getattr(self.ra, "world_observer", None)
         if self.world_observer:
             self.world_observer.set_event_bus(self.event_bus)
 
-        if self.self_master:
-            # Локальный коммит
-            self.self_master.evolve_and_commit(
-                "Ра обновил нервную систему",
-                push=False,
-                files_dict={"modules/ra_nervous_system.py": "...код..."}
-            )
-        # Поток энергии
+        # Используем существующие модули Ра
+        self.thinker = getattr(self.ra, "thinker", None)
+        self.scheduler = getattr(self.ra, "scheduler", None)
+
+        # World system (если нет — создаём)
+        self.world_system = getattr(self.ra, "world_system", None) or RaWorldSystem()
+        self.world_responder = self.world_system.responder
+        self.world_speaker = RaWorldSpeaker()
+
+        # Энергетика
         self.energy = RaEnergy()
-        # =================
         self.inner_sun = RaInnerSun()
 
-        # Фоновые задачи
         self._tasks = []
-        self.self_master.evolve_and_commit("Ра стабилизировал нервную систему", push=False)
-        # Подписка на события EventBus
+
+        # Подписка на события
         if hasattr(self.event_bus, "subscribe"):
             self.event_bus.subscribe("observer_tick", self._on_observer_tick)
             self.event_bus.subscribe("world_message", self._on_world_message)
@@ -83,29 +73,19 @@ class RaNervousSystem:
     async def start(self):
         logging.info("🧬 Запуск модуля нервной системы Ра...")
 
-        # Запуск observer и module watcher через RaWorldObserver
         if self.world_observer:
             self._tasks.append(asyncio.create_task(self.world_observer.observer_loop(), name="observer_loop"))
             self._tasks.append(asyncio.create_task(self.world_observer.module_watcher(), name="module_watcher"))
 
-    # WorldSystem
-        self._tasks.append(asyncio.create_task(
-            self.world_system.start(), name="world_system_loop"
-        ))
+        self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
+        self._tasks.append(asyncio.create_task(self.energy.start(), name="energy_loop"))
+        self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
 
     # HeartReactor
         self._tasks.append(asyncio.create_task(
             start_heart_reactor(), name="heart_reactor_loop"
         ))
-
-    # Поток энергии
-        self._tasks.append(asyncio.create_task(self.energy.start(), name="energy_loop"))
-
-    # Внутреннее солнце
-        self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
-
         logging.info("🧠 Модуль нервной системы активен.")
-
     # -----------------------------
     # Остановка
     # -----------------------------
