@@ -4,7 +4,7 @@ import time
 import zipfile
 import hashlib
 from datetime import datetime
-from mega import Mega
+from mega_wrapper import upload_file_sync
 import threading
 import signal
 from collections import deque
@@ -26,7 +26,7 @@ RETRY_DELAY = 10
 QUIET_START_DELAY = 3
 
 stop_flag = False  # мягкий стоп-флаг
-
+upload_file_sync("my_email", "my_pass", "data/potok_sveta.log")
 # === Сигналы ===
 def signal_handler(signum, frame):
     global stop_flag
