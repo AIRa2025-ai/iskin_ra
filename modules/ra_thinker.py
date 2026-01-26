@@ -244,9 +244,8 @@ class RaThinker:
         user_id = data.get("user_id")
         message = data.get("message")
         layer = data.get("layer")
-        memory.subscribe(thinker.on_memory_update)
+
         print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
 
-        # Можно сразу осмысливать
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
