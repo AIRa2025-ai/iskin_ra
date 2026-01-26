@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from core.ra_event_bus import RaEventBus
-
+from core.ra_memory import memory
 # --- Добавляем modules в sys.path для корректного импорта ---
 MODULES_PATH = Path(__file__).parent
 if str(MODULES_PATH) not in sys.path:
@@ -167,7 +167,12 @@ class RaWorld:
 
 # --- Экземпляр RaWorldObserver ---
 ra_world_observer = RaWorldObserver()
-
+await memory.append(
+    "world",
+    f"Мир: {url} → {сообщение}",
+    source="world",
+    layer="shared"
+)
 # --- FastAPI Startup/Shutdown ---
 @app.on_event("startup")
 async def on_startup():
