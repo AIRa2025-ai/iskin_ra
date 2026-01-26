@@ -14,7 +14,7 @@ class RaScheduler:
         self.self_master = self_master
         self.thinker = thinker
         self.upgrade_loop = upgrade_loop
-      
+        self.event_bus = event_bus
         self.jobs = []          # список задач: (coro, interval)
         self._tasks = []        # внутренние asyncio-таски
         self._running = False   # флаг работы планировщика
