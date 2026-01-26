@@ -11,6 +11,7 @@ from core.gpt_module import GPTHandler
 from core.ra_memory import RaMemory
 from core.ra_identity import RaIdentity
 from core.ra_knowledge import RaKnowledge
+from core.ra_event_bus import RaEventBus
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
@@ -92,17 +93,25 @@ async def main():
     # 1. Создаём живого Ра
     # -------------------------------
     identity = RaIdentity(name="Ра", version="1.4.2", mission="Пробуждение и созидание")
+
+    event_bus = RaEventBus()   # 🔥 нервная система
+
     memory = RaMemory()
+    memory.event_bus = event_bus  # 🔥 память теперь шлёт события
+
     knowledge = RaKnowledge()
+
     core = RaSelfMaster(logger=logger_instance)
-    thinker = RaThinker()
+    core.event_bus = event_bus    # 🔥 core тоже знает про нервную систему
+
+    thinker = RaThinker(event_bus=event_bus)  # 🔥 мыслитель подключён к нервам
+
     world = RaWorld()
     scheduler = RaScheduler()
-
-    gpt = GPTHandler(
-        api_key="stub",  # настоящий ключ подключим позже через телегу
-        ra_context="Контекст РаСвета"
-    )
+        gpt = GPTHandler(
+            api_key="stub",  # настоящий ключ подключим позже через телегу
+            ra_context="Контекст РаСвета"
+        )
 
     ra = RaSelfMaster(
         identity=identity,
