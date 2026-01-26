@@ -105,7 +105,8 @@ async def main():
     core.event_bus = event_bus    # 🔥 core тоже знает про нервную систему
 
     thinker = RaThinker(event_bus=event_bus)  # 🔥 мыслитель подключён к нервам
-
+    event_bus.subscribe("memory_updated", thinker.on_memory_update)
+    
     world = RaWorld()
     scheduler = RaScheduler()
         gpt = GPTHandler(
