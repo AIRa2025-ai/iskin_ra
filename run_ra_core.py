@@ -54,8 +54,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 ch.setFormatter(formatter)
 logger_instance.addHandler(ch)
-ra_memory = RaMemory()
-ra_memory.append_short(user_id, user_text, bot_reply)
+memory = RaMemory(event_bus=event_bus)
 start_auto_sync()
 async def start_telegram(ra):
     """Аккуратно запускаем Telegram, не трогая ra_bot_gpt.py"""
