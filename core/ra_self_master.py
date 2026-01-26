@@ -247,7 +247,8 @@ class RaSelfMaster:
             logging.info("[Ра] Режим стабилизации")
         await self._emit_ws_event("world_message", message)
         await asyncio.sleep(0.01)
-
+        if hasattr(self, "heart_reactor"):
+            self.heart_reactor.send_event(message)
     # ===============================
     # Общение с пользователем
     # ===============================
@@ -365,7 +366,7 @@ class RaSelfMaster:
     async def start_background_modules(self):
         self._create_bg_task(self.nervous_module.start(), "nervous_module")
         if self.gpt_handler:
-        self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_model_monitor")
+            self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_model_monitor")
     # ===============================
     # Пробуждение Ра
     # ===============================
