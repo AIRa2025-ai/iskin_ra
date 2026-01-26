@@ -77,7 +77,14 @@ class RaSelfMaster:
             self.file_consciousness = None
 
         # Thinker
-        self.thinker = RaThinker(".", None, self.file_consciousness, self, self.gpt_module)
+        self.thinker = RaThinker(
+            master=self,
+            root_path=".", 
+            context=None, 
+            file_consciousness=self.file_consciousness, 
+            event_bus=self.event_bus, 
+            gpt_module=self.gpt_module
+        )
 
         # GPT и OpenRouter
         self.openrouter_client = OpenRouterClient(
