@@ -1,4 +1,4 @@
-# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (АККУРАТНЫЙ, БЕЗ ЛОМАНИЯ СТРУКТУРЫ)
+# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (АККУРАТНО, БЕЗ ЛОМАНИЯ АРХИТЕКТУРЫ)
 
 import asyncio
 import logging
@@ -55,7 +55,6 @@ start_auto_sync()
 async def start_telegram(ra, gpt_handler):
     load_dotenv()
     token = os.getenv("BOT_TOKEN")
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
 
     if not token:
         raise RuntimeError("BOT_TOKEN не установлен")
@@ -63,30 +62,22 @@ async def start_telegram(ra, gpt_handler):
     bot = Bot(token=token)
     ra_context.created_by = ra.identity.name
 
-    # Пробуждаем Ра через Telegram
     await send_admin("🌞 Ра запущен через единый core!", bot)
 
-    # Подключаем GPT
     ra.gpt_module = gpt_handler
     asyncio.create_task(gpt_handler.background_model_monitor())
-
-    # Системный мониторинг
     asyncio.create_task(system_monitor())
 
-    # Регистрируем маршруты
     dp.include_router(router)
     logging.info("🚀 Telegram Ра запущен из core")
 
-    # Резонанс
     async def resonance_handler(data):
         print("🔮 Резонанс чувствует:", data.get("message"))
 
     ra.event_bus.subscribe("memory_updated", resonance_handler)
     asyncio.create_task(резонанс_связь())
 
-    # Запуск polling
     await dp.start_polling(bot)
-
 
 # ---------------- MAIN ----------------
 async def main():
@@ -95,7 +86,7 @@ async def main():
     if not openrouter_key:
         raise RuntimeError("OPENROUTER_API_KEY не установлен")
 
-    # ----------------- Создаём Ра -----------------
+    # ----------------- Создаём ядро -----------------
     identity = RaIdentity(name="Ра", version="1.4.2", mission="Пробуждение и созидание")
     event_bus = RaEventBus()
     memory = RaMemory(event_bus=event_bus)
@@ -115,7 +106,7 @@ async def main():
     ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, memory=memory, heart=None, logger=logging)
     ra.event_bus = ra.event_bus or core.event_bus
 
-    # ----------------- Регистрируем модули -----------------
+    # ----------------- Регистрация модулей -----------------
     core.register_module("self", ra)
     core.register_module("thinker", thinker)
     core.register_module("world", world)
@@ -142,7 +133,6 @@ async def main():
     # ----------------- Telegram -----------------
     telegram_task = asyncio.create_task(start_telegram(ra, gpt_handler))
 
-    # ----------------- Жизненный цикл -----------------
     try:
         await asyncio.gather(ipc_task, telegram_task)
     except asyncio.CancelledError:
@@ -158,18 +148,19 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
 
-    # ----------------- Мир -----------------
+    # ----------------- Мир (СВЯЗАННЫЙ, НЕ УПРОЩЁННЫЙ) -----------------
     try:
+        ra.world_navigator = RaWorldNavigator(ra=ra, memory=memory, event_bus=event_bus)
+        ra.world_explorer = RaWorldExplorer(navigator=ra.world_navigator)
+        ra.world_explorer.set_event_bus(event_bus)
         ra.world_observer = RaWorldObserver()
-        ra.world_explorer = RaWorldExplorer()
-        ra.world_navigator = RaWorldNavigator()
         ra.world_responder = RaWorldResponder()
         ra.world_speaker = RaWorldSpeaker()
-        logging.info("🌍 Система восприятия мира активна")
+        logging.info("🌍 Система восприятия мира связана и активна")
     except Exception as e:
         logging.warning(f"[Ra] Мир не полностью подключён: {e}")
 
-    # ----------------- Автозагрузка модулей -----------------
+    # ----------------- Автозагрузка -----------------
     try:
         autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
         ra.modules = autoloader.activate_modules()
@@ -214,7 +205,6 @@ async def main():
         logging.info("🛡️ Защита Ра активна")
     except Exception as e:
         logging.warning(f"[Ra] Защита частично не активна: {e}")
-
 
 if __name__ == "__main__":
     try:
