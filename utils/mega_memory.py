@@ -9,7 +9,7 @@ import threading
 import signal
 from collections import deque
 from utils.notify import notify
-from mega import Mega  # синхронный
+from mega.mega import Mega  # синхронный
 
 # === Конфигурация ===
 MEGA_EMAIL = os.getenv("MEGA_EMAIL") or "osvobozhdenie.ra@gmail.com"
