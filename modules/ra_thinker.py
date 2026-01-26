@@ -4,14 +4,15 @@
 Модуль мышления Ра — RaThinker.
 Отвечает за осмысление данных, анализ и вывод инсайтов.
 """
-import logging
-from datetime import datetime
-from modules.ra_file_manager import load_rasvet_files
 import os
 import ast
-from collections import defaultdict
-from modules.logs import log_info, log_error
 import asyncio
+import logging
+from collections import defaultdict
+from datetime import datetime
+from modules.ra_file_manager import load_rasvet_files
+from modules.logs import log_info, log_error
+from core.ra_memory import memory
 
 class RaThinker:
     def __init__(
@@ -243,7 +244,7 @@ class RaThinker:
         user_id = data.get("user_id")
         message = data.get("message")
         layer = data.get("layer")
-
+        memory.subscribe(thinker.on_memory_update)
         print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
 
         # Можно сразу осмысливать
