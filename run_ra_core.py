@@ -103,8 +103,7 @@ async def main():
 
     event_bus = RaEventBus()   # 🔥 нервная система
 
-    memory = RaMemory()
-    memory.event_bus = event_bus  # 🔥 память теперь шлёт события
+    memory = RaMemory(event_bus=event_bus)  # 🔥 память теперь шлёт события
 
     knowledge = RaKnowledge()
 
