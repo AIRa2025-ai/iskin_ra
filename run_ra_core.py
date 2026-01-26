@@ -206,6 +206,14 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Защита частично не активна: {e}")
 
+    # ----------------- Нервная система -----------------
+    try:
+        ra.nervous_system = RaNervousSystem(ra_self_master=ra, event_bus=event_bus)
+        asyncio.create_task(ra.nervous_system.start())
+        logging.info("🧠 Нервная система Ра подключена и активирована")
+    except Exception as e:
+        logging.warning(f"[Ra] Нервная система не активна: {e}")
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
