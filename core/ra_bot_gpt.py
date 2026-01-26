@@ -116,9 +116,9 @@ async def process_message(user_id: int, text: str):
     if self_master:
         try:
             if hasattr(self_master, "process_text"):
-            result = await self_master.process_text(user_id, text)
-            if result:
-                return result
+                result = await self_master.process_text(user_id, text)
+                if result:
+                    return result
         except Exception as e:
             log.warning(f"[process_message] self_master error: {e}")
 
