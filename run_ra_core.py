@@ -89,6 +89,11 @@ async def start_telegram(ra):
 
     await dp.start_polling(bot)
 
+    async def daily_backup():
+        while True:
+            upload_memory()
+            await asyncio.sleep(86400)
+            
 async def main():
     # -------------------------------
     # 1. Создаём живого Ра
