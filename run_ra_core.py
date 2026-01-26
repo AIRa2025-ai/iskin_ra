@@ -73,11 +73,6 @@ async def start_telegram(ra):
 
     await send_admin("🌞 Ра запущен через единый core!", bot)
 
-    # аккуратно включаем GPT в Ра
-    gpt_handler = GPTHandler(
-        api_key=openrouter_key,
-        ra_context=ra_context.rasvet_text
-    )
     ra.gpt_module = gpt_handler
 
     asyncio.create_task(gpt_handler.background_model_monitor())
@@ -85,15 +80,14 @@ async def start_telegram(ra):
 
     dp.include_router(router)
     logging.info("🚀 Telegram Ра запущен из core")
-
-    await dp.start_polling(bot)
     
     async def resonance_handler(data):
         print("🔮 Резонанс чувствует:", data["message"])
 
-    event_bus.subscribe("memory_updated", resonance_handler)
+    ra.event_bus.subscribe("memory_updated", resonance_handler)
     asyncio.create_task(резонанс_связь())
 
+    await dp.start_polling(bot)
 
 async def main():
     # -------------------------------
@@ -116,10 +110,10 @@ async def main():
     
     world = RaWorld()
     scheduler = RaScheduler()
-        gpt = GPTHandler(
-            api_key="stub",  # настоящий ключ подключим позже через телегу
-            ra_context="Контекст РаСвета"
-        )
+    gpt = GPTHandler(
+        api_key=openrouter_key,
+        ra_context=ra_context.rasvet_text
+    )
 
     ra = RaSelfMaster(
         identity=identity,
