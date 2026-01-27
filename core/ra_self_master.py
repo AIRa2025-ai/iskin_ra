@@ -77,6 +77,11 @@ class RaSelfMaster:
         except Exception:
             self.file_consciousness = None
             
+        # Знания    
+        self.knowledge = RaKnowledge(knowledge_dir="modules/data")
+        self.json_data = self.knowledge.load_json_knowledge()
+        self.thinker.knowledge = self.knowledge  # если thinker должен иметь доступ 
+        
         # Мышление
         self.thinker = RaThinker(
             master=self,
@@ -324,15 +329,6 @@ class RaSelfMaster:
             logging.info("❤️ Сердце и HeartReactor интегрированы и запущены")
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
-
-class RaSelfReflector:
-    def __init__(self):
-        try:
-            self.knowledge = RaKnowledge(knowledge_dir="modules/data")  # путь к твоей папке modules/data
-            self.thinker.knowledge = self.knowledge
-            results = self.knowledge.search("энергия")
-            for r in results:
-                print(r["summary"])
                 
 # ================== STOP ========================
 async def stop(self):
