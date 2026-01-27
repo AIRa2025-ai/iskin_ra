@@ -1,4 +1,4 @@
-# ra_file_core.py
+# core/ra_file_core.py
 import logging
 from ra_file_manager import list_project_files, read_file_content, write_new_file, import_module_dynamic, run_syntax_check, load_rasvet_files
 from ra_file_consciousness import RaFileConsciousness
