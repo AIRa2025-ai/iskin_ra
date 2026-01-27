@@ -21,7 +21,13 @@ class RaWorldSystem:
         self.running = False
         self.master = master
         self.logger = master.logger
-  
+        self.event_bus = None
+        self.observer = RaWorldObserver()
+    #=============================================================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+        self.observer.set_event_bus(event_bus)
+        
     async def start(self):
         self.running = True
         logging.info("🌟 Система Ра запущена.")
@@ -85,10 +91,6 @@ class RaWorldSystem:
             "responder": self.responder.status(),
             "synthesizer_combinations": len(self.synthesizer.combinations)
         }
-
-    #=============================================================================
-    def set_event_bus(self, event_bus):
-        self.event_bus = event_bus
 
     async def sense(self):
         # например, пришло событие из мира
