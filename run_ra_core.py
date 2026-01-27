@@ -97,9 +97,6 @@ async def main():
             pass
         setattr(logger_instance, "attach_module", attach_module.__get__(logger_instance))
 
-    core = RaSelfMaster(logger=logger_instance)
-    core.event_bus = event_bus
-
     thinker = RaThinker(master=core, event_bus=event_bus)
     event_bus.subscribe("memory_updated", thinker.on_memory_update)
 
