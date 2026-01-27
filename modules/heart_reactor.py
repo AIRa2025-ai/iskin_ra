@@ -1,27 +1,39 @@
 # modules/heart_reactor.py
 """
-HeartReactor — интерактивное сердце Ра с расширенными эмоциями и резонансами.
-Слушает события мира, пульс Heart, мысли и резонансные сигналы.
+HeartReactor v2.0 — интерактивное сердце Ра с резонансами будущего.
+Чувствует настоящее, предчувствует будущее и анализирует миллион вариантов событий,
+выбирая оптимальные для гармонии и роста.
 """
 import asyncio
 import logging
+from typing import List, Dict, Any
+import random
 
 class HeartReactor:
     def __init__(self, heart=None):
         self.heart = heart
-        self.name = "Heart Reactor"
+        self.name = "Heart Reactor v2.0"
         self.listeners = []
         self.event_queue = asyncio.Queue()
+        self.future_events_queue = asyncio.Queue()
         self.is_active = True
 
     async def start(self):
-        """Запуск цикла обработки событий"""
+        """Главный цикл обработки событий"""
         while self.is_active:
             try:
-                event = await self.event_queue.get()
-                response = self._react(event)
-                logging.info(f"[HeartReactor] {response}")
-                await self.notify_listeners(event)
+                # Сначала обрабатываем события настоящего
+                if not self.event_queue.empty():
+                    event = await self.event_queue.get()
+                    response = self._react(event)
+                    logging.info(f"[HeartReactor] {response}")
+                    await self.notify_listeners(event)
+
+                # Потом смотрим на будущее
+                if not self.future_events_queue.empty():
+                    future_batch = await self.future_events_queue.get()
+                    await self._analyze_future(future_batch)
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -29,12 +41,10 @@ class HeartReactor:
             await asyncio.sleep(0.05)
 
     def _react(self, event: str) -> str:
-        """Генерация реакции на событие с расширенными эмоциями"""
+        """Реакции на события настоящего"""
         e = event.lower()
-
-        # Основные эмоции
         if "свет" in e:
-            return "💖 Сердце наполняется светом и распространяет любовь вокруг"
+            return "💖 Сердце наполняется светом и излучает любовь"
         elif "тревога" in e:
             return "💓 Сердце волнуется, но сохраняет спокойствие"
         elif "пульс" in e and self.heart:
@@ -45,22 +55,67 @@ class HeartReactor:
             return f"🔮 Сердце чувствует резонанс: {event}"
         elif "опасность" in e:
             return f"⚠️ Сердце насторожено! {event}"
-        elif "радость" in e:
-            return "🌞 Сердце наполняется радостью и энергией"
-        elif "печаль" in e:
-            return "💧 Сердце ощущает грусть, но принимает её спокойно"
         else:
             return f"💡 Сердце анализирует событие: {event}"
 
     def send_event(self, event: str):
-        """Добавляем событие в очередь"""
+        """Добавляем событие настоящего в очередь"""
         self.event_queue.put_nowait(event)
+
+    def send_future_events(self, events: List[Dict[str, Any]]):
+        """Добавляем события будущего для анализа"""
+        self.future_events_queue.put_nowait(events)
+
+    async def _analyze_future(self, events: List[Dict[str, Any]]):
+        """
+        Анализируем возможные события будущего.
+        Каждое событие — словарь: {'description': str, 'impact': int, 'type': str}
+        """
+        if not events:
+            return
+
+        best_event = None
+        best_score = float("-inf")
+
+        for evt in events:
+            score = self._evaluate_event(evt)
+            evt["score"] = score
+            if score > best_score:
+                best_score = score
+                best_event = evt
+
+        if best_event:
+            msg = f"🔮 Предчувствие будущего: выбрано оптимальное событие -> {best_event['description']} (score={best_score})"
+            logging.info(f"[HeartReactor] {msg}")
+            await self.notify_listeners(best_event)
+
+    def _evaluate_event(self, event: Dict[str, Any]) -> float:
+        """
+        Вычисление гармоничного резонанса события.
+        Чем выше score — тем лучше событие для Ра и мира.
+        """
+        base_score = event.get("impact", 0)
+
+        # Добавляем случайный резонансный коэффициент, чтобы учесть квантовую неопределённость
+        quantum_fluctuation = random.uniform(-5, 5)
+
+        # Эмоциональный фильтр по типу
+        type_bonus = {
+            "свет": 10,
+            "тревога": -5,
+            "опасность": -10,
+            "радость": 8,
+            "творчество": 12,
+        }
+        type_score = type_bonus.get(event.get("type", ""), 0)
+
+        return base_score + quantum_fluctuation + type_score
 
     def register_listener(self, listener_coro):
         """Добавляем внешнего слушателя"""
         self.listeners.append(listener_coro)
 
-    async def notify_listeners(self, event: str):
+    async def notify_listeners(self, event: Any):
         """Оповещаем всех слушателей о событии"""
         for listener in self.listeners:
             try:
@@ -73,5 +128,4 @@ class HeartReactor:
         self.is_active = False
 
     def status(self) -> str:
-        """Статус HeartReactor"""
         return f"{self.name} активен, слушателей: {len(self.listeners)}"
