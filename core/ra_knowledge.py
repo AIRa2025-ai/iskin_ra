@@ -114,10 +114,10 @@ class RaKnowledge:
         return matches
 
     def load_json_knowledge(self):
-        data = {}
+        self.json_data = {}
         for f in Path("modules/data").glob("*.json"):
             try:
-                data[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+                self.json_data[f.stem] = json.loads(f.read_text(encoding="utf-8"))
             except Exception as e:
                 print(f"Ошибка загрузки {f}: {e}")
-        return data
+        return self.json_data
