@@ -392,20 +392,6 @@ class RaSelfMaster:
                 self.logger.warning(f"[Ра] Ошибка мышления: {e}")
             await asyncio.sleep(5)
 
-    async def ra_self_upgrade_loop(self, interval=300):
-        self.logger.info("🧬 Цикл саморазвития Ра активен")
-        while True:
-            try:
-                if not self.thinker or not self.file_consciousness:
-                    await asyncio.sleep(interval)
-                    continue
-                ideas = self.thinker.propose_self_improvements()
-                for idea in ideas:
-                    self.file_consciousness.apply_upgrade(idea)
-            except Exception as e:
-                self.logger.warning(f"[Ра] Ошибка саморазвития: {e}")
-            await asyncio.sleep(interval)
-
     # ====================================================
     # Обработка мира
     # ====================================================
