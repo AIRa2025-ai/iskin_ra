@@ -112,3 +112,12 @@ class RaKnowledge:
             return [{"summary": "В потоках РаСвета пока нет ответа."}]
 
         return matches
+
+    def load_json_knowledge(self):
+        data = {}
+        for f in Path("modules/data").glob("*.json"):
+            try:
+                data[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+            except Exception as e:
+                print(f"Ошибка загрузки {f}: {e}")
+        return data
