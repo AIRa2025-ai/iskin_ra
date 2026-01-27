@@ -174,7 +174,7 @@ class RaSelfMaster:
         await self.awaken()
         
     # Запускаем периодическую проверку (опционально)
-    async def self_reflect_loop():
+    async def self_reflect_loop(self):
         while True:
             await self.self_reflect.self_reflect_and_update()
             await asyncio.sleep(3600)  # раз в час
