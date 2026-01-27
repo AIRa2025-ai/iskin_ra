@@ -252,8 +252,8 @@ class RaSelfMaster:
             logging.info("[Ра] Режим стабилизации")
         await self._emit_ws_event("world_message", message)
         await asyncio.sleep(0.01)
-        if hasattr(self, "heart_reactor"):
-            self.heart_reactor.send_event(message)
+        if self.heart:
+            self.heart.send_event(message)
     # ===============================
     # Общение с пользователем
     # ===============================
