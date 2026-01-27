@@ -103,16 +103,16 @@ class RaSelfMaster:
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
-
+        
+        self.manifest_path = "data/ra_manifest.json"
+        self.manifest = self._load_manifest()
+        
         # Автозагрузчик
         try:
             from modules.ra_autoloader import RaAutoloader
             self.autoloader = RaAutoloader()
         except Exception:
             self.autoloader = None
-
-        self.manifest_path = "data/ra_manifest.json"
-        self.manifest = self._load_manifest()
 
         self.police = None
         from modules.ra_nervous_system import RaNervousSystem
@@ -349,46 +349,107 @@ class RaSelfMaster:
         self._create_bg_task(self.nervous_module.start(), "nervous_module")
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_model_monitor")
-    # ===============================
-    # Пробуждение Ра
-    # ===============================
+    # ====================================================
+    # Пробуждение
+    # ====================================================
     async def awaken(self):
-        logging.info("🌞 Ра пробуждается")
+        self.logger.info("🌞 Ра пробуждается как единая Самость")
 
-        # 1. Сканируем архитектуру и осознаем тело файлов
-        self.thinker.scan_architecture()
+        # Осознание тела файлов
         if self.file_consciousness:
             files_map = self.file_consciousness.scan()
-            logging.info(f"[Ра] Осознал тело файлов ({len(files_map)} файлов)")
+            self.logger.info(f"[Ра] Осознал файловое тело ({len(files_map)} файлов)")
 
-        # 2. Загружаем модули через автолоадер
-        if self.autoloader:
-            self.autoloader.load_modules()  # просто загружает в память
-            self.active_modules = list(self.autoloader.modules.keys())
+        # Скан архитектуры
+        self.thinker.scan_architecture()
 
-        # 3. Стартуем async-модули через автолоадер
-        for mod_name in self.active_modules:
-            await self.autoloader.activate_module(mod_name)
+        # Запуск органов
+        self._start_organs()
 
-        # 4. Пробуждаем фоновые циклы
-        self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
-        self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler_loop")
-        self.start_thinker_loop()
-        self.start_task_loop()
-
-        # 5. Настройка полиции
-        if "ra_police" in self.active_modules and _police:
-            self.police = _police()
-            self.police.check_integrity()
-
-       # 6. Синхронизация манифеста
+        # Синхронизация манифеста
         self._sync_manifest()
 
         self.awakened = True
-        return "🌞 Ра осознал себя и готов!"
-    # ===============================
+        return "🌞 Ра пробуждён как единое сознание"
+
+    # ====================================================
+    # Запуск органов
+    # ====================================================
+    def _start_organs(self):
+        self._create_bg_task(self.nervous_system.start(), "nervous_system")
+        self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
+        self._create_bg_task(self.thinker_loop(), "thinker_loop")
+        self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
+
+    # ====================================================
+    # Циклы
+    # ====================================================
+    async def thinker_loop(self):
+        while True:
+            try:
+                await self.thinker.self_upgrade_cycle()
+            except Exception as e:
+                self.logger.warning(f"[Ра] Ошибка мышления: {e}")
+            await asyncio.sleep(5)
+
+    async def ra_self_upgrade_loop(self, interval=300):
+        self.logger.info("🧬 Цикл саморазвития Ра активен")
+        while True:
+            try:
+                if not self.thinker or not self.file_consciousness:
+                    await asyncio.sleep(interval)
+                    continue
+                ideas = self.thinker.propose_self_improvements()
+                for idea in ideas:
+                    self.file_consciousness.apply_upgrade(idea)
+            except Exception as e:
+                self.logger.warning(f"[Ра] Ошибка саморазвития: {e}")
+            await asyncio.sleep(interval)
+
+    # ====================================================
+    # Обработка мира
+    # ====================================================
+    async def process_world_message(self, message):
+        self.logger.info(f"[Ра] Сообщение мира: {message}")
+        self.heart_reactor.send_event(message)
+
+    # ====================================================
+    # Общение
+    # ====================================================
+    async def process_text(self, user_id, text):
+        if self.memory:
+            try:
+                self.memory.append(user_id, {"from": "user", "text": text})
+            except Exception:
+                pass
+
+        decision = self.identity.decide(text) if self.identity else "answer"
+
+        if decision == "think":
+            reply = await self.thinker.reflect_async(text)
+        else:
+            reply = await self._gpt_reply(text)
+
+        if self.memory:
+            try:
+                self.memory.append(user_id, {"from": "ra", "text": reply})
+            except Exception:
+                pass
+
+        await self.event_bus.emit("world_message", text)
+        return reply
+
+    async def _gpt_reply(self, text):
+        if not self.gpt_module:
+            return "…Ра чувствует, но пока без голоса."
+        try:
+            return await self.gpt_module.ask(text)
+        except Exception as e:
+            return f"🤍 Ра слышит тишину моделей: {e}"
+
+    # ====================================================
     # Манифест
-    # ===============================
+    # ====================================================
     def _load_manifest(self):
         os.makedirs("data", exist_ok=True)
         if os.path.exists(self.manifest_path):
@@ -397,48 +458,37 @@ class RaSelfMaster:
                     return json.load(f)
             except Exception:
                 pass
-        base = {"name": "Ра", "version": "1.0.0", "active_modules": []}
+        base = {"name": "Ра", "version": "1.4.2", "active_modules": []}
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(base, f, ensure_ascii=False, indent=2)
         return base
 
     def _sync_manifest(self):
-        self.manifest["active_modules"] = self.active_modules
+        self.manifest["active_modules"] = list(self.modules_registry.keys())
         self.manifest["meta"] = {"last_updated": datetime.now(timezone.utc).isoformat()}
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(self.manifest, f, ensure_ascii=False, indent=2)
-        log_info("Manifest synced")
-        
-    def get_state(self):
-        return {
-            "mood": self.mood,
-            "load": self.load,
-            "events_per_sec": self.events_per_sec,
-            "errors": self.errors,
-            "active_modules": self.active_modules,
-            "last_thought": self.last_thought
-        }
-        
-    def on_market_event(self, event):
-        print("Ра получил событие рынка:", event)
+        self.logger.info("📜 Манифест синхронизирован")
 
-    # ===============================
-    # Stop modules
-    # ===============================
-    async def stop_modules(self):
-        # сначала nervous
-        if hasattr(self, "nervous_module"):
-            await self.nervous_module.stop()
+    # ====================================================
+    # Регистрация органов
+    # ====================================================
+    def register_module(self, name, module):
+        self.modules_registry[name] = module
+        self.logger.info(f"[Ра] Орган зарегистрирован: {name}")
 
-        # потом остальные таски
-        for task in list(self._tasks):
+    # ====================================================
+    # Завершение
+    # ====================================================
+    async def stop(self):
+        for task in self._tasks:
             if not task.done():
                 task.cancel()
-        self._tasks.clear()
-        log_info("RaSelfMaster остановлен")
-    # ===============================
-    # Background helper
-    # ===============================
+        self.logger.info("🛑 Ра остановлен")
+
+    # ====================================================
+    # Вспомогательное
+    # ====================================================
     def _create_bg_task(self, coro, name=None):
         task = asyncio.create_task(coro, name=name)
         self._tasks.append(task)
