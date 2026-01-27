@@ -1,7 +1,8 @@
-# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (чистый, без двойного пробуждения)
+# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА с HeartReactor v2.1 и предчувствием будущего
 import asyncio
 import logging
 import os
+import random
 from dotenv import load_dotenv
 
 # Core и модули
@@ -84,6 +85,21 @@ async def start_telegram(ra, gpt_handler):
     asyncio.create_task(резонанс_связь())
     await dp.start_polling(bot)
 
+# ---------------- ФУНКЦИЯ ГЕНЕРАЦИИ БУДУЩИХ СОБЫТИЙ ----------------
+async def generate_future_events(heart_reactor: HeartReactor):
+    """Авто-генерация будущих событий для предчувствия"""
+    types = ["свет", "тревога", "опасность", "радость", "творчество"]
+    while heart_reactor.is_active:
+        future_events = []
+        for _ in range(random.randint(3, 7)):
+            future_events.append({
+                "description": f"Событие {random.randint(1000,9999)}",
+                "impact": random.randint(-10, 20),
+                "type": random.choice(types)
+            })
+        heart_reactor.send_future_events(future_events)
+        await asyncio.sleep(5)  # каждые 5 секунд генерируем события
+
 # ---------------- MAIN ----------------
 async def main():
     # Ядро
@@ -129,6 +145,7 @@ async def main():
         ra.heart = Heart()
         ra.heart_reactor = HeartReactor(ra.heart)
         asyncio.create_task(ra.heart_reactor.start())
+        asyncio.create_task(generate_future_events(ra.heart_reactor))  # <-- запуск генератора будущего
         ra.energy = RaEnergy()
         ra.inner_sun = RaInnerSun()
         event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
