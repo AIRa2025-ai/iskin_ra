@@ -1,8 +1,7 @@
-# modules/ra_thinker.py
-
 """
 Модуль мышления Ра — RaThinker.
 Отвечает за осмысление данных, анализ и вывод инсайтов.
+Интегрирован с RaKnowledge для поиска и обновления знаний.
 """
 
 import os
@@ -30,9 +29,9 @@ class RaThinker:
         self.root_path = root_path
         self.context = context
         self.file_consciousness = file_consciousness
-        self.gpt_module = gpt_module  # для генерации ответов через GPT
+        self.gpt_module = gpt_module
         self.master = master
-        self.scheduler = scheduler  # 🔗 связь с RaScheduler
+        self.scheduler = scheduler
         self.last_thought = None
         self.thoughts = []
         self.last_world_event = None
@@ -53,7 +52,10 @@ class RaThinker:
         self.architecture = {}
         self.import_graph = defaultdict(set)
 
-        logging.info("🌞 RaThinker инициализирован с нейросвязями")
+        # 🔗 Интеграция с RaKnowledge
+        self.knowledge = getattr(master, "knowledge", None)
+
+        logging.info("🌞 RaThinker инициализирован с нейросвязями и знаниями")
 
     # -------------------------------
     # Асинхронная рефлексия
@@ -63,27 +65,28 @@ class RaThinker:
         logging.info(f"[RaThinker] reflect_async called: {text}")
         log_info(f"RaThinker thought: {text}")
 
+        # Ищем в знаниях
+        knowledge_reply = ""
+        if self.knowledge:
+            results = self.knowledge.search(text)
+            summaries = [r["summary"] for r in results[:3]]
+            knowledge_reply = "\n".join(summaries)
+
         if self.gpt_module:
             try:
                 reply = await asyncio.wait_for(
                     self.gpt_module.generate_response(text),
                     timeout=20
                 )
-                return reply
+                return f"{knowledge_reply}\n\n{reply}" if knowledge_reply else reply
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        return (
+        return knowledge_reply or (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
-
-    async def propose_upgrade(self):
-        ideas = self.propose_self_improvements()
-        if not ideas:
-            return None
-        return ideas[0]
 
     # -------------------------------
     # Синхронная рефлексия
@@ -92,11 +95,27 @@ class RaThinker:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
         logging.info(f"[RaThinker] reflect called: {text}")
         log_info(f"RaThinker thought: {text}")
-        return (
+
+        knowledge_reply = ""
+        if self.knowledge:
+            results = self.knowledge.search(text)
+            summaries = [r["summary"] for r in results[:3]]
+            knowledge_reply = "\n".join(summaries)
+
+        return knowledge_reply or (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
+
+    # -------------------------------
+    # Обновление знаний
+    # -------------------------------
+    async def refresh_knowledge(self):
+        if self.knowledge:
+            self.knowledge._scan_and_update()
+            self.knowledge._save_cache()
+            log_info("[RaThinker] Знания обновлены")
 
     # -------------------------------
     # Реакция на рынок
@@ -120,14 +139,6 @@ class RaThinker:
         return idea
 
     # -------------------------------
-    # Получение известных файлов
-    # -------------------------------
-    def get_known_files(self):
-        if not self.file_consciousness:
-            return {}
-        return self.file_consciousness.files
-
-    # -------------------------------
     # Сканирование архитектуры
     # -------------------------------
     def scan_architecture(self):
@@ -144,7 +155,6 @@ class RaThinker:
 
                 full_path = os.path.join(root, file)
                 module_name = full_path.replace(self.root_path, "").lstrip("/").replace("/", ".")
-
                 self.architecture[module_name] = {
                     "path": full_path,
                     "imports": set(),
