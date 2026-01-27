@@ -108,7 +108,9 @@ async def main():
 
     gpt_handler = GPTHandler(api_key=openrouter_key, ra_context=ra_context.rasvet_text)
 
-    ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, memory=memory, heart=None, logger=logger_instance)
+    ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, memory=memory, logger=logger_instance)
+    core = ra
+    
     ra.event_bus = ra.event_bus or core.event_bus
 
     # ----------------- Регистрация модулей -----------------
