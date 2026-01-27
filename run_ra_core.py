@@ -194,14 +194,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Forex временно не подключён: {e}")
 
-    # ----------------- Планировщик -----------------
-    try:
-        ra.scheduler = RaScheduler(context=ra)
-        await ra.scheduler.start()
-        logging.info("⏳ Планировщик активирован")
-    except Exception as e:
-        logging.warning(f"[Ra] Планировщик не запущен: {e}")
-
     # ----------------- Защита -----------------
     try:
         ra.guardian = RaGuardian()
