@@ -329,6 +329,7 @@ class RaSelfReflector:
     def __init__(self):
         try:
             self.knowledge = RaKnowledge(knowledge_dir="modules/data")  # путь к твоей папке modules/data
+            self.thinker.knowledge = self.knowledge
             results = self.knowledge.search("энергия")
             for r in results:
                 print(r["summary"])
