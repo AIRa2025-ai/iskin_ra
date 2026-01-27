@@ -393,14 +393,6 @@ class RaSelfMaster:
                 self.logger.warning(f"[Ра] Ошибка мышления: {e}")
             await asyncio.sleep(5)
 
-    async def _gpt_reply(self, text):
-        if not self.gpt_module:
-            return "…Ра чувствует, но пока без голоса."
-        try:
-            return await self.gpt_module.ask(text)
-        except Exception as e:
-            return f"🤍 Ра слышит тишину моделей: {e}"
-
     # ====================================================
     # Манифест
     # ====================================================
