@@ -15,6 +15,7 @@ from modules.ra_file_manager import load_rasvet_files
 from modules.logs import log_info, log_error
 from core.ra_memory import memory
 
+
 class RaThinker:
     def __init__(
         self,
@@ -23,19 +24,22 @@ class RaThinker:
         context=None,
         file_consciousness=None,
         event_bus=None,
-        gpt_module=None
+        gpt_module=None,
+        scheduler=None  # 🧬 нейросвязь с планировщиком
     ):
         self.root_path = root_path
         self.context = context
         self.file_consciousness = file_consciousness
         self.gpt_module = gpt_module  # для генерации ответов через GPT
         self.master = master
+        self.scheduler = scheduler  # 🔗 связь с RaScheduler
         self.last_thought = None
         self.thoughts = []
         self.last_world_event = None
         self.event_bus = event_bus
-        self.logger = master.logger 
-        logger = master.logger if hasattr(master, "logger") else logging
+
+        self.logger = master.logger if hasattr(master, "logger") else logging
+
         if hasattr(self.logger, "on"):
             self.logger.on("market", self.react_to_market)
 
@@ -49,7 +53,7 @@ class RaThinker:
         self.architecture = {}
         self.import_graph = defaultdict(set)
 
-        logging.info("🌞 RaThinker инициализирован")
+        logging.info("🌞 RaThinker инициализирован с нейросвязями")
 
     # -------------------------------
     # Асинхронная рефлексия
@@ -59,7 +63,6 @@ class RaThinker:
         logging.info(f"[RaThinker] reflect_async called: {text}")
         log_info(f"RaThinker thought: {text}")
 
-        # если есть GPT-модуль, используем его
         if self.gpt_module:
             try:
                 reply = await asyncio.wait_for(
@@ -75,12 +78,13 @@ class RaThinker:
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
-        
+
     async def propose_upgrade(self):
         ideas = self.propose_self_improvements()
         if not ideas:
             return None
-        return ideas[0]  # пока берём первую идею
+        return ideas[0]
+
     # -------------------------------
     # Синхронная рефлексия
     # -------------------------------
@@ -235,6 +239,13 @@ class RaThinker:
         self.context = context
 
     # -------------------------------
+    # Нейросвязь с планировщиком
+    # -------------------------------
+    async def trigger_scheduler_task(self, task_name: str):
+        if self.scheduler:
+            await self.scheduler.schedule_immediate(task_name)
+
+    # -------------------------------
     # Новые задачи и события мира
     # -------------------------------
     async def on_new_task(self, data):
@@ -242,9 +253,14 @@ class RaThinker:
 
     async def process_world_message(self, message):
         self.last_world_event = message
-        # Сохраняем в память, если есть
+
+        # Сохраняем в память
         if memory and hasattr(memory, "append"):
             await memory.append("world_events", message, source="RaThinker", layer="shared")
+
+        # 🔗 передаём в планировщик
+        if self.scheduler:
+            await self.scheduler.process_world_message(message)
 
     async def on_memory_update(self, data):
         user_id = data.get("user_id")
@@ -253,6 +269,15 @@ class RaThinker:
         print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
-        # Можно сохранять в долговременную память
         if memory and layer:
             await memory.append("user_memory", message, source=user_id, layer=layer)
+
+    # -------------------------------
+    # Предчувствие будущего
+    # -------------------------------
+    async def foresee_and_act(self, scenario_hint: str):
+        self.last_thought = f"Предчувствую: {scenario_hint}"
+        log_info(f"[RaThinker] 🔮 Предчувствие: {scenario_hint}")
+
+        if self.scheduler:
+            await self.scheduler.schedule_immediate("analyze_future_scenarios")
