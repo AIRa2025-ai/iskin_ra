@@ -4,11 +4,11 @@ from core.ra_git_keeper import RaGitKeeper
 from core.github_commit import create_commit_push
 
 class RaSelfUpgradeLoop:
-    def __init__(self, self_master):
-        self.self_master = self_master
-        self.file_consciousness = getattr(self_master, "file_consciousness", None)
+    def __init__(self, master, thinker=None, file_consciousness=None, git=None):
+        self.master = master
         self.thinker = thinker
-        self.git = RaGitKeeper(repo_path=".")
+        self.file_consciousness = file_consciousness
+        self.git = git or RaGitKeeper(repo_path=".")
         # Подготовка файлов для облачного коммита
         files_dict = {
             target_file: proposed_code
