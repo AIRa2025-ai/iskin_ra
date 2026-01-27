@@ -63,33 +63,6 @@ class RaScheduler:
         }
 
     # =====================================================
-    # 🧠 Тик саморазвития Ра
-    # =====================================================
-    async def self_upgrade_tick(self):
-        if not self.thinker or not self.upgrade_loop:
-            return
-        try:
-            proposal = await self.thinker.propose_upgrade()
-            if not proposal:
-                return
-            logging.info("🧠 Ра предложил самоапгрейд")
-            # Прямой вызов метода thinker для апгрейда
-            if hasattr(self.upgrade_loop, "apply_file_change"):
-                await self.upgrade_loop.apply_file_change(
-                    file_path=proposal.get("file"),
-                    new_code=proposal.get("code", ""),
-                    commit_msg="Ra self-upgrade"
-                )
-            else:
-                await self.upgrade_loop.apply_upgrade(
-                    target_file=proposal.get("file"),
-                    proposed_code=proposal.get("code", ""),
-                    approved=proposal.get("approved", False)
-                )
-        except Exception as e:
-            logging.exception(f"[RaScheduler] Ошибка self_upgrade_tick: {e}")
-
-    # =====================================================
     # 🛠 Обработка сообщений из мира
     # =====================================================
     async def process_world_message(self, message):
@@ -119,5 +92,6 @@ class RaScheduler:
         while True:
             # Добавляем тик саморазвития каждые 10 секунд
             if self.thinker and self.upgrade_loop:
-                await self.self_upgrade_tick()
+                if self.upgrade_loop:
+                    await self.upgrade_loop.tick(
             await asyncio.sleep(10)
