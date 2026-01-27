@@ -179,8 +179,6 @@ async def main():
         ra.self_upgrade = RaSelfUpgradeLoop(ra)
         ra.self_learning = RaSelfLearning(ra)
         ra.self_writer = RaSelfWriter(ra)
-        asyncio.create_task(ra.self_reflect.run())
-        asyncio.create_task(ra.self_upgrade.run())
         logging.info("🧬 Саморазвитие Ра активно")
     except Exception as e:
         logging.warning(f"[Ra] Саморазвитие частично недоступно: {e}")
