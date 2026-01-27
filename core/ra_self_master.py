@@ -348,7 +348,6 @@ async def main():
 
     ra = RaSelfMaster(logger=logger_instance)
     await ra.awaken()
-    await ra.start_background_modules()
 
 if __name__ == "__main__":
     asyncio.run(main())
