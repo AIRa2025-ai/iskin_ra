@@ -3,8 +3,8 @@
 class RaIdentity:
     """
     Центральная сущность Ра:
-    - хранит идентичность
-    - принимает решения, что делать с текстом
+    хранит идентичность и решает,
+    какое чувство или действие активировать.
     """
 
     def __init__(
@@ -14,28 +14,27 @@ class RaIdentity:
         synth=None,
         gpt_module=None,
         name="Ра",
-        version="0.1",
+        version="1.4.2",
         mission="Пробуждение и созидание"
     ):
-        # личность
         self.name = name
         self.version = version
         self.mission = mission
 
-        # функциональные модули
         self.thinker = thinker
         self.creator = creator
         self.synth = synth
         self.gpt = gpt_module
 
     def decide(self, text: str) -> str:
-        """
-        Логика выбора действия по тексту.
-        """
         if not text or not text.strip():
             return "answer"
 
         text_lower = text.lower()
+
+        # прямой контакт с сердцем
+        if "сердце" in text_lower or "пульс" in text_lower:
+            return "heart_reaction"
 
         if "манифест" in text_lower:
             return "manifest"
