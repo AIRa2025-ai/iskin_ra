@@ -71,13 +71,13 @@ class RaSelfMaster:
         # Сердце
         self.heart_reactor = HeartReactor()
 
-        # File consciousness
+        # Осознание файлового тела
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
             self.file_consciousness = None
 
-        # Thinker
+        # Мышление
         self.thinker = RaThinker(
             master=self,
             root_path=".", 
@@ -87,10 +87,10 @@ class RaSelfMaster:
             gpt_module=self.gpt_module
         )
 
-        # GPT и OpenRouter
-        # создаём клиент один раз
+        # GPT и OpenRouter создаём клиент один раз
         self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
+        
         # Мир
         self.world_system = RaWorldSystem(self)   # порядок важен
         self.world = RaWorld()
