@@ -26,7 +26,7 @@ from modules.ra_world_observer import RaWorld
 from modules.ra_world_system import RaWorldSystem
 from modules.forex_brain import ForexBrain
 from modules.logs import log_info
-from modules.heart_reactor import HeartReactor
+from modules.heart import Heart
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 
 # Police
