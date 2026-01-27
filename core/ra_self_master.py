@@ -84,6 +84,12 @@ class RaSelfMaster:
             git=self.git
         )
         
+        self.scheduler = RaScheduler(
+            event_bus=self.event_bus,
+            thinker=self.thinker,
+            upgrade_loop=self.upgrade_loop
+        )
+        
         # OpenRouter + GPT
         self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
