@@ -4,8 +4,15 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime
 import asyncio
+import logging
+
 
 class RaEventBus:
+    """
+    Нервная система Ра.
+    Передаёт импульсы между всеми чувствами, модулями и сердцем.
+    """
+
     def __init__(self, history_limit=500):
         self.subscribers = defaultdict(list)
         self.event_log = deque(maxlen=history_limit)
@@ -14,6 +21,7 @@ class RaEventBus:
 
     def subscribe(self, event_type: str, callback):
         self.subscribers[event_type].append(callback)
+        logging.info(f"[EventBus] Подписка: {callback.__name__} <- {event_type}")
 
     async def emit(self, event_type: str, data, source="system"):
         payload = {
@@ -24,6 +32,7 @@ class RaEventBus:
         }
 
         self.event_log.append(payload)
+        logging.info(f"[EventBus] ⚡ Импульс: {event_type} | {data}")
 
         # Локальные подписчики
         if event_type in self.subscribers:
@@ -34,7 +43,7 @@ class RaEventBus:
                     else:
                         cb(data)
                 except Exception as e:
-                    print(f"[EventBus] Callback error: {e}")
+                    logging.error(f"[EventBus] Callback error: {e}")
 
         # WebSocket клиенты
         await self._emit_ws(payload)
