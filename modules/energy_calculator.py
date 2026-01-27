@@ -1,4 +1,4 @@
-# file: energy_calculator.py
+# modules/energy_calculator.py
 
 def calculate_energy(number):
     """
