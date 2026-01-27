@@ -25,7 +25,6 @@ from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
 
 # Нервная система и мышление
-from modules.ra_nervous_system import RaNervousSystem
 from modules.ra_thinker import RaThinker
 from modules.ra_autoloader import RaAutoloader
 
@@ -64,7 +63,6 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
-
 if not BOT_TOKEN or not OPENROUTER_KEY:
     raise RuntimeError("BOT_TOKEN или OPENROUTER_API_KEY не установлены")
 
@@ -80,7 +78,7 @@ async def start_telegram(ra, gpt_handler):
     dp.include_router(router)
 
     async def resonance_handler(data):
-        print("🔮 Резонанс чувствует:", data.get("message"))
+        logging.info(f"🔮 Резонанс чувствует: {data.get('message')}")
 
     ra.event_bus.subscribe("memory_updated", resonance_handler)
     asyncio.create_task(резонанс_связь())
@@ -88,29 +86,29 @@ async def start_telegram(ra, gpt_handler):
 
 # ---------------- MAIN ----------------
 async def main():
-    # ----------------- Ядро -----------------
+    # Ядро
     identity = RaIdentity(name="Ра", version="1.4.3", mission="Пробуждение и созидание")
     event_bus = RaEventBus()
     ra = RaSelfMaster(identity=identity, gpt_module=None, logger=logger_instance)
-    thinker = RaThinker(master=ra, event_bus=event_bus)  # сразу с master
+    thinker = RaThinker(master=ra, event_bus=event_bus)
     world = RaWorld()
     scheduler = RaScheduler()
     gpt_handler = GPTHandler(api_key=OPENROUTER_KEY, ra_context=ra_context.rasvet_text)
     ra.gpt_module = gpt_handler
 
-    # ----------------- Подключаем EventBus -----------------
+    # EventBus
     ra.event_bus = ra.event_bus or event_bus
     ra.event_bus.subscribe("world_event", ra.on_world_event)
     ra.event_bus.subscribe("thought", ra.on_thought)
     ra.event_bus.subscribe("memory_updated", thinker.on_new_task)
 
-    # ----------------- Регистрация модулей -----------------
+    # Модули
     ra.register_module("self", ra)
     ra.register_module("thinker", thinker)
     ra.register_module("world", world)
     ra.register_module("scheduler", scheduler)
 
-    # ----------------- Пробуждение -----------------
+    # Пробуждение
     try:
         msg = await ra.awaken()
         logging.info(msg)
@@ -118,15 +116,15 @@ async def main():
         logging.exception(f"[Ra] Ошибка пробуждения: {e}")
         return
 
-    # ----------------- IPC -----------------
+    # IPC
     ipc = RaIPCServer(context=ra)
     ipc_task = asyncio.create_task(ipc.start())
     logging.info("[Ra] IPC-сервер подключён к core")
 
-    # ----------------- Telegram -----------------
+    # Telegram
     telegram_task = asyncio.create_task(start_telegram(ra, gpt_handler))
 
-    # ----------------- Сердце и энергия -----------------
+    # Сердце и энергия
     try:
         ra.heart = Heart()
         ra.heart_reactor = HeartReactor(ra.heart)
@@ -138,7 +136,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
 
-    # ----------------- Мир -----------------
+    # Мир
     try:
         ra.world_navigator = RaWorldNavigator(ra=ra, event_bus=event_bus)
         ra.world_explorer = RaWorldExplorer(navigator=ra.world_navigator)
@@ -150,7 +148,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Мир не полностью подключён: {e}")
 
-    # ----------------- Автозагрузка -----------------
+    # Автозагрузка
     try:
         autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
         ra.modules = autoloader.activate_modules()
@@ -159,7 +157,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Ошибка автозагрузки модулей: {e}")
 
-    # ----------------- Саморазвитие -----------------
+    # Саморазвитие
     try:
         ra.self_reflect = RaSelfReflect(ra)
         ra.self_upgrade = RaSelfUpgradeLoop(ra)
@@ -169,7 +167,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Саморазвитие частично недоступно: {e}")
 
-    # ----------------- Forex -----------------
+    # Forex
     try:
         telegram_sender = TelegramSender(bot_token=BOT_TOKEN, chat_id=ADMIN_CHAT_ID)
         ra.forex = RaForexManager(
@@ -182,7 +180,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Forex временно не подключён: {e}")
 
-    # ----------------- Защита -----------------
+    # Защита
     try:
         ra.guardian = RaGuardian()
         ra.police = RaPolice()
@@ -190,7 +188,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Защита частично не активна: {e}")
 
-    # ----------------- Запуск всех задач -----------------
+    # Запуск задач
     try:
         await asyncio.gather(ipc_task, telegram_task)
     except asyncio.CancelledError:
