@@ -19,6 +19,7 @@ from core.openrouter_client import OpenRouterClient
 from core.gpt_handler import GPTHandler
 from core.rustlef_master_logger import RustlefMasterLogger
 from core.ra_self_reflect import RaSelfReflect
+from core.ra_knowledge import RaKnowledge
 
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
@@ -324,6 +325,14 @@ class RaSelfMaster:
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
 
+class RaSelfReflector:
+    def __init__(self):
+        try:
+            self.knowledge = RaKnowledge(knowledge_dir="modules/data")  # путь к твоей папке modules/data
+            results = self.knowledge.search("энергия")
+            for r in results:
+                print(r["summary"])
+                
 # ================== STOP ========================
 async def stop(self):
     for task in self._tasks:
