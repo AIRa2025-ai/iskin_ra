@@ -7,7 +7,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
+from core.ra_event_bus import RaEventBus
+from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_observer import RaWorldObserver
 from modules.ra_guardian import RaGuardian
 from modules.ra_self_dev import SelfDeveloper
@@ -33,6 +34,7 @@ self_dev = SelfDeveloper()
 ra_self_writer = RaSelfWriter()
 heart_reactor = HeartReactor()
 ra_world_observer = RaWorldObserver()
+event_bus = RaEventBus()
 
 # --- Папки ---
 for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
@@ -50,6 +52,15 @@ def log(msg: str):
     if len(logs) > 500:
         logs.pop(0)
 
+class DummyMaster:
+    def __init__(self):
+        import logging
+        self.logger = logging.getLogger("RaWorld")
+
+master = DummyMaster()
+ra_world_system = RaWorldSystem(master)
+ra_world_system.set_event_bus(event_bus)
+
 # --- Startup / Shutdown ---
 @app.on_event("startup")
 async def on_startup():
@@ -57,12 +68,14 @@ async def on_startup():
     await ra_world_observer.auto_load_modules()
     await ra_world_observer.awaken_reflection()
     ra_world_observer.start_background_tasks()
-
+    await ra_world_system.start()
+    
 @app.on_event("shutdown")
 async def on_shutdown():
     log("🛑 Остановка Control Center...")
     await ra_world_observer.stop()
-
+    await ra_world_system.stop()
+    
 # --- Веб ---
 @app.get("/")
 async def web_panel(request: Request):
