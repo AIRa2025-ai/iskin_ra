@@ -33,6 +33,7 @@ from modules.heart_reactor import HeartReactor
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from modules.ra_resonance import RaResonance
 from modules.logs import logger_instance
+from modules.internet_agent import InternetAgent
 
 # Police
 try:
@@ -160,6 +161,9 @@ class RaSelfMaster:
         self.app = FastAPI(title="Ra Self Master")
         self._setup_api()
 
+        # Интернет Агент
+        self.internet = InternetAgent(master=self)
+        
         # Прокидываем GPT в thinker
         if self.thinker:
             self.thinker.gpt_module = self.gpt_handler
@@ -231,6 +235,7 @@ class RaSelfMaster:
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
         self._create_bg_task(self.self_reflect_loop(), "self_reflect_loop")
+        self._create_bg_task(self.internet.start(), "internet_agent")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
@@ -382,7 +387,9 @@ class RaSelfMaster:
             if not task.done():
                 task.cancel()
         self.logger.info("🛑 Ра остановлен")
-    
+        
+    if hasattr(self, "internet"):
+        await self.internet.stop()
 # ================= Entry =================
 async def main():
     from modules.logs import logger_instance
