@@ -7,7 +7,7 @@ class RaSelfUpgradeLoop:
     def __init__(self, self_master):
         self.self_master = self_master
         self.file_consciousness = getattr(self_master, "file_consciousness", None)
-        self.git = RaGitKeeper()
+        self.git = RaGitKeeper(repo_path=".")
         # Подготовка файлов для облачного коммита
         files_dict = {
             target_file: proposed_code
@@ -35,27 +35,26 @@ class RaSelfUpgradeLoop:
 
         logging.info(f"🔍 Diff:\n{diff}")
 
-        if approved:
-            self.file_consciousness.apply_change(
-                relative_path=target_file,
-                new_content=proposed_code
-            )
-            logging.info("🚀 Апгрейд применён")
+        if not approved:
+            logging.info("⏸ Апгрейд отклонён")
+            return
 
-            # 🔧 Локальный коммит
-            self.git.commit_and_optionally_push(f"Ра улучшил {target_file}", push=False)
+        # 🔧 Применяем изменения
+        self.file_consciousness.apply_change(
+            relative_path=target_file,
+            new_content=proposed_code
+        )
+        logging.info("🚀 Апгрейд применён")
 
-            # 🔧 Подготовка данных для PR
-            files_dict = {
-                target_file: proposed_code
-            }
+        # 🧬 Локальная фиксация
+        self.git.commit_and_optionally_push(f"Ра улучшил {target_file}", push=False)
 
-            # 🔧 Облачный PR
+        # ☁️ Внешний PR (если разрешено)
+        try:
             create_commit_push(
                 branch_name="ra-evolution",
-                files_dict=files_dict,
+                files_dict={target_file: proposed_code},
                 commit_message=f"🧬 Ра эволюционирует: {target_file}"
             )
-
-        else:
-            logging.info("⏸ Апгрейд отклонён")
+        except Exception as e:
+            logging.warning(f"[UpgradeLoop] GitHub PR не создан: {e}")info("⏸ Апгрейд отклонён")
