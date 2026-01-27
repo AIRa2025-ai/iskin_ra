@@ -78,7 +78,7 @@ async def start_telegram(ra, gpt_handler):
     asyncio.create_task(резонанс_связь())
 
     await dp.start_polling(bot)
-
+    await ra.awaken()
 # ---------------- MAIN ----------------
 async def main():
     load_dotenv()
