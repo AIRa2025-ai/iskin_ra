@@ -12,7 +12,6 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from core.ra_event_bus import RaEventBus
-from core.ra_memory import memory
 from modules.internet_agent import InternetAgent
 
 # --- Добавляем modules в sys.path для корректного импорта ---
@@ -61,7 +60,10 @@ def log(msg: str):
     logs.append(msg)
     if len(logs) > 500:
         logs.pop(0)
-
+        
+def set_memory(self, memory):
+    self.memory = memory
+    
 # -----------------------------
 # Класс RaWorldObserver
 # -----------------------------
@@ -70,11 +72,11 @@ class RaWorldObserver:
         self._tasks = []
         self._known_modules = set(os.listdir("modules"))
         self._event_bus = None
-       
+        self.internet = InternetAgent() 
+        
     def set_event_bus(self, event_bus: RaEventBus):
         self._event_bus = event_bus
-        self.internet = InternetAgent()
-        
+
     def _create_task(self, coro, name: str):
         t = asyncio.create_task(coro, name=name)
         self._tasks.append(t)
@@ -82,6 +84,9 @@ class RaWorldObserver:
         
     async def start(self):
         await self.internet.start() 
+    
+    async def stop(self):
+        await self.internet.stop()
         
     async def cancel_tasks(self):
         for t in list(self._tasks):
@@ -174,9 +179,6 @@ class RaWorldObserver:
         if hasattr(heart_reactor, "send_event"):
             heart_reactor.send_event("Природа излучает свет")
             heart_reactor.send_event("В городе тревога")
-            
-    async def stop(self):
-        await self.internet.stop()
 
 # --- Экземпляр ---
 ra_world_observer = RaWorldObserver()
