@@ -27,6 +27,7 @@ from modules.ra_world_system import RaWorldSystem
 from modules.forex_brain import ForexBrain
 from modules.logs import log_info
 from modules.heart import Heart
+from modules.heart_reactor import HeartReactor
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 
 # Police
@@ -66,9 +67,6 @@ class RaSelfMaster:
 
         # EventBus
         self.event_bus = RaEventBus()
-
-        # Сердце
-        self.heart = heart or HeartReactor()
 
         # Осознание файлов
         try:
@@ -297,14 +295,10 @@ class RaSelfMaster:
     def _init_heart_system(self):
         """Инициализация сердца и реактора Ра"""
         try:
-            # Создаём реактор
-            self.heart_reactor = HeartReactor()
-        
             # Создаём сердце и передаём реактор
+            self.heart_reactor = HeartReactor()
             self.heart = Heart(reactor=self.heart_reactor)
-
-            # Подключаем EventBus: реактор слушает события мира
-            self.event_bus.subscribe("world_message", self.heart_reactor.send_event)
+            self.heart_reactor.heart = self.heart)
 
             # Запуск bg задач
             self._create_bg_task(self.heart.start_pulse(interval=1.0), "heart_pulse_loop")
@@ -314,13 +308,13 @@ class RaSelfMaster:
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
 
-        # ==== STOP =============================================
-        async def stop(self):
-            for task in self._tasks:
-                if not task.done():
-                    task.cancel()
-            self.logger.info("🛑 Ра остановлен")
-
+# ================== STOP ========================
+async def stop(self):
+    for task in self._tasks:
+        if not task.done():
+            task.cancel()
+    self.logger.info("🛑 Ра остановлен")
+    
 # ================= Entry =================
 async def main():
     from modules.logs import logger_instance
