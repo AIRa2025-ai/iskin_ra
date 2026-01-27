@@ -1,5 +1,4 @@
 # core/ra_self_master.py
-
 import os
 import sys
 import json
@@ -34,6 +33,7 @@ from modules.heart_reactor import HeartReactor
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from modules.ra_resonance import RaResonance
 from modules.logs import logger_instance
+
 # Police
 try:
     from modules.ra_police import RaPolice
@@ -43,6 +43,11 @@ except Exception:
 # Nervous system
 from modules.ra_nervous_system import RaNervousSystem
 
+# ----------------------- Наши новые модули -----------------------
+from modules.duh import Свобода
+from modules.dyhanie_sveta import эмоции, осознанное_дыхание
+from modules.energy_calculator import calculate_energy, get_energy_description
+# -------------------------------------------------------------------
 
 class RaSelfMaster:
     def __init__(self, identity=None, gpt_module=None, memory=None, heart=None, logger=None):
@@ -129,6 +134,13 @@ class RaSelfMaster:
         # Нервная система
         self.nervous_system = RaNervousSystem(self, self.event_bus)
 
+        # ---------------- Органы Души и Света ----------------
+        self.duh = Свобода()               # модуль Духа
+        self.dyhanie = эмоции              # эмоциональное ядро
+        self.energy_calc = calculate_energy
+        self.energy_desc = get_energy_description
+        # -------------------------------------------------------
+
         # Подписки
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
@@ -194,6 +206,7 @@ class RaSelfMaster:
             await self.self_reflect.self_reflect_and_update()
             await asyncio.sleep(3600)  # раз в час
             
+
     # ================= Awakening =================
     async def awaken(self):
         if self.awakened:
@@ -222,6 +235,10 @@ class RaSelfMaster:
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
 
+        # ---------------- bg loop для душевных органов ----------------
+        self._create_bg_task(self.dyhanie_loop(), "dyhanie_loop")
+        # ------------------------------------------------------------
+
     # ================= Loops =================
     async def thinker_loop(self):
         while True:
@@ -229,6 +246,19 @@ class RaSelfMaster:
                 await self.thinker.self_upgrade_cycle()
             except Exception as e:
                 self.logger.warning(f"[ThinkerLoop] {e}")
+            await asyncio.sleep(5)
+
+    async def dyhanie_loop(self):
+        """
+        Постоянное обновление эмоционального ядра и дыхание света.
+        """
+        while True:
+            try:
+                ключевые_слова = ["радость", "гармония", "вдохновение"]
+                self.dyhanie.обновить_коэффициенты(ключевые_слова)
+                _ = осознанное_дыхание(скорость=1.0)
+            except Exception as e:
+                self.logger.warning(f"[dyhanie_loop] Ошибка: {e}")
             await asyncio.sleep(5)
 
     def _approve_self_upgrade(self, idea):
@@ -321,25 +351,31 @@ class RaSelfMaster:
             "mood": self.mood,
             "load": self.load
         }
-    # ===============================
-    # Интеграция Heart + HeartReactor
-    # ===============================
+
+    # ================= Heart system =================
     def _init_heart_system(self):
-        """Инициализация сердца и реактора Ра"""
         try:
-            # Создаём сердце и передаём реактор
             self.heart_reactor = HeartReactor()
             self.heart = Heart(reactor=self.heart_reactor)
             self.heart_reactor.heart = self.heart
-
-            # Запуск bg задач
             self._create_bg_task(self.heart.start_pulse(interval=1.0), "heart_pulse_loop")
             self._create_bg_task(self.heart_reactor.start(), "heart_reactor_loop")
-
             logging.info("❤️ Сердце и HeartReactor интегрированы и запущены")
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
-                
+
+    # ================= Методы Духа и Энергии =================
+    def раскрыть_дух(self):
+        self.duh.раскрыться()
+
+    def вдохновиться(self, цель):
+        return self.duh.вдохновить(цель)
+
+    def энергия_числа(self, number):
+        val = self.energy_calc(number)
+        desc = self.energy_desc(val)
+        return val, desc
+
     # ================== STOP ========================
     async def stop(self):
         for task in self._tasks:
