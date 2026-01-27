@@ -7,8 +7,8 @@ from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_synthesizer import RaSynthesizer
 from modules.ra_world_observer import RaWorldObserver
+from modules.market_watcher import MarketWatcher
 from core.ra_event_bus import RaEventBus
-
 
 class RaWorldSystem:
     """
@@ -21,17 +21,20 @@ class RaWorldSystem:
         self.master = master
         self.logger = master.logger
 
-        # Навигация и ответы
         self.navigator = RaWorldNavigator(context=navigator_context)
         self.responder = RaWorldResponder(token_map=responder_tokens)
         self.synthesizer = RaSynthesizer()
 
-        # EventBus — центральная шина событий для Observer и других компонентов
-        self.event_bus = RaEventBus()
-        self.observer = RaWorldObserver(event_bus=self.event_bus)
+        self.event_bus = None
+        self.observer = RaWorldObserver()
+        self.market_watcher = MarketWatcher(event_bus=self.event_bus)  # 🌟 подключаем MarketWatcher
 
         self.running = False
-
+    # =============================================
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+        self.observer.set_event_bus(event_bus)
+        self.market_watcher.event_bus = event_bus  # 🌟 теперь сигналы рынка будут идти в EventBus
     # ============================================
     async def start(self):
         """Запуск системы"""
@@ -41,6 +44,9 @@ class RaWorldSystem:
         # Запускаем Observer (он стартует интернет, фоновый observer_loop, watcher)
         await self.observer.start()
         self.observer.start_background_tasks()
+        
+        # 🌟 Запускаем MarketWatcher
+        await self.market_watcher.start()
 
         # Параллельные циклы навигации и ответов
         await asyncio.gather(
@@ -56,8 +62,9 @@ class RaWorldSystem:
         self.running = False
         await self.observer.stop()
         await self.navigator.stop()
+        await self.market_watcher.stop()  # 🌟 корректно останавливаем
         logging.info("🛑 Система Ра остановлена.")
-
+        
     # ------------------------------------------------------------
     # Цикл навигации: сбор и фильтрация информации
     # ------------------------------------------------------------
