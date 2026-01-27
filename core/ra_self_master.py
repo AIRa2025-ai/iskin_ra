@@ -174,7 +174,6 @@ class RaSelfMaster:
         async def ra_state():
             return self.get_state()
 
-        self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop)
         
     # =========== START =======================    
@@ -357,7 +356,7 @@ async def main():
         setattr(logger_instance, "attach_module", attach_module.__get__(logger_instance))
 
     ra = RaSelfMaster(logger=logger_instance)
-    await ra.awaken()
+    await ra.start()
     
     # Старт FastAPI
     config = uvicorn.Config(ra.app, host="0.0.0.0", port=8000, log_level="info")
