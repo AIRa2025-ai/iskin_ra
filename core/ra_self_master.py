@@ -315,7 +315,7 @@ class RaSelfMaster:
             # Создаём сердце и передаём реактор
             self.heart_reactor = HeartReactor()
             self.heart = Heart(reactor=self.heart_reactor)
-            self.heart_reactor.heart = self.heart)
+            self.heart_reactor.heart = self.heart
 
             # Запуск bg задач
             self._create_bg_task(self.heart.start_pulse(interval=1.0), "heart_pulse_loop")
