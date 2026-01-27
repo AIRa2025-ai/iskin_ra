@@ -29,6 +29,7 @@ from modules.logs import log_info
 from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
+from modules.ra_resonance import RaResonance
 
 # Police
 try:
@@ -107,6 +108,9 @@ class RaSelfMaster:
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
 
+        # Резонанс
+        self.resonance = RaResonance()
+
         # Нервная система
         self.nervous_system = RaNervousSystem(self, self.event_bus)
 
@@ -184,9 +188,10 @@ class RaSelfMaster:
     # ================= Органы =================
     def _start_organs(self):
         self._create_bg_task(self.nervous_system.start(), "nervous_system")
+        self._create_bg_task(self.resonance._resonance_loop(), "resonance_loop")
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
-
+        
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
 
