@@ -7,6 +7,7 @@ class RaSelfUpgradeLoop:
     def __init__(self, self_master):
         self.self_master = self_master
         self.file_consciousness = getattr(self_master, "file_consciousness", None)
+        self.thinker = thinker
         self.git = RaGitKeeper(repo_path=".")
         # Подготовка файлов для облачного коммита
         files_dict = {
@@ -58,3 +59,20 @@ class RaSelfUpgradeLoop:
             )
         except Exception as e:
             logging.warning(f"[UpgradeLoop] GitHub PR не создан: {e}")info("⏸ Апгрейд отклонён")
+            
+    async def tick(self):
+        ideas = self.thinker.propose_self_improvements()
+        for idea in ideas:
+            if not self._approve(idea):
+                continue
+            self.apply_idea(idea)
+
+    def _approve(self, idea):
+        if idea.get("risk") == "high" and self.master.police:
+            return False
+        return True
+
+    def apply_idea(self, idea):
+        logging.info(f"🧬 Ра размышляет об улучшении: {idea}")
+        # Пока только логика осмысления
+        # Реальный патч-код можно внедрять позже
