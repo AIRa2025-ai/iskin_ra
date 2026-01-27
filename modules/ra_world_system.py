@@ -1,10 +1,11 @@
 # modules/ra_world_system.py
 import asyncio
 import logging
+import random
 from modules.ra_world_navigator import RaWorldNavigator
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_synthesizer import RaSynthesizer
-import random
+from modules.ra_world_observer import RaWorldObserver
 
 class RaWorldSystem:
     """
@@ -16,6 +17,7 @@ class RaWorldSystem:
         self.navigator = RaWorldNavigator(context=navigator_context)
         self.responder = RaWorldResponder(token_map=responder_tokens)
         self.synthesizer = RaSynthesizer()
+        self.observer = RaWorldObserver(event_bus=self.event_bus)
         self.running = False
         self.master = master
         self.logger = master.logger
@@ -23,13 +25,16 @@ class RaWorldSystem:
     async def start(self):
         self.running = True
         logging.info("🌟 Система Ра запущена.")
+        await self.observer.start()
         await asyncio.gather(
             self.navigator_loop(),
             self.responder_loop()
         )
         self.logger.log_module_action("ra_world", "инициализирован")
+        
     async def stop(self):
         self.running = False
+        await self.observer.stop()
         await self.navigator.stop()
         logging.info("🛑 Система Ра остановлена.")
 
