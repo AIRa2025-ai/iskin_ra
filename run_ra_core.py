@@ -118,12 +118,7 @@ async def main():
     ra.register_module("scheduler", scheduler)
 
     # ----------------- Пробуждение -----------------
-    try:
-        msg = await ra.awaken()
-        logging.info(msg)
-    except Exception as e:
-        logging.exception(f"[Ra] Ошибка пробуждения: {e}")
-        return
+    await send_admin("🌞 Ра запущен через единый core!", bot)
 
     # ----------------- IPC -----------------
     ipc = RaIPCServer(context=ra)
