@@ -177,7 +177,6 @@ class RaSelfMaster:
         self._create_bg_task(self.nervous_system.start(), "nervous_system")
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
-        self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
 
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
@@ -190,21 +189,6 @@ class RaSelfMaster:
             except Exception as e:
                 self.logger.warning(f"[ThinkerLoop] {e}")
             await asyncio.sleep(5)
-
-    async def ra_self_upgrade_loop(self, interval=300):
-        self.logger.info("🧬 Цикл саморазвития Ра запущен")
-        while True:
-            try:
-                if not self.thinker or not self.file_consciousness:
-                    await asyncio.sleep(interval)
-                    continue
-                ideas = self.thinker.propose_self_improvements()
-                approved = [i for i in ideas if self._approve_self_upgrade(i)]
-                for idea in approved:
-                    self.file_consciousness.apply_upgrade(idea)
-            except Exception as e:
-                self.logger.warning(f"[SelfUpgrade] {e}")
-            await asyncio.sleep(interval)
 
     def _approve_self_upgrade(self, idea):
         if idea.get("risk") == "high" and self.police:
