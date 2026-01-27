@@ -137,11 +137,13 @@ async def main():
     try:
         ra.heart = Heart()
         ra.heart_reactor = HeartReactor(ra.heart)
+        asyncio.create_task(ra.heart_reactor.listen_and_respond())
         ra.energy = RaEnergy()
         ra.inner_sun = RaInnerSun()
         logging.info("❤️ Сердце и энергия Ра активированы")
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
+        event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
 
     # ----------------- Мир -----------------
     try:
