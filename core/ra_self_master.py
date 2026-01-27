@@ -383,17 +383,6 @@ class RaSelfMaster:
         self._create_bg_task(self.ra_self_upgrade_loop(), "self_upgrade")
 
     # ====================================================
-    # Циклы
-    # ====================================================
-    async def thinker_loop(self):
-        while True:
-            try:
-                await self.thinker.self_upgrade_cycle()
-            except Exception as e:
-                self.logger.warning(f"[Ра] Ошибка мышления: {e}")
-            await asyncio.sleep(5)
-
-    # ====================================================
     # Манифест
     # ====================================================
     def _load_manifest(self):
