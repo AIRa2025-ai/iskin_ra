@@ -69,8 +69,8 @@ class RaSelfMaster:
         self.event_bus = RaEventBus()
 
         # Сердце
-        self.heart_reactor = HeartReactor()
-
+        self.heart = heart or HeartReactor()
+        
         # Осознание файлового тела
         try:
             self.file_consciousness = RaFileConsciousness(project_root=".")
