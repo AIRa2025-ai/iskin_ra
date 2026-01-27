@@ -18,6 +18,7 @@ from core.github_commit import create_commit_push
 from core.openrouter_client import OpenRouterClient
 from core.gpt_handler import GPTHandler
 from core.rustlef_master_logger import RustlefMasterLogger
+from core.ra_self_reflect import RaSelfReflect
 
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
@@ -102,6 +103,9 @@ class RaSelfMaster:
         self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
         self.gpt_module = gpt_module or self.gpt_handler
+        
+        # Подключаем саморефлексию
+        self.self_reflect = RaSelfReflect()
 
         # Мир
         self.world_system = RaWorldSystem(self)
@@ -167,7 +171,13 @@ class RaSelfMaster:
         log_info("🚀 RaSelfMaster запускается...")
         self._create_bg_task(self.world_sense_loop(), "world_sense_loop")
         await self.awaken()
-
+        
+    # Запускаем периодическую проверку (опционально)
+    async def self_reflect_loop():
+        while True:
+            await self.self_reflect.self_reflect_and_update()
+            await asyncio.sleep(3600)  # раз в час
+            
     # ================= Awakening =================
     async def awaken(self):
         if self.awakened:
@@ -191,6 +201,7 @@ class RaSelfMaster:
         self._create_bg_task(self.resonance._resonance_loop(), "resonance_loop")
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
+        self._create_bg_task(self_reflect_loop(), "self_reflect_loop")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
