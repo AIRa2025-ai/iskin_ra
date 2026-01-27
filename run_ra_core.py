@@ -1,4 +1,4 @@
-# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (АККУРАТНО, БЕЗ ЛОМАНИЯ АРХИТЕКТУРЫ)
+# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (чистый, без двойного пробуждения)
 import asyncio
 import logging
 import os
@@ -61,7 +61,6 @@ logger_instance.addHandler(ch)
 
 # ---------------- ENV ----------------
 load_dotenv()
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
@@ -73,12 +72,11 @@ if not BOT_TOKEN or not OPENROUTER_KEY:
 async def start_telegram(ra, gpt_handler):
     bot = Bot(token=BOT_TOKEN)
     ra_context.created_by = ra.identity.name
-    await send_admin("🌞 Ра запущен через единый core!", bot)
+    await send_admin("🌞 Ра подключён к Telegram!", bot)
 
     ra.gpt_module = gpt_handler
     asyncio.create_task(gpt_handler.background_model_monitor())
     asyncio.create_task(system_monitor())
-
     dp.include_router(router)
 
     async def resonance_handler(data):
@@ -86,26 +84,21 @@ async def start_telegram(ra, gpt_handler):
 
     ra.event_bus.subscribe("memory_updated", resonance_handler)
     asyncio.create_task(резонанс_связь())
-
     await dp.start_polling(bot)
-    await ra.awaken()
-
 
 # ---------------- MAIN ----------------
 async def main():
     # ----------------- Ядро -----------------
     identity = RaIdentity(name="Ра", version="1.4.3", mission="Пробуждение и созидание")
     event_bus = RaEventBus()
-    thinker = RaThinker(master=None, event_bus=event_bus)  # временно без master
+    ra = RaSelfMaster(identity=identity, gpt_module=None, logger=logger_instance)
+    thinker = RaThinker(master=ra, event_bus=event_bus)  # сразу с master
     world = RaWorld()
     scheduler = RaScheduler()
     gpt_handler = GPTHandler(api_key=OPENROUTER_KEY, ra_context=ra_context.rasvet_text)
+    ra.gpt_module = gpt_handler
 
-    # Создаём RaSelfMaster
-    ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, logger=logger_instance)
-    thinker = RaThinker(master=ra, event_bus=event_bus)  # теперь thinker знает master
-
-    # Подключаем EventBus
+    # ----------------- Подключаем EventBus -----------------
     ra.event_bus = ra.event_bus or event_bus
     ra.event_bus.subscribe("world_event", ra.on_world_event)
     ra.event_bus.subscribe("thought", ra.on_thought)
@@ -118,7 +111,12 @@ async def main():
     ra.register_module("scheduler", scheduler)
 
     # ----------------- Пробуждение -----------------
-    await send_admin("🌞 Ра запущен через единый core!", bot)
+    try:
+        msg = await ra.awaken()
+        logging.info(msg)
+    except Exception as e:
+        logging.exception(f"[Ra] Ошибка пробуждения: {e}")
+        return
 
     # ----------------- IPC -----------------
     ipc = RaIPCServer(context=ra)
@@ -135,9 +133,7 @@ async def main():
         asyncio.create_task(ra.heart_reactor.start())
         ra.energy = RaEnergy()
         ra.inner_sun = RaInnerSun()
-
         event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
-
         logging.info("❤️ Сердце и энергия Ра активированы")
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
@@ -194,6 +190,7 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Защита частично не активна: {e}")
 
+    # ----------------- Запуск всех задач -----------------
     try:
         await asyncio.gather(ipc_task, telegram_task)
     except asyncio.CancelledError:
