@@ -255,12 +255,6 @@ class RaSelfMaster:
         if self.heart:
             self.heart.send_event(message)
 
-    # ====================================================
-    # Обработка мира
-    # ====================================================
-    async def process_world_message(self, message):
-        self.logger.info(f"[Ра] Сообщение мира: {message}")
-        self.heart_reactor.send_event(message)
     # ===============================
     # Общение с пользователем
     # ===============================
