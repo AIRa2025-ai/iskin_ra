@@ -77,11 +77,6 @@ class RaSelfMaster:
         except Exception:
             self.file_consciousness = None
             
-        # Знания    
-        self.knowledge = RaKnowledge(knowledge_dir="modules/data")
-        self.json_data = self.knowledge.load_json_knowledge()
-        self.thinker.knowledge = self.knowledge  # если thinker должен иметь доступ 
-        
         # Мышление
         self.thinker = RaThinker(
             master=self,
@@ -91,6 +86,12 @@ class RaSelfMaster:
             event_bus=self.event_bus,
             gpt_module=self.gpt_module
         )
+        
+        # Знания    
+        self.knowledge = RaKnowledge(knowledge_dir="modules/data")
+        self.json_data = self.knowledge.load_json_knowledge()
+        self.thinker.knowledge = self.knowledge  # если thinker должен иметь доступ
+        
         # Развитие    
         self.upgrade_loop = RaSelfUpgradeLoop(
             master=self,
@@ -330,12 +331,12 @@ class RaSelfMaster:
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
                 
-# ================== STOP ========================
-async def stop(self):
-    for task in self._tasks:
-        if not task.done():
-            task.cancel()
-    self.logger.info("🛑 Ра остановлен")
+    # ================== STOP ========================
+    async def stop(self):
+        for task in self._tasks:
+            if not task.done():
+                task.cancel()
+        self.logger.info("🛑 Ра остановлен")
     
 # ================= Entry =================
 async def main():
