@@ -61,11 +61,13 @@ class RaSelfUpgradeLoop:
             logging.warning(f"[UpgradeLoop] GitHub PR не создан: {e}")info("⏸ Апгрейд отклонён")
             
     async def tick(self):
+        if not self.thinker:
+            return
         ideas = self.thinker.propose_self_improvements()
         for idea in ideas:
             if not self._approve(idea):
                 continue
-            self.apply_idea(idea)
+            await self.apply_idea(idea)
 
     def _approve(self, idea):
         if idea.get("risk") == "high" and self.master.police:
