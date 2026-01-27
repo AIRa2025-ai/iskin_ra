@@ -8,11 +8,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class HeartReactor:
-    def __init__(self):
+    def __init__(self, heart=None):
+        self.heart = heart
         self.name = "Heart Reactor"
+        self.status = "alive"
         self.listeners = []
         self.event_queue = asyncio.Queue()
-        self.is_active = True
 
     async def start(self):
         """Запуск цикла обработки событий"""
