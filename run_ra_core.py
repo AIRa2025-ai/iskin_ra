@@ -103,7 +103,7 @@ async def main():
 
     # Создаём RaSelfMaster
     ra = RaSelfMaster(identity=identity, gpt_module=gpt_handler, logger=logger_instance)
-    thinker.master = ra  # теперь thinker знает master
+    thinker = RaThinker(master=ra, event_bus=event_bus)  # теперь thinker знает master
 
     # Подключаем EventBus
     ra.event_bus = ra.event_bus or event_bus
