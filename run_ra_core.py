@@ -136,14 +136,14 @@ async def main():
     # ----------------- Сердце и энергия -----------------
     try:
         ra.heart = Heart()
-        ra.heart_reactor = HeartReactor(ra.heart)
+        ra.heart_reactor = HeartReactor()
         asyncio.create_task(ra.heart_reactor.listen_and_respond())
         ra.energy = RaEnergy()
         ra.inner_sun = RaInnerSun()
+        event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
         logging.info("❤️ Сердце и энергия Ра активированы")
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
-        event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
 
     # ----------------- Мир -----------------
     try:
@@ -179,6 +179,11 @@ async def main():
     # ----------------- Forex -----------------
     try:
         telegram_sender = TelegramSender(bot_token=BOT_TOKEN, chat_id=ADMIN_CHAT_ID)
+        ra.forex = RaForexManager(
+            pairs=["EURUSD", "GBPUSD"],
+            timeframes=["M15", "H1"],
+            telegram_sender=telegram_sender
+        )
         ra.forex.start()
         logging.info("📈 Forex модуль подключён")
     except Exception as e:
