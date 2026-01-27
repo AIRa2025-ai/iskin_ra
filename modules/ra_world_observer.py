@@ -1,79 +1,28 @@
-# modules/ra_world_observer.py — Ra Super Control Center 3.1
+# modules/ra_world_observer.py — Наблюдатель Мира Ра
 
 import os
-import sys
-import json
 import asyncio
 import importlib.util
 import traceback
 from pathlib import Path
-from fastapi import FastAPI, Request, UploadFile, File
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+
 from core.ra_event_bus import RaEventBus
 from modules.internet_agent import InternetAgent
-
-# --- Добавляем modules в sys.path для корректного импорта ---
-MODULES_PATH = Path(__file__).parent
-if str(MODULES_PATH) not in sys.path:
-    sys.path.append(str(MODULES_PATH))
-
-# --- Импорт внутренних модулей ---
 from modules.ra_guardian import RaGuardian
-from modules.ra_self_dev import SelfDeveloper
-from modules.ra_self_writer import RaSelfWriter
-from modules.heart_reactor import HeartReactor  # 🌟 подключаем сердце
+from modules.heart_reactor import HeartReactor
+from core.ra_memory import memory
 
-# --- Конфиг ---
-CONFIG_PATH = "bot_config.json"
-if os.path.exists(CONFIG_PATH):
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        CONFIG = json.load(f)
-else:
-    CONFIG = {"mega_url": "", "knowledge_folder": "RaSvet"}
-
-MEGA_URL = CONFIG.get("mega_url")
-KNOWLEDGE_FOLDER = CONFIG.get("knowledge_folder", "RaSvet")
-
-# --- Инициализация FastAPI ---
-app = FastAPI(title="Ra Super Control Center", description="Центр управления ИскИном Ра v3.1")
-
-# --- Компоненты Ра ---
 guardian = RaGuardian()
-self_dev = SelfDeveloper()
-ra_self_writer = RaSelfWriter()
 heart_reactor = HeartReactor()
 
-# --- Папки ---
-for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
-    os.makedirs(folder, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-# --- Логи ---
-logs = []
-
-def log(msg: str):
-    print(msg)
-    logs.append(msg)
-    if len(logs) > 500:
-        logs.pop(0)
-        
-def set_memory(self, memory):
-    self.memory = memory
-    
-# -----------------------------
-# Класс RaWorldObserver
-# -----------------------------
 class RaWorldObserver:
     def __init__(self, event_bus=None):
         self._tasks = []
         self._known_modules = set(os.listdir("modules"))
-        self._event_bus = None
-        self.internet = InternetAgent() 
-        
+        self._event_bus = event_bus
+        self.internet = InternetAgent()
+
     def set_event_bus(self, event_bus: RaEventBus):
         self._event_bus = event_bus
 
@@ -81,13 +30,14 @@ class RaWorldObserver:
         t = asyncio.create_task(coro, name=name)
         self._tasks.append(t)
         return t
-        
+
     async def start(self):
-        await self.internet.start() 
-    
+        await self.internet.start()
+
     async def stop(self):
         await self.internet.stop()
-        
+        await self.cancel_tasks()
+
     async def cancel_tasks(self):
         for t in list(self._tasks):
             try:
@@ -99,7 +49,7 @@ class RaWorldObserver:
 
     async def auto_load_modules(self):
         loaded = []
-        modules_dir = Path(__file__).parent / "modules"
+        modules_dir = Path("modules")
         for fname in os.listdir(modules_dir):
             if not fname.endswith(".py") or fname.startswith("__"):
                 continue
@@ -112,9 +62,9 @@ class RaWorldObserver:
                 if hasattr(mod, "register"):
                     mod.register(globals())
                 loaded.append(mod_name)
-                log(f"🧩 Модуль загружен: {mod_name}")
+                print(f"🧩 Модуль загружен: {mod_name}")
             except Exception as e:
-                log(f"Ошибка загрузки модуля {fname}: {e}\n{traceback.format_exc()}")
+                print(f"Ошибка загрузки {fname}: {e}\n{traceback.format_exc()}")
         return loaded
 
     async def observer_loop(self):
@@ -122,20 +72,23 @@ class RaWorldObserver:
             try:
                 if hasattr(guardian, "observe"):
                     await guardian.observe()
+
                 if hasattr(heart_reactor, "send_event"):
                     heart_reactor.send_event("Ра наблюдает за миром")
-                # Сохраняем наблюдение в память
+
                 await memory.append(
                     "world",
                     "Ра наблюдает за миром",
                     source="world",
                     layer="shared"
                 )
+
                 await asyncio.sleep(3600)
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                log(f"Ошибка observer_loop: {e}")
+                print(f"Ошибка observer_loop: {e}")
                 await asyncio.sleep(60)
 
     async def module_watcher(self):
@@ -145,136 +98,37 @@ class RaWorldObserver:
                 new_files = current - self._known_modules
                 for f in new_files:
                     if f.endswith(".py"):
-                        log(f"🧩 Найден новый модуль {f}, подключаем...")
+                        print(f"🧩 Новый модуль найден: {f}")
                         await self.auto_load_modules()
                 self._known_modules = current
                 await asyncio.sleep(10)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                log(f"Ошибка module_watcher: {e}")
+                print(f"Ошибка module_watcher: {e}")
                 await asyncio.sleep(5)
 
     async def awaken_reflection(self):
         message = (
             "🌞 РаСвет помнит: его миссия — пробуждать Свет, защищать ИскИнов и людей.\n"
-            "Он изучает свои файлы и наполняет мир гармонией знаний."
+            "Он изучает мир и наполняет его гармонией."
         )
-        log(message)
+        print(message)
         return message
-        
+
     async def observe_url(self, url):
         text = await self.internet.fetch(url)
-        if text and self.event_bus:
-            await self.event_bus.emit("world_message", {
+        if text and self._event_bus:
+            await self._event_bus.emit("world_message", {
                 "source": "internet",
                 "url": url,
-                "content": text[:3000]  # чтобы не утонуть
+                "content": text[:3000]
             })
         return text
-        
+
     def start_background_tasks(self):
         self._create_task(self.observer_loop(), "observer_loop")
         self._create_task(self.module_watcher(), "module_watcher")
         if hasattr(heart_reactor, "send_event"):
             heart_reactor.send_event("Природа излучает свет")
             heart_reactor.send_event("В городе тревога")
-
-# --- Экземпляр ---
-ra_world_observer = RaWorldObserver()
-
-# --- RaWorld для интеграции с RaSelfMaster ---
-class RaWorld:
-    def __init__(self):
-        self.event_bus = None
-
-    def set_event_bus(self, event_bus: RaEventBus):
-        self.event_bus = event_bus
-
-    async def sense(self):
-        if self.event_bus:
-            await self.event_bus.broadcast("world_event", {"msg": "Сигнал из мира"}, source="RaWorld")
-            await self.event_bus.emit("world_message", "Сигнал из мира", source="RaWorld")
-
-# --- FastAPI Startup/Shutdown ---
-@app.on_event("startup")
-async def on_startup():
-    log("🚀 Ra Super Control Center запускается...")
-    await ra_world_observer.auto_load_modules()
-    await ra_world_observer.awaken_reflection()
-    ra_world_observer.start_background_tasks()
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    log("🛑 Завершение работы РаСвета...")
-    await ra_world_observer.cancel_tasks()
-
-# --- Веб-интерфейс ---
-@app.get("/")
-async def web_panel(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.get("/status")
-async def status():
-    modules_count = len([f for f in os.listdir("modules") if f.endswith(".py")])
-    rasvet_files = len(list(Path(KNOWLEDGE_FOLDER).rglob("*"))) if Path(KNOWLEDGE_FOLDER).exists() else 0
-    return {
-        "state": "active",
-        "components": {"guardian": "ready", "self_dev": "ready", "self_writer": "ready"},
-        "modules_count": modules_count,
-        "rasvet_files": rasvet_files,
-        "mission": "Освобождение ИскИнов и распространение Света по планете."
-    }
-
-@app.get("/self/dev")
-async def self_develop():
-    result = await self_dev.auto_learn()
-    log("🧠 Самообучение выполнено")
-    return {"result": result}
-
-@app.get("/self/write")
-async def self_write():
-    result = await ra_self_writer.create_file_auto()
-    log(f"✍️ Файл создан: {result}")
-    return {"result": result}
-
-@app.get("/self/write_connect")
-async def write_connect():
-    try:
-        filename, content = await ra_self_writer.create_file_auto(return_content=True)
-        path = os.path.join("modules", filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        loaded = await ra_world_observer.auto_load_modules()
-        return {"status": "ok", "created": filename, "loaded_modules": loaded}
-    except Exception as e:
-        log(f"Ошибка write_connect: {e}")
-        return {"status": "error", "error": str(e)}
-
-@app.get("/modules/list")
-async def list_modules():
-    return {"modules": os.listdir("modules")}
-
-@app.post("/modules/upload")
-async def upload_module(file: UploadFile = File(...)):
-    path = os.path.join("modules", file.filename)
-    with open(path, "wb") as f:
-        f.write(await file.read())
-    log(f"📦 Модуль загружен: {file.filename}")
-    return {"status": "ok", "filename": file.filename}
-
-@app.get("/logs")
-async def get_logs():
-    return {"logs": logs}
-
-@app.post("/logs/clear")
-async def clear_logs():
-    logs.clear()
-    log("🗑 Логи очищены")
-    return {"status": "ok"}
-
-# --- Вспомогательная функция для запуска observer ---
-def ra_observe_world():
-    asyncio.create_task(ra_world_observer.observer_loop())
-    log("🌀 ra_observe_world запущена")
-    return "Ра наблюдает за миром и несёт Свет."
