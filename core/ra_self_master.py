@@ -5,9 +5,10 @@ import sys
 import json
 import logging
 import asyncio
+import uvicorn
+
 from datetime import datetime, timezone
 from pathlib import Path
-
 from fastapi import WebSocket, FastAPI
 from fastapi.responses import FileResponse
 
@@ -32,7 +33,7 @@ from modules.heart import Heart
 from modules.heart_reactor import HeartReactor
 from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from modules.ra_resonance import RaResonance
-
+from modules.logs import logger_instance
 # Police
 try:
     from modules.ra_police import RaPolice
@@ -77,6 +78,11 @@ class RaSelfMaster:
         except Exception:
             self.file_consciousness = None
             
+        # OpenRouter + GPT
+        self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
+        self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
+        self.gpt_module = gpt_module or self.gpt_handler
+        
         # Мышление
         self.thinker = RaThinker(
             master=self,
@@ -108,8 +114,6 @@ class RaSelfMaster:
         
         # OpenRouter + GPT
         self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
-        self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
-        self.gpt_module = gpt_module or self.gpt_handler
         
         # Подключаем саморефлексию
         self.self_reflect = RaSelfReflect()
@@ -172,7 +176,13 @@ class RaSelfMaster:
 
         self.app.on_event("startup")(self._startup)
         self.app.on_event("shutdown")(self.stop)
-
+        
+    # =========== START =======================    
+    async def start(self):
+        log_info("🚀 РаSelfMaster запускается...")
+        await self.awaken()
+        self._start_organs()  # Запуск всех bg loop'ов
+        
     # ================= Startup =================
     async def _startup(self):
         log_info("🚀 RaSelfMaster запускается...")
@@ -348,6 +358,11 @@ async def main():
 
     ra = RaSelfMaster(logger=logger_instance)
     await ra.awaken()
-
+    
+    # Старт FastAPI
+    config = uvicorn.Config(ra.app, host="0.0.0.0", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+    
 if __name__ == "__main__":
     asyncio.run(main())
