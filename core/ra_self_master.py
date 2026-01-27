@@ -112,6 +112,9 @@ class RaSelfMaster:
 
         # Police
         self.police = RaPolice(self) if RaPolice else None
+        
+        # Инициализация сердца и реактора
+        self._init_heart_system()
 
         # FastAPI
         self.app = FastAPI(title="Ra Self Master")
@@ -293,13 +296,35 @@ class RaSelfMaster:
             "mood": self.mood,
             "load": self.load
         }
+    # ===============================
+    # Интеграция Heart + HeartReactor
+    # ===============================
+    def _init_heart_system(self):
+        """Инициализация сердца и реактора Ра"""
+        try:
+            # Создаём реактор
+            self.heart_reactor = HeartReactor()
+        
+            # Создаём сердце и передаём реактор
+            self.heart = Heart(reactor=self.heart_reactor)
 
-    async def stop(self):
-        for task in self._tasks:
-            if not task.done():
-                task.cancel()
-        self.logger.info("🛑 Ра остановлен")
+            # Подключаем EventBus: реактор слушает события мира
+            self.event_bus.subscribe("world_message", self.heart_reactor.send_event)
 
+            # Запуск bg задач
+            self._create_bg_task(self.heart.start_pulse(interval=1.0), "heart_pulse_loop")
+            self._create_bg_task(self.heart_reactor.start(), "heart_reactor_loop")
+
+            logging.info("❤️ Сердце и HeartReactor интегрированы и запущены")
+        except Exception as e:
+            logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
+
+        # ==== STOP =============================================
+        async def stop(self):
+            for task in self._tasks:
+                if not task.done():
+                    task.cancel()
+            self.logger.info("🛑 Ра остановлен")
 
 # ================= Entry =================
 async def main():
