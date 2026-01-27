@@ -27,6 +27,7 @@ from modules.ra_world_system import RaWorldSystem
 from modules.forex_brain import ForexBrain
 from modules.logs import log_info
 from modules.heart_reactor import HeartReactor
+from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 
 # Police
 try:
@@ -74,7 +75,15 @@ class RaSelfMaster:
             self.file_consciousness = RaFileConsciousness(project_root=".")
         except Exception:
             self.file_consciousness = None
-
+            
+        # Развитие    
+        self.upgrade_loop = RaSelfUpgradeLoop(
+            master=self,
+            thinker=self.thinker,
+            file_consciousness=self.file_consciousness,
+            git=self.git
+        )
+        
         # OpenRouter + GPT
         self.openrouter_client = OpenRouterClient(api_key=os.getenv("OPENROUTER_API_KEY"))
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
