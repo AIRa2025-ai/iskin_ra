@@ -10,8 +10,8 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO = os.getenv("GITHUB_REPO", "AIRa2025-ai/iskin_ra")
 
 if not GITHUB_TOKEN:
-    raise RuntimeError("❌ GITHUB_TOKEN не найден в окружении!")
-
+    logging.warning("⚠️ GITHUB_TOKEN не найден — GitHub функции отключены.")
+    
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json",
