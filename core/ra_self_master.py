@@ -393,32 +393,6 @@ class RaSelfMaster:
                 self.logger.warning(f"[Ра] Ошибка мышления: {e}")
             await asyncio.sleep(5)
 
-    # ====================================================
-    # Общение
-    # ====================================================
-    async def process_text(self, user_id, text):
-        if self.memory:
-            try:
-                self.memory.append(user_id, {"from": "user", "text": text})
-            except Exception:
-                pass
-
-        decision = self.identity.decide(text) if self.identity else "answer"
-
-        if decision == "think":
-            reply = await self.thinker.reflect_async(text)
-        else:
-            reply = await self._gpt_reply(text)
-
-        if self.memory:
-            try:
-                self.memory.append(user_id, {"from": "ra", "text": reply})
-            except Exception:
-                pass
-
-        await self.event_bus.emit("world_message", text)
-        return reply
-
     async def _gpt_reply(self, text):
         if not self.gpt_module:
             return "…Ра чувствует, но пока без голоса."
