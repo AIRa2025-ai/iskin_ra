@@ -202,7 +202,7 @@ class RaSelfMaster:
         self._create_bg_task(self.resonance._resonance_loop(), "resonance_loop")
         self._create_bg_task(self.scheduler.scheduler_loop(), "scheduler")
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
-        self._create_bg_task(self_reflect_loop(), "self_reflect_loop")
+        self._create_bg_task(self.self_reflect_loop(), "self_reflect_loop")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
