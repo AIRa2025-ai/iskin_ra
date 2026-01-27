@@ -65,6 +65,13 @@ OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 if not BOT_TOKEN or not OPENROUTER_KEY:
     raise RuntimeError("BOT_TOKEN или OPENROUTER_API_KEY не установлены")
+    
+# ======СОЗДАЕМ ОБЪЕКТЫ ===========================
+file_core = RaFileCore(project_root=".")
+git_keeper = RaGitKeeper(repo_path=".")
+knowledge = RaKnowledge(knowledge_dir="knowledge")
+thinker = RaThinker(master=master, file_consciousness=file_core.manager, gpt_module=gpt_module, event_bus=event_bus)
+scheduler = RaScheduler(thinker=thinker, upgrade_loop=thinker, event_bus=event_bus)
 
 # ---------------- HeartReactor v2.0 ----------------
 class HeartReactor:
