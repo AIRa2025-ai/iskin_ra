@@ -76,6 +76,15 @@ class RaSelfMaster:
         except Exception:
             self.file_consciousness = None
             
+        # Мышление
+        self.thinker = RaThinker(
+            master=self,
+            root_path=".",
+            context=None,
+            file_consciousness=self.file_consciousness,
+            event_bus=self.event_bus,
+            gpt_module=self.gpt_module
+        )
         # Развитие    
         self.upgrade_loop = RaSelfUpgradeLoop(
             master=self,
@@ -83,7 +92,7 @@ class RaSelfMaster:
             file_consciousness=self.file_consciousness,
             git=self.git
         )
-        
+        # Планировщик
         self.scheduler = RaScheduler(
             event_bus=self.event_bus,
             thinker=self.thinker,
@@ -95,23 +104,10 @@ class RaSelfMaster:
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
         self.gpt_module = gpt_module or self.gpt_handler
 
-        # Мышление
-        self.thinker = RaThinker(
-            master=self,
-            root_path=".",
-            context=None,
-            file_consciousness=self.file_consciousness,
-            event_bus=self.event_bus,
-            gpt_module=self.gpt_module
-        )
-
         # Мир
         self.world_system = RaWorldSystem(self)
         self.world = RaWorld()
         self.world.set_event_bus(self.event_bus)
-
-        # Планировщик
-        self.scheduler = RaScheduler(event_bus=self.event_bus)
 
         # Нервная система
         self.nervous_system = RaNervousSystem(self, self.event_bus)
