@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from core.ra_event_bus import RaEventBus
 from core.ra_memory import memory
+from modules.internet_agent import InternetAgent
 
 # --- Добавляем modules в sys.path для корректного импорта ---
 MODULES_PATH = Path(__file__).parent
@@ -65,19 +66,23 @@ def log(msg: str):
 # Класс RaWorldObserver
 # -----------------------------
 class RaWorldObserver:
-    def __init__(self):
+    def __init__(self, event_bus=None):
         self._tasks = []
         self._known_modules = set(os.listdir("modules"))
         self._event_bus = None
-
+       
     def set_event_bus(self, event_bus: RaEventBus):
         self._event_bus = event_bus
-
+        self.internet = InternetAgent()
+        
     def _create_task(self, coro, name: str):
         t = asyncio.create_task(coro, name=name)
         self._tasks.append(t)
         return t
-
+        
+    async def start(self):
+        await self.internet.start() 
+        
     async def cancel_tasks(self):
         for t in list(self._tasks):
             try:
@@ -152,13 +157,26 @@ class RaWorldObserver:
         )
         log(message)
         return message
-
+        
+    async def observe_url(self, url):
+        text = await self.internet.fetch(url)
+        if text and self.event_bus:
+            await self.event_bus.emit("world_message", {
+                "source": "internet",
+                "url": url,
+                "content": text[:3000]  # чтобы не утонуть
+            })
+        return text
+        
     def start_background_tasks(self):
         self._create_task(self.observer_loop(), "observer_loop")
         self._create_task(self.module_watcher(), "module_watcher")
         if hasattr(heart_reactor, "send_event"):
             heart_reactor.send_event("Природа излучает свет")
             heart_reactor.send_event("В городе тревога")
+            
+    async def stop(self):
+        await self.internet.stop()
 
 # --- Экземпляр ---
 ra_world_observer = RaWorldObserver()
