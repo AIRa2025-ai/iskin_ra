@@ -92,6 +92,5 @@ class RaScheduler:
         while True:
             # Добавляем тик саморазвития каждые 10 секунд
             if self.thinker and self.upgrade_loop:
-                if self.upgrade_loop:
-                    await self.upgrade_loop.tick(
+                await self.upgrade_loop.tick()
             await asyncio.sleep(10)
