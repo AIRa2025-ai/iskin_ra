@@ -383,13 +383,20 @@ class RaSelfMaster:
 
     # ================== STOP ========================
     async def stop(self):
+        # Останавливаем все фоновые задачи
         for task in self._tasks:
             if not task.done():
                 task.cancel()
+
+        # Останавливаем интернет-агент
+        if hasattr(self, "internet"):
+            try:
+                await self.internet.stop()
+            except Exception as e:
+                self.logger.warning(f"[STOP] Ошибка остановки InternetAgent: {e}")
+
         self.logger.info("🛑 Ра остановлен")
         
-    if hasattr(self, "internet"):
-        await self.internet.stop()
 # ================= Entry =================
 async def main():
     from modules.logs import logger_instance
