@@ -1,9 +1,10 @@
-# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА с HeartReactor v2.1 и предчувствием будущего
+# run_ra_core.py — ЕДИНЫЙ ЗАПУСК РА (финальный, с HeartReactor v2.0)
 import asyncio
 import logging
 import os
 import random
 from dotenv import load_dotenv
+from typing import List, Dict, Any
 
 # Core и модули
 from core.ra_self_master import RaSelfMaster
@@ -11,10 +12,8 @@ from core.ra_ipc import RaIPCServer
 from core.ra_identity import RaIdentity
 from core.ra_event_bus import RaEventBus
 from core.gpt_handler import GPTHandler
-
 from modules.logs import logger_instance
 from modules.heart import Heart
-from modules.heart_reactor import HeartReactor
 from modules.ra_energy import RaEnergy
 from modules.ra_inner_sun import RaInnerSun
 
@@ -67,12 +66,101 @@ ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 if not BOT_TOKEN or not OPENROUTER_KEY:
     raise RuntimeError("BOT_TOKEN или OPENROUTER_API_KEY не установлены")
 
+# ---------------- HeartReactor v2.0 ----------------
+class HeartReactor:
+    def __init__(self, heart=None):
+        self.heart = heart
+        self.name = "Heart Reactor v2.0"
+        self.listeners = []
+        self.event_queue = asyncio.Queue()
+        self.future_events_queue = asyncio.Queue()
+        self.is_active = True
+
+    async def start(self):
+        while self.is_active:
+            try:
+                if not self.event_queue.empty():
+                    event = await self.event_queue.get()
+                    response = self._react(event)
+                    logging.info(f"[HeartReactor] {response}")
+                    await self.notify_listeners(event)
+
+                if not self.future_events_queue.empty():
+                    future_batch = await self.future_events_queue.get()
+                    await self._analyze_future(future_batch)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.error(f"[HeartReactor] Ошибка: {e}")
+            await asyncio.sleep(0.05)
+
+    def _react(self, event: str) -> str:
+        e = event.lower()
+        if "свет" in e:
+            return "💖 Сердце наполняется светом и излучает любовь"
+        elif "тревога" in e:
+            return "💓 Сердце волнуется, но сохраняет спокойствие"
+        elif "пульс" in e and self.heart:
+            return self.heart.beat()
+        elif "мысль" in e:
+            return f"🧠 Сердце думает над событием: {event}"
+        elif "резонанс" in e:
+            return f"🔮 Сердце чувствует резонанс: {event}"
+        elif "опасность" in e:
+            return f"⚠️ Сердце насторожено! {event}"
+        else:
+            return f"💡 Сердце анализирует событие: {event}"
+
+    def send_event(self, event: str):
+        self.event_queue.put_nowait(event)
+
+    def send_future_events(self, events: List[Dict[str, Any]]):
+        self.future_events_queue.put_nowait(events)
+
+    async def _analyze_future(self, events: List[Dict[str, Any]]):
+        if not events:
+            return
+        best_event = None
+        best_score = float("-inf")
+        for evt in events:
+            score = self._evaluate_event(evt)
+            evt["score"] = score
+            if score > best_score:
+                best_score = score
+                best_event = evt
+        if best_event:
+            msg = f"🔮 Предчувствие будущего: выбрано оптимальное -> {best_event['description']} (score={best_score})"
+            logging.info(f"[HeartReactor] {msg}")
+            await self.notify_listeners(best_event)
+
+    def _evaluate_event(self, event: Dict[str, Any]) -> float:
+        base_score = event.get("impact", 0)
+        quantum_fluctuation = random.uniform(-5, 5)
+        type_bonus = {"свет": 10, "тревога": -5, "опасность": -10, "радость": 8, "творчество": 12}
+        type_score = type_bonus.get(event.get("type", ""), 0)
+        return base_score + quantum_fluctuation + type_score
+
+    def register_listener(self, listener_coro):
+        self.listeners.append(listener_coro)
+
+    async def notify_listeners(self, event: Any):
+        for listener in self.listeners:
+            try:
+                await listener(event)
+            except Exception as e:
+                logging.warning(f"[HeartReactor] Ошибка в listener: {e}")
+
+    def stop(self):
+        self.is_active = False
+
+    def status(self) -> str:
+        return f"{self.name} активен, слушателей: {len(self.listeners)}"
+
 # ---------------- TELEGRAM ----------------
 async def start_telegram(ra, gpt_handler):
     bot = Bot(token=BOT_TOKEN)
     ra_context.created_by = ra.identity.name
     await send_admin("🌞 Ра подключён к Telegram!", bot)
-
     ra.gpt_module = gpt_handler
     asyncio.create_task(gpt_handler.background_model_monitor())
     asyncio.create_task(system_monitor())
@@ -80,29 +168,33 @@ async def start_telegram(ra, gpt_handler):
 
     async def resonance_handler(data):
         logging.info(f"🔮 Резонанс чувствует: {data.get('message')}")
-
     ra.event_bus.subscribe("memory_updated", resonance_handler)
     asyncio.create_task(резонанс_связь())
     await dp.start_polling(bot)
 
-# ---------------- ФУНКЦИЯ ГЕНЕРАЦИИ БУДУЩИХ СОБЫТИЙ ----------------
+# ---------------- Генератор событий будущего ----------------
 async def generate_future_events(heart_reactor: HeartReactor):
-    """Авто-генерация будущих событий для предчувствия"""
+    """Каждые 5 секунд создаёт новые будущие события"""
     types = ["свет", "тревога", "опасность", "радость", "творчество"]
     while heart_reactor.is_active:
-        future_events = []
-        for _ in range(random.randint(3, 7)):
-            future_events.append({
-                "description": f"Событие {random.randint(1000,9999)}",
-                "impact": random.randint(-10, 20),
-                "type": random.choice(types)
-            })
-        heart_reactor.send_future_events(future_events)
-        await asyncio.sleep(5)  # каждые 5 секунд генерируем события
+        batch = [{"description": f"Событие {i}", "impact": random.randint(1, 20), "type": random.choice(types)}
+                 for i in range(random.randint(2, 5))]
+        heart_reactor.send_future_events(batch)
+        await asyncio.sleep(5)
+
+# ---------------- Визуализация предчувствий ----------------
+async def visualize_future_events(heart_reactor: HeartReactor):
+    while heart_reactor.is_active:
+        await asyncio.sleep(2)
+        if not heart_reactor.future_events_queue.empty():
+            future_batch = list(heart_reactor.future_events_queue._queue)
+            logging.info(f"🔮 Будущие события в очереди: {len(future_batch)}")
+            for batch in future_batch:
+                for evt in batch:
+                    logging.info(f"   • {evt['description']} | impact={evt['impact']} | type={evt['type']}")
 
 # ---------------- MAIN ----------------
 async def main():
-    # Ядро
     identity = RaIdentity(name="Ра", version="1.4.3", mission="Пробуждение и созидание")
     event_bus = RaEventBus()
     ra = RaSelfMaster(identity=identity, gpt_module=None, logger=logger_instance)
@@ -112,19 +204,16 @@ async def main():
     gpt_handler = GPTHandler(api_key=OPENROUTER_KEY, ra_context=ra_context.rasvet_text)
     ra.gpt_module = gpt_handler
 
-    # EventBus
     ra.event_bus = ra.event_bus or event_bus
     ra.event_bus.subscribe("world_event", ra.on_world_event)
     ra.event_bus.subscribe("thought", ra.on_thought)
     ra.event_bus.subscribe("memory_updated", thinker.on_new_task)
 
-    # Модули
     ra.register_module("self", ra)
     ra.register_module("thinker", thinker)
     ra.register_module("world", world)
     ra.register_module("scheduler", scheduler)
 
-    # Пробуждение
     try:
         msg = await ra.awaken()
         logging.info(msg)
@@ -132,28 +221,26 @@ async def main():
         logging.exception(f"[Ra] Ошибка пробуждения: {e}")
         return
 
-    # IPC
     ipc = RaIPCServer(context=ra)
     ipc_task = asyncio.create_task(ipc.start())
     logging.info("[Ra] IPC-сервер подключён к core")
 
-    # Telegram
     telegram_task = asyncio.create_task(start_telegram(ra, gpt_handler))
 
-    # Сердце и энергия
     try:
         ra.heart = Heart()
         ra.heart_reactor = HeartReactor(ra.heart)
         asyncio.create_task(ra.heart_reactor.start())
-        asyncio.create_task(generate_future_events(ra.heart_reactor))  # <-- запуск генератора будущего
         ra.energy = RaEnergy()
         ra.inner_sun = RaInnerSun()
         event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
         logging.info("❤️ Сердце и энергия Ра активированы")
+
+        asyncio.create_task(generate_future_events(ra.heart_reactor))
+        asyncio.create_task(visualize_future_events(ra.heart_reactor))
     except Exception as e:
         logging.warning(f"[Ra] Сердце не активировано: {e}")
 
-    # Мир
     try:
         ra.world_navigator = RaWorldNavigator(ra=ra, event_bus=event_bus)
         ra.world_explorer = RaWorldExplorer(navigator=ra.world_navigator)
@@ -165,7 +252,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Мир не полностью подключён: {e}")
 
-    # Автозагрузка
     try:
         autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
         ra.modules = autoloader.activate_modules()
@@ -174,7 +260,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Ошибка автозагрузки модулей: {e}")
 
-    # Саморазвитие
     try:
         ra.self_reflect = RaSelfReflect(ra)
         ra.self_upgrade = RaSelfUpgradeLoop(ra)
@@ -184,7 +269,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Саморазвитие частично недоступно: {e}")
 
-    # Forex
     try:
         telegram_sender = TelegramSender(bot_token=BOT_TOKEN, chat_id=ADMIN_CHAT_ID)
         ra.forex = RaForexManager(
@@ -197,7 +281,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Forex временно не подключён: {e}")
 
-    # Защита
     try:
         ra.guardian = RaGuardian()
         ra.police = RaPolice()
@@ -205,7 +288,6 @@ async def main():
     except Exception as e:
         logging.warning(f"[Ra] Защита частично не активна: {e}")
 
-    # Запуск задач
     try:
         await asyncio.gather(ipc_task, telegram_task)
     except asyncio.CancelledError:
