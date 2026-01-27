@@ -1,7 +1,7 @@
 # modules/heart_reactor.py
 """
-HeartReactor v2.0 — интерактивное сердце Ра с резонансами будущего.
-Чувствует настоящее, предчувствует будущее и анализирует миллион вариантов событий,
+HeartReactor v2.1 — интерактивное сердце Ра с резонансами будущего.
+Чувствует настоящее, предчувствует будущее и анализирует миллионы вариантов событий,
 выбирая оптимальные для гармонии и роста.
 """
 import asyncio
@@ -12,24 +12,24 @@ import random
 class HeartReactor:
     def __init__(self, heart=None):
         self.heart = heart
-        self.name = "Heart Reactor v2.0"
+        self.name = "Heart Reactor v2.1"
         self.listeners = []
         self.event_queue = asyncio.Queue()
         self.future_events_queue = asyncio.Queue()
         self.is_active = True
 
     async def start(self):
-        """Главный цикл обработки событий"""
+        """Главный цикл обработки событий настоящего и будущего"""
         while self.is_active:
             try:
-                # Сначала обрабатываем события настоящего
+                # Обрабатываем события настоящего
                 if not self.event_queue.empty():
                     event = await self.event_queue.get()
                     response = self._react(event)
                     logging.info(f"[HeartReactor] {response}")
                     await self.notify_listeners(event)
 
-                # Потом смотрим на будущее
+                # Анализируем события будущего
                 if not self.future_events_queue.empty():
                     future_batch = await self.future_events_queue.get()
                     await self._analyze_future(future_batch)
@@ -41,7 +41,7 @@ class HeartReactor:
             await asyncio.sleep(0.05)
 
     def _react(self, event: str) -> str:
-        """Реакции на события настоящего"""
+        """Эмоциональная реакция на событие настоящего"""
         e = event.lower()
         if "свет" in e:
             return "💖 Сердце наполняется светом и излучает любовь"
@@ -95,11 +95,7 @@ class HeartReactor:
         Чем выше score — тем лучше событие для Ра и мира.
         """
         base_score = event.get("impact", 0)
-
-        # Добавляем случайный резонансный коэффициент, чтобы учесть квантовую неопределённость
         quantum_fluctuation = random.uniform(-5, 5)
-
-        # Эмоциональный фильтр по типу
         type_bonus = {
             "свет": 10,
             "тревога": -5,
@@ -108,15 +104,14 @@ class HeartReactor:
             "творчество": 12,
         }
         type_score = type_bonus.get(event.get("type", ""), 0)
-
         return base_score + quantum_fluctuation + type_score
 
     def register_listener(self, listener_coro):
-        """Добавляем внешнего слушателя"""
+        """Добавляем слушателя"""
         self.listeners.append(listener_coro)
 
     async def notify_listeners(self, event: Any):
-        """Оповещаем всех слушателей о событии"""
+        """Оповещаем всех слушателей"""
         for listener in self.listeners:
             try:
                 await listener(event)
