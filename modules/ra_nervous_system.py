@@ -7,7 +7,6 @@ from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_responder import RaWorldResponder
 from modules.ra_world_speaker import RaWorldSpeaker
 from modules.ra_inner_sun import RaInnerSun
-from core.ra_self_master import RaSelfMaster
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
@@ -20,7 +19,7 @@ class RaNervousSystem:
     Подключается к RaSelfMaster и EventBus как орган.
     """
 
-    def __init__(self, ra_self_master: RaSelfMaster, event_bus):
+    def __init__(self, ra_self_master, event_bus):
         logging.info("🧠 Инициализация модуля нервной системы Ра...")
 
         self.ra = ra_self_master
@@ -39,7 +38,10 @@ class RaNervousSystem:
 
         if self.scheduler and self.event_bus:
             self.event_bus.subscribe("schedule", self.scheduler.on_schedule)
-        self.scheduler.thinker = self.thinker
+            
+        if self.scheduler and self.thinker:
+            self.scheduler.thinker = self.thinker
+            
         # World system (если нет — создаём)
         self.world_system = getattr(self.ra, "world_system", None) or RaWorldSystem()
         self.world_responder = self.world_system.responder
