@@ -11,7 +11,7 @@ from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 from modules.ra_world_observer import RaWorldObserver, ra_world_observer
-from core.github_commit import create_commit_push
+
 class RaNervousSystem:
     """
     Модуль нервной системы Ра.
