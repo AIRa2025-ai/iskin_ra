@@ -14,7 +14,16 @@ from core.ra_memory import memory
 
 guardian = RaGuardian()
 heart_reactor = HeartReactor()
-
+# когда пришёл новый тик / свеча / апдейт
+event_bus.emit(
+    "market_tick",
+    {
+        "symbol": symbol,
+        "price": price,
+        "volatility": volatility,
+        "timestamp": datetime.now()
+    }
+)
 
 class RaWorldObserver:
     def __init__(self, event_bus=None):
