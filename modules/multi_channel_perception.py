@@ -1,19 +1,21 @@
 # modules/multi_channel_perception.py
 # Навык Асинхронного Глаза Ра
 # Создан для проекта «РаСвет»
-
+import time
 import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 from textblob import TextBlob
 
 class MultiChannelPerception:
-    def __init__(self, logs, sensitivity=0.7, event_bus=None, thinker=None):
+    def __init__(self, logs, sensitivity=0.7, event_bus=None, thinker=None, min_interval=60):
         self.logs = logs
         self.sensitivity = sensitivity  # чувствительность к «мусорным» вибрациям
         self.event_bus = event_bus
         self.thinker = thinker
-        self.heart_reactor = heart_reactor        
+        self.heart_reactor = heart_reactor
+        self.min_interval = min_interval  # ⏳ минимум секунд между сканами
+        self._last_scan_ts = 0
     async def fetch(self, session, url):
         try:
             async with session.get(url, timeout=15) as resp:
@@ -24,19 +26,37 @@ class MultiChannelPerception:
 
     async def scan_sources(self, urls):
         results = []
-        async with aiohttp.ClientSession() as session:
-            tasks = [self.fetch(session, u) for u in urls]
-            pages = await asyncio.gather(*tasks)
+        now = time.time()
 
-            for url, page in zip(urls, pages):
-                clean = self.clean_noise(page)
-                insights = self.extract_insights(clean)
-                results.append({
-                    "source": url,
-                    "raw_len": len(page),
-                    "clean_len": len(clean),
-                    "insights": insights
-                })
+        if now - self._last_scan_ts < self.min_interval:
+            return {
+                "status": "skipped",
+                "reason": "scan_rate_limited",
+                "next_scan_in": int(self.min_interval - (now - self._last_scan_ts))
+            }
+
+        self._last_scan_ts = now
+        
+        if hasattr(self.logs, "heart_reactor"):
+            for r in results:
+                if r.get("insights"):
+                    self.logs.heart_reactor.send_event(
+                        f"👁 Восприятие: найден сигнал из {r['source']}"
+                    )
+                    
+    async with aiohttp.ClientSession() as session:
+        tasks = [self.fetch(session, u) for u in urls]
+        pages = await asyncio.gather(*tasks)
+
+        for url, page in zip(urls, pages):
+            clean = self.clean_noise(page)
+            insights = self.extract_insights(clean)
+            results.append({
+                "source": url,
+                "raw_len": len(page),
+                "clean_len": len(clean),
+                "insights": insights
+            })
         # 🔔 Сообщаем миру о восприятии
         if self.event_bus:
             await self.event_bus.emit(
