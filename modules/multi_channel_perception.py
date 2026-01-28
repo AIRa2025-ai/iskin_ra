@@ -8,10 +8,12 @@ from bs4 import BeautifulSoup
 from textblob import TextBlob
 
 class MultiChannelPerception:
-    def __init__(self, logs, sensitivity=0.7):
+    def __init__(self, logs, sensitivity=0.7, event_bus=None, thinker=None):
         self.logs = logs
         self.sensitivity = sensitivity  # чувствительность к «мусорным» вибрациям
-
+        self.event_bus = event_bus
+        self.thinker = thinker
+        self.heart_reactor = heart_reactor        
     async def fetch(self, session, url):
         try:
             async with session.get(url, timeout=15) as resp:
@@ -35,7 +37,24 @@ class MultiChannelPerception:
                     "clean_len": len(clean),
                     "insights": insights
                 })
+        # 🔔 Сообщаем миру о восприятии
+        if self.event_bus:
+            await self.event_bus.emit(
+                "perception_update",
+                {
+                    "channels": len(urls),
+                    "signals": results
+                }
+            )
 
+        # 🧠 Передаём мысли мыслителю
+        if self.thinker:
+            await self.thinker.process_world_message(
+                {
+                    "type": "perception",
+                    "data": results
+                }
+            )
         return results
 
     def clean_noise(self, text):
@@ -70,3 +89,8 @@ class MultiChannelPerception:
             "rare_words": rare,
             "sample": " ".join(words[:50])
         }
+        
+        if insights and self.heart_reactor:
+            self.heart_reactor.send_event(
+                "🌐 Восприятие мира: обнаружены значимые сигналы"
+            )
