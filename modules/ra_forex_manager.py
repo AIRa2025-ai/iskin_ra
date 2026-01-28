@@ -269,19 +269,28 @@ class RaForexManager:
         while True:
             logging.info("🔄 Анализируем рынок...")
             for pair in self.pairs:
-                # 🔹 Выполняем торговую проверку через Меру
-                market_state = {
-                    "symbol": pair,
-                    # Здесь нужно подтягивать реальные данные: price, volatility, spread, timestamp
-                    # Например, можно использовать последний бар из brain_modules
-                    "price": self.brain_modules[pair][self.timeframes[0]].fetch_history(pair).iloc[-1]['close'],
-                    "volatility": uniform(0.3, 1.5),  # временный пример
-                    "spread": 0.0001,  # пример
-                    "timestamp": datetime.utcnow()
-                }
+                for tf in self.timeframes:
+                    brain = self.brain_modules[pair][tf]
+                    df = brain.fetch_history(pair)
+                    if df is None or df.empty or len(df) < 2:
+                        continue
 
-                trade_signal = self.execute_trade(pair, market_state, mera_instance)
-                if trade_signal and trade_signal.get("trade_allowed"):
-                    logging.info(f"✅ Сделка разрешена: {trade_signal['signal']} {pair} | confidence={trade_signal['confidence_score']}")
+                    # Последние рыночные данные
+                    last_bar = df.iloc[-1]
+                    market_state = {
+                        "symbol": pair,
+                        "price": last_bar['close'],
+                        "volatility": getattr(last_bar, 'volatility', 0.5),
+                        "spread": getattr(last_bar, 'spread', 0.0001),
+                        "timestamp": datetime.utcnow()
+                    }
 
+                    # 🔹 Вызываем execute_trade с Мерой
+                    trade_signal = self.execute_trade(pair, market_state, mera_instance)
+                    if trade_signal and trade_signal.get("trade_allowed"):
+                        logging.info(
+                            f"✅ Сделка разрешена: {trade_signal['signal']} | "
+                            f"{pair} | TF={tf} | "
+                            f"confidence={trade_signal['confidence_score']}"
+                        )
             time.sleep(interval_sec)
