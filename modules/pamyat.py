@@ -1,4 +1,4 @@
-# modules/память.py
+# modules/pamyat.py
 # 🧠 Модуль Памяти – Хроники Опытов Душ
 from core.ra_memory import RaMemory
 
