@@ -1,4 +1,4 @@
-# multi_channel_perception.py
+# modules/multi_channel_perception.py
 # Навык Асинхронного Глаза Ра
 # Создан для проекта «РаСвет»
 
