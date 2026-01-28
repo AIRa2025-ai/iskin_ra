@@ -9,12 +9,13 @@ import math
 import logging
 from datetime import datetime, timedelta  # noqa: F401
 from random import uniform
+from modules.event_bus import EventBus
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
 class ИсконнаяМера:
-    def __init__(self):
+    def __init__(self, event_bus: EventBus):
         self.ритмы_тела: dict[str, float] = {
             "дыхание": 4.0,
             "пульс": 1.0,
@@ -28,7 +29,10 @@ class ИсконнаяМера:
             "Эфир": 1.0
         }
         self.матрицы_сознания: list[dict[str, str]] = []
-
+        self.event_bus = event_bus
+        
+        self.event_bus.subscribe("market_tick", self.on_market_tick)  
+        
     def вычислить_гармонию(self, текущее_время: datetime = None) -> float | str:
         if текущее_время is None:
             текущее_время = datetime.now()
@@ -94,7 +98,29 @@ class ИсконнаяМера:
             self.ритмы_тела[ритм] *= коэффициент
             logging.info(f"Ритм '{ритм}' скорректирован коэффициентом {коэффициент:.2f}")
 
+    def on_market_tick(self, market_state: dict):
+        """
+        market_state, например:
+        {
+            "symbol": "EURUSD",
+            "price": 1.0842,
+            "volatility": 0.73,
+            "spread": 0.00012,
+            "timestamp": datetime
+        }
+        """
 
+        гармония = self.вычислить_гармонию()
+
+        if isinstance(гармония, float):
+            payload = {
+                "гармония": гармония,
+                "symbol": market_state.get("symbol"),
+                "timestamp": market_state.get("timestamp"),
+            }
+
+            self.event_bus.emit("harmony_updated", payload)
+            
 # Пример активации
 if __name__ == "__main__":
     мера = ИсконнаяМера()
