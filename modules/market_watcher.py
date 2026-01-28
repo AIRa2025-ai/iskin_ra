@@ -22,7 +22,6 @@ class MarketWatcher:
         self.резонанс_характера = 1.0
         self.running = False
         self._task = None
-        self.резонанс_характера = 1.0  # коэффициент внутренней гармонии
 
     async def start(self):
         self.running = True
