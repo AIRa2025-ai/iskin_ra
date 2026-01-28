@@ -19,7 +19,7 @@ class MarketWatcher:
         self.pairs = pairs or ["EUR/USD", "GBP/USD"]
         self.notify = notify
         self.event_bus = event_bus
-
+        self.резонанс_характера = 1.0
         self.running = False
         self._task = None
         self.резонанс_характера = 1.0  # коэффициент внутренней гармонии
