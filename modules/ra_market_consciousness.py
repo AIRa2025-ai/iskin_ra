@@ -8,6 +8,8 @@ from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
 from core.telegram_sender import send_message
 
+event_bus.subscribe("harmony_updated", self.on_market_harmony)
+
 class RaMarketConsciousness:
     def __init__(self, symbol, timeframe, telegram_sender=None):
         self.symbol = symbol
@@ -116,6 +118,11 @@ class RaMarketConsciousness:
     def _send_signal(self, direction, score, reasons, row):
         confidence = min(score * 20, 95)
 
+    def on_market_harmony(self, data):
+        harmony = data["гармония"]
+
+        self.risk_multiplier = max(0.3, min(1.5, (harmony + 100) / 100))
+    
         message = f"""
 🔥 РаСвет | {self.symbol}
 📈 {direction}
