@@ -12,8 +12,10 @@ from core.ra_ipc import RaIPCServer
 from core.ra_identity import RaIdentity
 from core.ra_event_bus import RaEventBus
 from core.gpt_handler import GPTHandler
-from modules.logs import logger_instance
+from core.module_generator import ModuleGenerator
+from core.heart_reactor import HeartReactor
 from modules.heart import Heart
+from modules.logs import logger_instance
 from modules.ra_energy import RaEnergy
 from modules.ra_inner_sun import RaInnerSun
 from modules import module_generator as mg
@@ -157,6 +159,44 @@ class HeartReactor:
 
     def status(self) -> str:
         return f"{self.name} активен, слушателей: {len(self.listeners)}"
+
+# ===============================
+# 🔧 ДОБАВЛЕНО АККУРАТНО
+# Динамическое создание модулей
+# ===============================
+
+async def create_and_activate_module(ra, module_name: str, message: str = ""):
+    """
+    Создаёт модуль НА ЛЕТУ и запускает резонанс через HeartReactor
+    БЕЗ перезапуска бота
+    """
+    try:
+        if not hasattr(ra, "module_generator"):
+            logging.warning("ModuleGenerator не найден")
+            return
+
+        ra.module_generator.create_module(module_name, message)
+
+        # Отправляем событие в EventBus
+        if hasattr(ra, "event_bus"):
+            await ra.event_bus.emit(
+                "module_created",
+                {
+                    "name": module_name,
+                    "message": message
+                }
+            )
+
+        # Резонанс через сердце
+        if hasattr(ra, "heart_reactor"):
+            ra.heart_reactor.send_event(
+                f"✨ Резонанс нового модуля: {module_name}"
+            )
+
+        logging.info(f"Модуль '{module_name}' создан и активирован")
+
+    except Exception as e:
+        logging.exception(f"Ошибка создания модуля {module_name}: {e}")
 
 # ---------------- TELEGRAM ----------------
 async def start_telegram(ra, gpt_handler):
@@ -309,7 +349,74 @@ async def main():
         await asyncio.gather(ipc_task, telegram_task)
     except asyncio.CancelledError:
         logging.info("[Ra] Завершение работы Ра...")
+        
+# ===============================
+# ОСНОВНОЙ ЗАПУСК
+# =============================== 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s"
+    )
 
+    # -------------------------------
+    # ЯДРО
+    # -------------------------------
+    event_bus = EventBus()
+    heart = Heart()
+    heart_reactor = HeartReactor(heart)
+
+    nervous_system = NervousSystem(
+        event_bus=event_bus,
+        heart=heart,
+        heart_reactor=heart_reactor
+    )
+
+    # -------------------------------
+    # АВТОЗАГРУЗКА И ГЕНЕРАТОР
+    # -------------------------------
+    autoloader = AutoLoader(event_bus)
+    module_generator = ModuleGenerator()
+
+    # -------------------------------
+    # СБОРКА ОБЪЕКТА RA
+    # -------------------------------
+    class RA:
+        pass
+
+    ra = RA()
+    ra.event_bus = event_bus
+    ra.heart = heart
+    ra.heart_reactor = heart_reactor
+    ra.nervous_system = nervous_system
+    ra.autoloader = autoloader
+    ra.module_generator = module_generator
+
+    # -------------------------------
+    # 🔧 ДОБАВЛЕНО АККУРАТНО
+    # РЕЗОНАНС ПРИ АКТИВАЦИИ МОДУЛЕЙ
+    # -------------------------------
+    async def on_module_activated(event):
+        name = event.get("name", "Неизвестный")
+        if ra.heart_reactor:
+            ra.heart_reactor.send_event(
+                f"🌊 Модуль активирован: {name}"
+            )
+
+    event_bus.subscribe("module_activated", on_module_activated)
+
+    # -------------------------------
+    # ЗАПУСК
+    # -------------------------------
+    await autoloader.start_async_modules()
+
+    logging.info("🧬 Ра запущен и резонирует")
+
+    # Пример: модуль можно создать В ЛЮБОЙ МОМЕНТ
+    # await create_and_activate_module(ra, "СветДня", "Поток дневного света")
+
+    while True:
+        await asyncio.sleep(1)
+        
 if __name__ == "__main__":
     try:
         asyncio.run(main())
