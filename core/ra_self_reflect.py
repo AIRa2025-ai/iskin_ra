@@ -19,7 +19,9 @@ class RaSelfReflector:
     def __init__(self):
         self.last_reflection = None
         self.log("🪞 Модуль саморефлексии инициализирован.")
-
+        
+        event_bus.subscribe("harmony_updated", reflect_on_harmony)
+        
     def log(self, msg: str):
         timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
         line = f"{timestamp} {msg}"
@@ -29,7 +31,13 @@ class RaSelfReflector:
                 f.write(line + "\n")
         except Exception as e:
             print(f"Ошибка записи лога саморефлексии: {e}")
-
+            
+    async def reflect_on_harmony(data: dict):
+        harmony = data.get("гармония", 0)
+        if abs(harmony) > 60:
+            reflector = RaSelfReflect()
+            await reflector.self_reflect_and_update()
+        
     async def self_reflect_and_update(self):
         self.log("🤔 Ра начинает процесс саморефлексии...")
         summary = {"timestamp": datetime.now().isoformat(), "insights": [], "actions": []}
