@@ -56,7 +56,7 @@ class RaMarketConsciousness:
 
         # Подписка на события
         if hasattr(self.event_bus, "subscribe"):
-            self.event_bus.subscribe("harmony_updated", self.on_harmony_signal)
+            self.event_bus.subscribe("harmony_updated", self.on_market_harmony)
             
     # === ОСНОВА ===
     def load_market_data(self, df: pd.DataFrame):
