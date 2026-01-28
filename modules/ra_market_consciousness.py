@@ -15,7 +15,9 @@ class RaMarketConsciousness:
         self.telegram = telegram_sender
         self.last_signal_time = None
         self.last_snapshots = {}
-
+        
+        event_bus.subscribe("harmony_updated", self.on_market_harmony)
+        
     def perceive(self, snapshot):
         if not snapshot:
             return None
