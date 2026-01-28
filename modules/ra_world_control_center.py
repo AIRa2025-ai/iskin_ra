@@ -7,7 +7,9 @@ from pathlib import Path
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
 from core.ra_event_bus import RaEventBus
+
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_observer import RaWorldObserver
 from modules.ra_guardian import RaGuardian
@@ -60,6 +62,8 @@ class DummyMaster:
 master = DummyMaster()
 ra_world_system = RaWorldSystem(master)
 ra_world_system.set_event_bus(event_bus)
+
+event_bus.subscribe("harmony_updated", self.on_harmony_update)
 
 # --- Startup / Shutdown ---
 @app.on_event("startup")
@@ -122,3 +126,13 @@ async def clear_logs():
     logs.clear()
     log("🗑 Логи очищены")
     return {"status": "ok"}
+
+def on_harmony_update(self, data):
+    harmony = data["гармония"]
+
+    if harmony < -40:
+        self.world_mode = "🛑 Сдерживание"
+    elif harmony > 40:
+        self.world_mode = "🔥 Активное творение"
+    else:
+        self.world_mode = "🌀 Наблюдение"
