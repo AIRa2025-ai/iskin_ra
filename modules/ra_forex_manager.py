@@ -256,8 +256,32 @@ class RaForexManager:
         logging.info(f"[RaForexManager] Сигнал сохранён: {signal['pair']}")
 
     # ================= ЦИКЛ =================
-    def run_loop(self, interval_sec=900):
+    def run_loop(self, mera_instance, interval_sec=900):
+        """
+        Основной цикл анализа рынка с интеграцией ИсконнойМеры.
+        - mera_instance: экземпляр ИсконнойМеры для проверки гармонии
+        - interval_sec: интервал между проверками
+        """
+        if not mera_instance:
+            logging.warning("[RaForexManager] ❌ Mera instance не передан! Торговля невозможна.")
+            return
+
         while True:
             logging.info("🔄 Анализируем рынок...")
-            self.analyze_all()
+            for pair in self.pairs:
+                # 🔹 Выполняем торговую проверку через Меру
+                market_state = {
+                    "symbol": pair,
+                    # Здесь нужно подтягивать реальные данные: price, volatility, spread, timestamp
+                    # Например, можно использовать последний бар из brain_modules
+                    "price": self.brain_modules[pair][self.timeframes[0]].fetch_history(pair).iloc[-1]['close'],
+                    "volatility": uniform(0.3, 1.5),  # временный пример
+                    "spread": 0.0001,  # пример
+                    "timestamp": datetime.utcnow()
+                }
+
+                trade_signal = self.execute_trade(pair, market_state, mera_instance)
+                if trade_signal and trade_signal.get("trade_allowed"):
+                    logging.info(f"✅ Сделка разрешена: {trade_signal['signal']} {pair} | confidence={trade_signal['confidence_score']}")
+
             time.sleep(interval_sec)
