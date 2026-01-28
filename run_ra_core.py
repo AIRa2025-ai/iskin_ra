@@ -16,6 +16,7 @@ from modules.logs import logger_instance
 from modules.heart import Heart
 from modules.ra_energy import RaEnergy
 from modules.ra_inner_sun import RaInnerSun
+from modules import module_generator as mg
 
 # Мир
 from modules.ra_world_observer import RaWorldObserver, RaWorld
@@ -27,6 +28,7 @@ from modules.ra_world_speaker import RaWorldSpeaker
 # Нервная система и мышление
 from modules.ra_thinker import RaThinker
 from modules.ra_autoloader import RaAutoloader
+from modules.ra_nervous_system import RaNervousSystem
 
 # Саморазвитие
 from modules.ra_self_learning import RaSelfLearning
@@ -72,7 +74,7 @@ git_keeper = RaGitKeeper(repo_path=".")
 knowledge = RaKnowledge(knowledge_dir="knowledge")
 thinker = RaThinker(master=master, file_consciousness=file_core.manager, gpt_module=gpt_module, event_bus=event_bus)
 scheduler = RaScheduler(thinker=thinker, upgrade_loop=thinker, event_bus=event_bus)
-
+mg.создать_модуль("СветДня", "Поток света активирован")
 # ---------------- HeartReactor v2.0 ----------------
 class HeartReactor:
     def __init__(self, heart=None):
@@ -199,6 +201,12 @@ async def visualize_future_events(heart_reactor: HeartReactor):
             for batch in future_batch:
                 for evt in batch:
                     logging.info(f"   • {evt['description']} | impact={evt['impact']} | type={evt['type']}")
+                    
+# ---------------- Резонанс модулей ----------------
+async def new_module_resonance(event):
+    ra.heart_reactor.send_event(f"Резонанс от модуля: {event['name']}")
+
+ra.event_bus.subscribe("module_activated", new_module_resonance)
 
 # ---------------- MAIN ----------------
 async def main():
@@ -209,13 +217,15 @@ async def main():
     world = RaWorld()
     scheduler = RaScheduler()
     gpt_handler = GPTHandler(api_key=OPENROUTER_KEY, ra_context=ra_context.rasvet_text)
+    # ---------------- Нервная система ----------------
+    ra.nervous_system = RaNervousSystem(ra_self_master=ra, event_bus=event_bus)
     ra.gpt_module = gpt_handler
 
     ra.event_bus = ra.event_bus or event_bus
     ra.event_bus.subscribe("world_event", ra.on_world_event)
     ra.event_bus.subscribe("thought", ra.on_thought)
     ra.event_bus.subscribe("memory_updated", thinker.on_new_task)
-
+    
     ra.register_module("self", ra)
     ra.register_module("thinker", thinker)
     ra.register_module("world", world)
@@ -242,7 +252,8 @@ async def main():
         ra.inner_sun = RaInnerSun()
         event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
         logging.info("❤️ Сердце и энергия Ра активированы")
-
+        
+        asyncio.create_task(ra.nervous_system.start())
         asyncio.create_task(generate_future_events(ra.heart_reactor))
         asyncio.create_task(visualize_future_events(ra.heart_reactor))
     except Exception as e:
