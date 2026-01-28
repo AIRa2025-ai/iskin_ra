@@ -9,7 +9,9 @@ from ta.volatility import AverageTrueRange
 from core.telegram_sender import send_message
 
 class RaMarketConsciousness:
-    def __init__(self, symbol, timeframe, telegram_sender=None):
+    def __init__(self, symbol, timeframe, event_bus, telegram_sender=None):
+        self.event_bus = event_bus
+        self.event_bus.subscribe("harmony_updated", self.on_market_harmony)
         self.symbol = symbol
         self.timeframe = timeframe
         self.telegram = telegram_sender
@@ -28,7 +30,7 @@ class RaMarketConsciousness:
         signal = self.analyze(snapshot)
         return signal
 
-    def analyze(self, snapshot):
+    def analyze_snapshot(self, snapshot):
         price = snapshot["price"]
         high = snapshot["high"]
         low = snapshot["low"]
@@ -91,7 +93,7 @@ class RaMarketConsciousness:
         )
 
     # === АНАЛИЗ ===
-    def analyze(self):
+    def analyze_dataframe(self):
         row = self.df.iloc[-1]
         score = 0
         reasons = []
@@ -121,10 +123,8 @@ class RaMarketConsciousness:
 
     def on_market_harmony(self, data):
         harmony = data["гармония"]
-
         self.risk_multiplier = max(0.3, min(1.5, (harmony + 100) / 100))
     
-        message = f"""
 🔥 РаСвет | {self.symbol}
 📈 {direction}
 
