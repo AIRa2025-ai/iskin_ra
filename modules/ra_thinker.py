@@ -262,6 +262,9 @@ class RaThinker:
     async def on_new_task(self, data):
         print("[RaThinker] Думаю над задачей:", data)
 
+        if isinstance(data, str):
+            await self.check_need_for_new_module(data)
+
     async def process_world_message(self, message):
         self.last_world_event = message
 
