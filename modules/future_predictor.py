@@ -16,14 +16,19 @@ class FuturePredictor:
         self.last_prediction_time = datetime.min
         self.limit_seconds = limit_seconds
         self.doubt_cache = set()
-
-        # Лог рождения органа
-        asyncio.create_task(self.log_birth())
+        self.prediction_queue = asyncio.Queue()
 
         # 🔗 Подписка на события мира
         if hasattr(self.context, "event_bus"):
             self.context.event_bus.subscribe("world_message", self.on_world_event)
 
+        # Лог рождения органа
+        asyncio.create_task(self.log_birth())
+        asyncio.create_task(self.process_queue())
+
+    # -------------------------------
+    # Жизнь и очередь
+    # -------------------------------
     async def log_birth(self):
         msg = f"🌱 Родился орган FuturePredictor в {datetime.now().isoformat()}"
         self.prediction_history.append(msg)
@@ -36,6 +41,12 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
         logging.info(msg)
 
+    async def process_queue(self):
+        while True:
+            prediction_task = await self.prediction_queue.get()
+            await prediction_task
+            await asyncio.sleep(0.1)
+
     async def start(self):
         self.is_active = True
         logging.info("🚀 FuturePredictor запущен")
@@ -47,18 +58,22 @@ class FuturePredictor:
         self.is_active = False
         logging.info("🛑 FuturePredictor остановлен")
 
+    # -------------------------------
+    # Основная генерация предсказаний
+    # -------------------------------
     async def generate_prediction(self):
         now = datetime.now()
         if (now - self.last_prediction_time).total_seconds() < self.limit_seconds:
             return
 
-        # Простейшая генерация события
         types = ["финансы", "лотерея", "глобальные события", "погода", "творчество"]
         chosen_type = random.choice(types)
         prediction_text = f"🔮 Предсказание ({chosen_type}) в {now.strftime('%H:%M:%S')}: событие {random.randint(1,100)} вероятно произойдет."
 
-        if prediction_text in self.doubt_cache:
+        if self._is_redundant(prediction_text) or prediction_text in self.doubt_cache:
             return
+
+        prediction_text = self._emotional_tint(prediction_text)
         self.doubt_cache.add(prediction_text)
         self.prediction_history.append(prediction_text)
         self.last_prediction_time = now
@@ -72,12 +87,9 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
         logging.info(prediction_text)
 
-    async def on_world_event(self, message):
-        """
-        Генерируем предсказание на событие мира
-        """
-        await self.predict_on_demand(source_name="world_event", category="глобальные события")
-
+    # -------------------------------
+    # Предсказания по запросу
+    # -------------------------------
     async def predict_on_demand(self, source_name="user_request", category=None):
         now = datetime.now()
         if (now - self.last_prediction_time).total_seconds() < self.limit_seconds:
@@ -97,8 +109,10 @@ class FuturePredictor:
         else:
             prediction_text = await self._global_event_prediction()
 
-        if prediction_text in self.doubt_cache:
+        if self._is_redundant(prediction_text) or prediction_text in self.doubt_cache:
             return None
+
+        prediction_text = self._emotional_tint(prediction_text)
         self.doubt_cache.add(prediction_text)
         self.prediction_history.append(prediction_text)
         self.last_prediction_time = now
@@ -113,6 +127,23 @@ class FuturePredictor:
 
         logging.info(prediction_text)
         return prediction_text
+
+    # -------------------------------
+    # Реакция на события мира
+    # -------------------------------
+    async def on_world_event(self, message):
+        category = None
+        msg_lower = message.lower()
+        if "валюта" in msg_lower:
+            category = "валюты"
+        elif "погода" in msg_lower:
+            category = "естественные явления"
+        elif "лотерея" in msg_lower:
+            category = "лотерея"
+        else:
+            category = "глобальные события"
+
+        await self.prediction_queue.put(self.predict_on_demand(source_name="world_event", category=category))
 
     # -------------------------------
     # Виды предсказаний
@@ -151,6 +182,27 @@ class FuturePredictor:
         location = random.choice(locations)
         return f"🌪 Естественные явления: {location} ожидается {event}."
 
+    async def _hybrid_prediction(self):
+        p1 = await self._astro_prediction()
+        p2 = await self._forex_prediction()
+        return f"🔗 Синтез: {p1} | {p2}"
+
+    # -------------------------------
+    # Вспомогательные функции
+    # -------------------------------
+    def _emotional_tint(self, text):
+        if any(word in text for word in ["катастрофа", "буря", "политическая нестабильность"]):
+            return f"⚠️ {text}"
+        elif any(word in text for word in ["успешный проект", "финансовая удача"]):
+            return f"✨ {text}"
+        return text
+
+    def _is_redundant(self, text):
+        return any(text in old for old in self.prediction_history[-10:])  # последние 10
+
+    # -------------------------------
+    # Статус органа
+    # -------------------------------
     def status(self):
         return {
             "active": self.is_active,
