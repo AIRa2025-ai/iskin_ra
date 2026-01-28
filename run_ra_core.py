@@ -13,6 +13,7 @@ from core.ra_identity import RaIdentity
 from core.ra_event_bus import RaEventBus
 from core.gpt_handler import GPTHandler
 
+from modules.multi_channel_perception import MultiChannelPerception
 from modules.heart import Heart
 from modules.logs import logger_instance
 from modules.ra_energy import RaEnergy
@@ -262,7 +263,12 @@ async def main():
     # HEART
     ra.heart = Heart()
     ra.heart_reactor = HeartReactor(ra.heart)
-
+    
+    ra.perception = MultiChannelPerception(
+        logs=ra,
+        sensitivity=0.7,
+        min_interval=120  # раз в 2 минуты
+    )
     # ENERGY
     ra.energy = RaEnergy()
     ra.inner_sun = RaInnerSun()
