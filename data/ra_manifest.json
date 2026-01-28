@@ -41,7 +41,7 @@
     "mera_rasveta.py",
     "module_generator.py",
     "multi_channel_perception.py",
-    "my_module.py",
+    "future_predictor.py",
     "pamyat.py",
     "pitanie_svetom.py",
     "ra_autoloader.py",
