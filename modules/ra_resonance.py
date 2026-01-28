@@ -4,13 +4,18 @@ import random
 import logging
 
 class RaResonance:
-    def __init__(self):
-        self._task = None
+    def __init__(self, event_bus):
+        self._task = None        
+        self.logger = logging.getLogger("RaResonance")
+        self.event_bus = event_bus
         self._active = False
         self._loop = asyncio.get_event_loop()
-        self.logger = logging.getLogger("RaResonance")
-        resonance = RaResonance()
-        event_bus.subscribe("harmony_updated", resonance.on_harmony_update)
+        self.event_bus.subscribe(
+            "harmony_updated",
+            self.on_harmony_update
+        )
+        res = RaResonance(event_bus)
+        res.start()
         resonance.start()
 
     async def on_harmony_update(self, data: dict):
