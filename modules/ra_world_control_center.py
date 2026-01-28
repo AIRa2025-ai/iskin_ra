@@ -54,6 +54,23 @@ def log(msg: str):
     if len(logs) > 500:
         logs.pop(0)
 
+class RaWorldControlCenter:
+    def __init__(self, event_bus):
+        self.world_mode = "🌀 Наблюдение"
+        event_bus.subscribe("harmony_updated", self.on_harmony_update)
+        
+control_center = RaWorldControlCenter(event_bus)
+
+    def on_harmony_update(self, data):
+        harmony = data["гармония"]
+
+        if harmony < -40:
+            self.world_mode = "🛑 Сдерживание"
+        elif harmony > 40:
+            self.world_mode = "🔥 Активное творение"
+        else:
+            self.world_mode = "🌀 Наблюдение"
+            
 class DummyMaster:
     def __init__(self):
         import logging
@@ -62,8 +79,6 @@ class DummyMaster:
 master = DummyMaster()
 ra_world_system = RaWorldSystem(master)
 ra_world_system.set_event_bus(event_bus)
-
-event_bus.subscribe("harmony_updated", self.on_harmony_update)
 
 # --- Startup / Shutdown ---
 @app.on_event("startup")
