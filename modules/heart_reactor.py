@@ -17,7 +17,13 @@ class HeartReactor:
         self.event_queue = asyncio.Queue()
         self.future_events_queue = asyncio.Queue()
         self.is_active = True
+        event_bus = EventBus()
 
+        heart = HeartReactor()
+        event_bus.subscribe("harmony_updated", heart.on_harmony_update)
+
+        asyncio.create_task(heart.start())
+        
     async def start(self):
         """Главный цикл обработки событий настоящего и будущего"""
         while self.is_active:
@@ -118,6 +124,20 @@ class HeartReactor:
             except Exception as e:
                 logging.warning(f"[HeartReactor] Ошибка в listener: {e}")
 
+    async def on_harmony_update(self, data: dict):
+        harmony = data.get("гармония")
+        if harmony is None:
+            return
+
+        if harmony > 40:
+            msg = f"🔥 Сердце чувствует подъём гармонии ({harmony})"
+        elif harmony < -40:
+            msg = f"⚠️ Сердце чувствует спад гармонии ({harmony})"
+        else:
+            msg = f"🌀 Сердце удерживает баланс ({harmony})"
+
+        logging.info(f"[HeartReactor] {msg}")
+        
     def stop(self):
         """Останавливаем HeartReactor"""
         self.is_active = False
