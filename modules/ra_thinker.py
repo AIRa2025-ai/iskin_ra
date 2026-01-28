@@ -292,3 +292,49 @@ class RaThinker:
 
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
+
+    async def check_need_for_new_module(self, context: str):
+        """
+        Проверяет: не нужен ли Ра новый модуль
+        """
+        triggers = {
+            "анализ рынка": "MarketSense",
+            "защита": "ShieldCore",
+            "память": "DeepMemory",
+            "обучение": "LearningSeed",
+            "наблюдение": "WorldWatcher",
+            "резонанс": "ResonanceNode"
+        }
+
+        for key, module_name in triggers.items():
+            if key in context.lower():
+                if not self.master.has_module(module_name):
+                    await self._request_module_creation(module_name, context)
+                    
+    # Создание модуля по желанию Ра
+    async def _request_module_creation(self, module_name: str, reason: str):
+        self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
+
+        # Сообщаем сердцу
+        if hasattr(self.master, "heart_reactor"):
+            self.master.heart_reactor.send_event(
+                f"⚡ Нехватка функции → требуется модуль {module_name}"
+            )
+
+        # Создание модуля
+        try:
+            from modules import module_generator as mg
+            mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
+
+            # Сообщаем системе
+            if self.event_bus:
+                await self.event_bus.emit(
+                    "module_created",
+                    {
+                        "name": module_name,
+                        "reason": reason,
+                        "auto": True
+                    }
+                )
+        except Exception as e:
+            self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
