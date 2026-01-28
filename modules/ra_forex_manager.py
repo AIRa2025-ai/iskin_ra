@@ -25,11 +25,14 @@ class TelegramSender:
 
 # ================= RA FOREX MANAGER =================
 class RaForexManager:
-    def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json'):
+    def __init__(self, pairs=None, timeframes=None, telegram_sender=None, log_file='forex_signals.json', event_bus=None):
         self.pairs = pairs or ['EURUSD', 'GBPUSD']
         self.timeframes = timeframes or ['M15', 'H1']
         self.telegram = telegram_sender
         self.log_file = log_file
+        self.event_bus = event_bus
+        if self.event_bus:
+            self.event_bus.subscribe("trade_permission", self.on_trade_permission)
 
         self.brain_modules = {}
         self.ra_modules = {}
@@ -160,7 +163,86 @@ class RaForexManager:
             f"Основания:\n- " + "\n- ".join(signal['reasons'])
         )
         self.telegram.send(msg)
+        
+    # ================= TRADE PERMISSION =================
+    def on_trade_permission(self, payload):
+        """
+        payload = {
+            'symbol': 'EURUSD',
+            'timestamp': ...,
+            'trade_allowed': True/False,
+            'confidence_score': 0.0-1.0,
+            'market_phase': 'flat/impulse/breakout',
+            'harmony_direction': '↑/↓/→'
+        }
+        """
+        symbol = payload.get("symbol")
+        allowed = payload.get("trade_allowed", False)
+        confidence = payload.get("confidence_score", 0)
 
+        # Решение о сделке: порог confidence > 0.6 и разрешение True
+        if allowed and confidence >= 0.6:
+            logging.info(f"[RaForexManager] Разрешение на сделку: {symbol} | confidence={confidence}")
+            # Здесь можно инициировать открытие сделки
+            self.execute_trade(symbol, payload)
+        else:
+            logging.info(f"[RaForexManager] Сделка не разрешена: {symbol} | confidence={confidence}")
+
+    def execute_trade(self, symbol, market_state, mera_instance):
+        """
+        Реальный запуск анализа и проверка разрешения на сделку через Меру.
+        - market_state: dict с полями symbol, price, volatility, spread, timestamp
+        - mera_instance: экземпляр ИсконнойМеры
+        """
+        if not mera_instance:
+            logging.warning(f"[RaForexManager] ❌ Мера не передана, торговля запрещена для {symbol}")
+            return None
+
+        # 1️⃣ Вычисляем гармонию и рыночные параметры
+        base_harmony = mera_instance.вычислить_гармонию()
+        if base_harmony is None:
+            logging.info(f"[RaForexManager] ⚠️ Гармония неактивна, торговля запрещена для {symbol}")
+            return None
+
+        market_coef = mera_instance.оценить_состояние_рынка(market_state)
+        harmony = round(base_harmony * market_coef, 2)
+
+        phase = mera_instance.определить_market_phase(market_state)
+        direction = mera_instance.определить_направление(harmony)
+        allow_trade = mera_instance.разрешить_сделку(harmony, phase, direction)
+
+        # 2️⃣ Анализ пары через RaForexManager
+        signal_data = self.cross_tf_signal(symbol)
+        if not signal_data:
+            logging.info(f"[RaForexManager] ⚠️ Нет консенсусного сигнала по {symbol}")
+            return None
+
+        # 3️⃣ Вводим confidence_score (на базе гармонии и рыночного фазового согласования)
+        confidence_score = 0.0
+        if allow_trade:
+            confidence_score = min(1.0, max(0.0, harmony / 100))  # 0..1
+        signal_data['confidence_score'] = round(confidence_score, 2)
+        signal_data.update({
+            "harmony": harmony,
+            "base_harmony": base_harmony,
+            "market_phase": phase,
+            "harmony_direction": direction,
+            "trade_allowed": allow_trade,
+            "market_coef": round(market_coef, 3),
+        })
+
+        # 4️⃣ Логируем и возвращаем сигнал
+        logging.info(
+            f"[RaForexManager] 🔥 Trade check {symbol} | "
+            f"H={harmony} {direction} | phase={phase} | "
+            f"trade={'YES' if allow_trade else 'NO'} | confidence={confidence_score:.2f}"
+        )
+
+        # Можно здесь добавить реальный брокерский вызов, если allow_trade = True
+        # Например: self.broker.open_trade(signal_data)
+
+        return signal_data
+        
     # ================= ЛОГ =================
     def log_signal(self, signal):
         try:
