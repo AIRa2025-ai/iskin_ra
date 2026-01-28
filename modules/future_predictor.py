@@ -83,12 +83,10 @@ class FuturePredictor:
     async def start(self):
         self.is_active = True
         logging.info("🚀 FuturePredictor запущен")
-        while self.is_active:
-            await self.generate_prediction()
-            await asyncio.sleep(5)
+
         # Запуск таймера синтеза
         asyncio.create_task(self.start_hybrid_timer(interval_seconds=3600))  # раз в час
-    
+
         while self.is_active:
             await self.generate_prediction()
             await asyncio.sleep(5)
