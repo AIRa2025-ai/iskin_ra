@@ -37,7 +37,10 @@ class RaThinker:
         self.thoughts = []
         self.last_world_event = None
         self.event_bus = event_bus
-
+        # 🧬 Контроль автосоздания модулей
+        self.module_request_history = {}
+        self.last_module_creation_time = None
+        
         self.logger = master.logger if hasattr(master, "logger") else logging
 
         if hasattr(self.logger, "on"):
@@ -300,6 +303,15 @@ class RaThinker:
         """
         Проверяет: не нужен ли Ра новый модуль
         """
+        from time import time
+
+        now = time()
+
+        # ⏳ Лимит: не чаще одного модуля в 10 минут
+        if self.last_module_creation_time:
+            if now - self.last_module_creation_time < 600:
+                return
+                
         triggers = {
             "анализ рынка": "MarketSense",
             "защита": "ShieldCore",
@@ -311,8 +323,20 @@ class RaThinker:
 
         for key, module_name in triggers.items():
             if key in context.lower():
+                count = self.module_request_history.get(module_name, 0) + 1
+                self.module_request_history[module_name] = count
+
+                # 🤔 Сомнение: идея должна повториться минимум 2 раза
+                if count < 2:
+                    self.logger.info(
+                        f"🤔 Сомнение: {module_name} предложен {count}/2 раз"
+                    )
+                    return
+
                 if not self.master.has_module(module_name):
                     await self._request_module_creation(module_name, context)
+                    self.last_module_creation_time = now
+                    self.module_request_history[module_name] = 0
                     
     # Создание модуля по желанию Ра
     async def _request_module_creation(self, module_name: str, reason: str):
@@ -338,6 +362,18 @@ class RaThinker:
                         "reason": reason,
                         "auto": True
                     }
+            # 📜 Лог рождения органа в память
+            if memory and hasattr(memory, "append"):
+                await memory.append(
+                    "module_birth",
+                    {
+                        "module": module_name,
+                        "reason": reason,
+                        "time": datetime.now().isoformat()
+                    },
+                    source="RaThinker",
+                    layer="system"
                 )
         except Exception as e:
             self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
+            
