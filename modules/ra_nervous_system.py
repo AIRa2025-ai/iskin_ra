@@ -55,6 +55,7 @@ class RaNervousSystem:
 
         # Подписка на события
         if hasattr(self.event_bus, "subscribe"):
+            self.event_bus.subscribe("harmony_updated", self.on_harmony_signal)
             self.event_bus.subscribe("observer_tick", self._on_observer_tick)
             self.event_bus.subscribe("world_message", self._on_world_message)
 
