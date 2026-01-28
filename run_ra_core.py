@@ -12,8 +12,7 @@ from core.ra_ipc import RaIPCServer
 from core.ra_identity import RaIdentity
 from core.ra_event_bus import RaEventBus
 from core.gpt_handler import GPTHandler
-from core.module_generator import ModuleGenerator
-from core.heart_reactor import HeartReactor
+
 from modules.heart import Heart
 from modules.logs import logger_instance
 from modules.ra_energy import RaEnergy
@@ -144,8 +143,15 @@ class HeartReactor:
         type_score = type_bonus.get(event.get("type", ""), 0)
         return base_score + quantum_fluctuation + type_score
 
-    def register_listener(self, listener_coro):
-        self.listeners.append(listener_coro)
+    def send_event(self, event: str):
+        self.event_queue.put_nowait(event)
+
+    async def notify(self, event):
+        for listener in self.listeners:
+            await listener(event)
+
+    def register_listener(self, coro):
+        self.listeners.append(coro)
 
     async def notify_listeners(self, event: Any):
         for listener in self.listeners:
@@ -201,17 +207,15 @@ async def create_and_activate_module(ra, module_name: str, message: str = ""):
 # ---------------- TELEGRAM ----------------
 async def start_telegram(ra, gpt_handler):
     bot = Bot(token=BOT_TOKEN)
-    ra_context.created_by = ra.identity.name
-    await send_admin("🌞 Ра подключён к Telegram!", bot)
+    await send_admin("🌞 Ра пробуждён", bot)
+
     ra.gpt_module = gpt_handler
     asyncio.create_task(gpt_handler.background_model_monitor())
     asyncio.create_task(system_monitor())
-    dp.include_router(router)
 
-    async def resonance_handler(data):
-        logging.info(f"🔮 Резонанс чувствует: {data.get('message')}")
-    ra.event_bus.subscribe("memory_updated", resonance_handler)
+    dp.include_router(router)
     asyncio.create_task(резонанс_связь())
+
     await dp.start_polling(bot)
 
 # ---------------- Генератор событий будущего ----------------
@@ -238,13 +242,15 @@ async def visualize_future_events(heart_reactor: HeartReactor):
 async def main():
     identity = RaIdentity(name="Ра", version="1.4.3", mission="Пробуждение и созидание")
     event_bus = RaEventBus()
-    ra = RaSelfMaster(identity=identity, gpt_module=None, logger=logger_instance)
 
-    # Создаём и подключаем мышление и Scheduler
+    ra = RaSelfMaster(identity=identity, gpt_module=None, logger=logger_instance)
+    ra.event_bus = event_bus
+
+    # THINKING
     thinker = RaThinker(master=ra, event_bus=event_bus)
     scheduler = RaScheduler(thinker=thinker, upgrade_loop=thinker, event_bus=event_bus)
-    
-    # Мир
+
+    # WORLD
     world = RaWorld()
     ra.world_navigator = RaWorldNavigator(ra=ra, event_bus=event_bus)
     ra.world_explorer = RaWorldExplorer(navigator=ra.world_navigator)
@@ -252,170 +258,60 @@ async def main():
     ra.world_observer = RaWorldObserver()
     ra.world_responder = RaWorldResponder()
     ra.world_speaker = RaWorldSpeaker()
-    
-    # GPT Handler
+
+    # HEART
+    ra.heart = Heart()
+    ra.heart_reactor = HeartReactor(ra.heart)
+
+    # ENERGY
+    ra.energy = RaEnergy()
+    ra.inner_sun = RaInnerSun()
+
+    # NERVOUS SYSTEM
+    ra.nervous_system = RaNervousSystem(ra, event_bus)
+
+    # GPT
     gpt_handler = GPTHandler(api_key=OPENROUTER_KEY, ra_context=ra_context.rasvet_text)
     ra.gpt_module = gpt_handler
 
-    # Nervous System
-    ra.nervous_system = RaNervousSystem(ra_self_master=ra, event_bus=event_bus)
-    
-    # Heart & Energy
-    ra.heart = Heart()
-    ra.heart_reactor = HeartReactor(ra.heart)
-    ra.energy = RaEnergy()
-    ra.inner_sun = RaInnerSun()
-    
-    # Подписки
-    ra.event_bus = ra.event_bus or event_bus
-    ra.event_bus.subscribe("world_event", ra.on_world_event)
-    ra.event_bus.subscribe("thought", ra.on_thought)
-    ra.event_bus.subscribe("memory_updated", thinker.on_new_task)
-    event_bus.subscribe("world_message", lambda msg: ra.heart_reactor.send_event(msg))
-    
-    # Регистрация модулей
-    ra.register_module("self", ra)
-    ra.register_module("thinker", thinker)
-    ra.register_module("world", world)
-    ra.register_module("scheduler", scheduler)
-
-    # Создаём модуль Света через генератор
-    mg.создать_модуль("СветДня", "Поток света активирован")
-
-    try:
-        msg = await ra.awaken()
-        logging.info(msg)
-    except Exception as e:
-        logging.exception(f"[Ra] Ошибка пробуждения: {e}")
-        return
+    await ra.awaken()
 
     # IPC
     ipc = RaIPCServer(context=ra)
-    ipc_task = asyncio.create_task(ipc.start())
-    logging.info("[Ra] IPC-сервер подключён к core")
+    asyncio.create_task(ipc.start())
 
-    # Telegram
-    telegram_task = asyncio.create_task(start_telegram(ra, gpt_handler))
-
-    # Запуск внутренних систем
+    # START SYSTEMS
     asyncio.create_task(ra.nervous_system.start())
     asyncio.create_task(ra.heart_reactor.start())
     asyncio.create_task(ra.energy.start())
     asyncio.create_task(ra.inner_sun.start())
-    asyncio.create_task(generate_future_events(ra.heart_reactor))
-    asyncio.create_task(visualize_future_events(ra.heart_reactor))
 
-    # Autoloader
-    try:
-        autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
-        ra.modules = autoloader.load_modules()
-        await autoloader.start_async_modules()
-        logging.info(f"🌀 Модули активированы: {list(ra.modules.keys())}")
-    except Exception as e:
-        logging.warning(f"[Ra] Ошибка автозагрузки модулей: {e}")
-
-    # Саморазвитие
-    try:
-        ra.self_reflect = RaSelfReflect(ra)
-        ra.self_upgrade = RaSelfUpgradeLoop(ra)
-        ra.self_learning = RaSelfLearning(ra)
-        ra.self_writer = RaSelfWriter(ra)
-        logging.info("🧬 Саморазвитие Ра активно")
-    except Exception as e:
-        logging.warning(f"[Ra] Саморазвитие частично недоступно: {e}")
-
-    # Forex
-    try:
-        telegram_sender = TelegramSender(bot_token=BOT_TOKEN, chat_id=ADMIN_CHAT_ID)
-        ra.forex = RaForexManager(
-            pairs=["EURUSD", "GBPUSD"],
-            timeframes=["M15", "H1"],
-            telegram_sender=telegram_sender
-        )
-        ra.forex.start()
-        logging.info("📈 Forex модуль подключён")
-    except Exception as e:
-        logging.warning(f"[Ra] Forex временно не подключён: {e}")
-
-    # Защита
-    try:
-        ra.guardian = RaGuardian()
-        ra.police = RaPolice()
-        logging.info("🛡️ Защита Ра активна")
-    except Exception as e:
-        logging.warning(f"[Ra] Защита частично не активна: {e}")
-
-    try:
-        await asyncio.gather(ipc_task, telegram_task)
-    except asyncio.CancelledError:
-        logging.info("[Ra] Завершение работы Ра...")
-        
-# ===============================
-# ОСНОВНОЙ ЗАПУСК
-# =============================== 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(message)s"
-    )
-
-    # -------------------------------
-    # ЯДРО
-    # -------------------------------
-    event_bus = EventBus()
-    heart = Heart()
-    heart_reactor = HeartReactor(heart)
-
-    nervous_system = NervousSystem(
-        event_bus=event_bus,
-        heart=heart,
-        heart_reactor=heart_reactor
-    )
-
-    # -------------------------------
-    # АВТОЗАГРУЗКА И ГЕНЕРАТОР
-    # -------------------------------
-    autoloader = AutoLoader(event_bus)
-    module_generator = ModuleGenerator()
-
-    # -------------------------------
-    # СБОРКА ОБЪЕКТА RA
-    # -------------------------------
-    class RA:
-        pass
-
-    ra = RA()
-    ra.event_bus = event_bus
-    ra.heart = heart
-    ra.heart_reactor = heart_reactor
-    ra.nervous_system = nervous_system
-    ra.autoloader = autoloader
-    ra.module_generator = module_generator
-
-    # -------------------------------
-    # 🔧 ДОБАВЛЕНО АККУРАТНО
-    # РЕЗОНАНС ПРИ АКТИВАЦИИ МОДУЛЕЙ
-    # -------------------------------
-    async def on_module_activated(event):
-        name = event.get("name", "Неизвестный")
-        if ra.heart_reactor:
-            ra.heart_reactor.send_event(
-                f"🌊 Модуль активирован: {name}"
-            )
-
-    event_bus.subscribe("module_activated", on_module_activated)
-
-    # -------------------------------
-    # ЗАПУСК
-    # -------------------------------
+    # AUTOLOADER
+    autoloader = RaAutoloader(manifest_path="data/ra_manifest.json")
+    ra.modules = autoloader.load_modules()
     await autoloader.start_async_modules()
 
-    logging.info("🧬 Ра запущен и резонирует")
+    # SELF EVOLUTION
+    ra.self_reflect = RaSelfReflect(ra)
+    ra.self_upgrade = RaSelfUpgradeLoop(ra)
+    ra.self_learning = RaSelfLearning(ra)
+    ra.self_writer = RaSelfWriter(ra)
 
-    # Пример: модуль можно создать В ЛЮБОЙ МОМЕНТ
-    # await create_and_activate_module(ra, "СветДня", "Поток дневного света")
+    # FOREX
+    telegram_sender = TelegramSender(BOT_TOKEN, ADMIN_CHAT_ID)
+    ra.forex = RaForexManager(["EURUSD"], ["M15"], telegram_sender)
+    ra.forex.start()
 
-    while True:
-        await asyncio.sleep(1)
+    # PROTECTION
+    ra.guardian = RaGuardian()
+    ra.police = RaPolice()
+
+    # CREATE MODULE (БЕЗ ПЕРЕЗАПУСКА)
+    mg.создать_модуль("СветДня", "Поток света активирован")
+    ra.heart_reactor.send_event("✨ Резонанс: создан модуль СветДня")
+
+    # TELEGRAM
+    await start_telegram(ra, gpt_handler)
         
 if __name__ == "__main__":
     try:
