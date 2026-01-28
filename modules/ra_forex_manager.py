@@ -220,7 +220,7 @@ class RaForexManager:
         # 3️⃣ Вводим confidence_score (на базе гармонии и рыночного фазового согласования)
         confidence_score = 0.0
         if allow_trade:
-            confidence_score = min(1.0, max(0.0, harmony / 100))  # 0..1
+            confidence_score = min(1.0, max(0.0, harmony / 100))  # нормируем в 0..1
         signal_data['confidence_score'] = round(confidence_score, 2)
         signal_data.update({
             "harmony": harmony,
@@ -238,7 +238,7 @@ class RaForexManager:
             f"trade={'YES' if allow_trade else 'NO'} | confidence={confidence_score:.2f}"
         )
 
-        # Можно здесь добавить реальный брокерский вызов, если allow_trade = True
+        # Здесь можно добавить реальный брокерский вызов, если allow_trade = True
         # Например: self.broker.open_trade(signal_data)
 
         return signal_data
@@ -258,8 +258,9 @@ class RaForexManager:
     # ================= ЦИКЛ =================
     def run_loop(self, mera_instance, interval_sec=900):
         """
-        Основной цикл анализа рынка с интеграцией ИсконнойМеры.
-        - mera_instance: экземпляр ИсконнойМеры для проверки гармонии
+        🔹 Финальный цикл анализа рынка с полной интеграцией ИсконнойМеры
+        и автоматическим пушем сигналов в Telegram + Risk-Manager.
+        - mera_instance: экземпляр ИсконнойМеры
         - interval_sec: интервал между проверками
         """
         if not mera_instance:
@@ -285,12 +286,25 @@ class RaForexManager:
                         "timestamp": datetime.utcnow()
                     }
 
-                    # 🔹 Вызываем execute_trade с Мерой
+                    # 🔹 Получаем торговый сигнал через execute_trade
                     trade_signal = self.execute_trade(pair, market_state, mera_instance)
-                    if trade_signal and trade_signal.get("trade_allowed"):
+                    if trade_signal:
+                        # 🔹 Логируем детально
                         logging.info(
-                            f"✅ Сделка разрешена: {trade_signal['signal']} | "
-                            f"{pair} | TF={tf} | "
-                            f"confidence={trade_signal['confidence_score']}"
+                            f"📊 {pair} | TF={tf} | "
+                            f"Signal={trade_signal.get('signal')} | "
+                            f"H={trade_signal.get('harmony')} {trade_signal.get('harmony_direction')} | "
+                            f"Phase={trade_signal.get('market_phase')} | "
+                            f"Trade={'YES' if trade_signal.get('trade_allowed') else 'NO'} | "
+                            f"Confidence={trade_signal.get('confidence_score')}"
                         )
+
+                        # 🔹 Отправка в Telegram
+                        if self.telegram and trade_signal.get("signal"):
+                            self.send_signal(trade_signal)
+
+                        # 🔹 Пуш в Risk-Manager через event_bus
+                        if self.event_bus:
+                            self.event_bus.emit("trade_permission", trade_signal)
+
             time.sleep(interval_sec)
