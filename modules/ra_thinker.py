@@ -248,7 +248,12 @@ class RaThinker:
     # -------------------------------
     def set_event_bus(self, event_bus):
         self.event_bus = event_bus
-
+        if event_bus:
+            event_bus.subscribe(
+                "perception_update",
+                self.on_perception_update
+            )
+            
     def set_context(self, context):
         self.context = context
 
@@ -377,3 +382,33 @@ class RaThinker:
         except Exception as e:
             self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
             
+    async def on_perception_update(self, data):
+        """
+        Реакция мыслителя на восприятие мира
+        """
+        signals = data.get("signals", [])
+        channels = data.get("channels", 0)
+
+        if not signals:
+            return
+
+        self.last_thought = (
+            f"👁 Восприятие мира: {channels} каналов, "
+            f"{len(signals)} сигналов"
+        )
+
+        # Сохраняем в память
+        if memory:
+            await memory.append(
+                "perception",
+                {
+                    "channels": channels,
+                    "signals": signals
+                },
+                source="MultiChannelPerception",
+                layer="shared"
+            )
+
+        # Мягкая рефлексия
+        if self.scheduler:
+            await self.scheduler.schedule_immediate("reflect_on_perception")
