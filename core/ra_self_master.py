@@ -169,7 +169,8 @@ class RaSelfMaster:
 
         # Предсказание будущего
         self.future_predictor = FuturePredictor(ra_context=self)
-
+        self._create_bg_task(self.future_predictor.start(), "future_predictor_loop")
+        
         # Прокидываем GPT в thinker
         if self.thinker:
             self.thinker.gpt_module = self.gpt_handler
