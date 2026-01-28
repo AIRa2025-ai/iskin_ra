@@ -110,15 +110,22 @@ class ИсконнаяМера:
         }
         """
 
-        гармония = self.вычислить_гармонию()
+        базовая_гармония = self.вычислить_гармонию()
 
+        if not isinstance(базовая_гармония, float):
+            return
+
+        рыночный_коэф = self.оценить_состояние_рынка(market_state)
+        итоговая_гармония = базовая_гармония * рыночный_коэф
+        
         if isinstance(гармония, float):
             payload = {
-                "гармония": гармония,
+                "гармония": round(итоговая_гармония, 2),
+                "base_harmony": базовая_гармония,
+                "market_coef": round(рыночный_коэф, 3),
                 "symbol": market_state.get("symbol"),
                 "timestamp": market_state.get("timestamp"),
             }
-
             self.event_bus.emit("harmony_updated", payload)
 
     def оценить_состояние_рынка(self, market_state: dict) -> float:
