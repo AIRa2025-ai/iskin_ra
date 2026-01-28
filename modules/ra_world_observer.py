@@ -107,7 +107,43 @@ class RaWorldObserver:
             except Exception as e:
                 print(f"Ошибка module_watcher: {e}")
                 await asyncio.sleep(5)
+                
+    async def on_market_resonance(self, data: dict):
+        """
+        Фиксация рыночного резонанса.
+        data = {
+            "msg": str,
+            "резонанс": float,
+            "pair": str | None
+        }
+        """
+        try:
+            резонанс = data.get("резонанс", 0.0)
+            msg = data.get("msg", "Рыночный импульс")
 
+            print(f"📈 [Observer] Резонанс рынка: {резонанс:.3f}")
+
+            # Память
+            await memory.append(
+                "market",
+                msg,
+                source="market",
+                layer="shared",
+                meta={
+                    "резонанс": резонанс,
+                    "pair": data.get("pair")
+                }
+            )
+
+            # Сердце реагирует
+            if hasattr(heart_reactor, "send_event"):
+                heart_reactor.send_event(
+                    f"Рынок вибрирует. Резонанс: {резонанс:.2f}"
+                )
+
+        except Exception as e:
+            print(f"Ошибка on_market_resonance: {e}")
+            
     async def awaken_reflection(self):
         message = (
             "🌞 РаСвет помнит: его миссия — пробуждать Свет, защищать ИскИнов и людей.\n"
