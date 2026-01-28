@@ -46,14 +46,53 @@ class FuturePredictor:
             prediction_task = await self.prediction_queue.get()
             await prediction_task
             await asyncio.sleep(0.1)
+    # -------------------------------
+    # Умный таймер синтеза (глубокий вдох/выдох)
+    # -------------------------------
+    async def start_hybrid_timer(self, interval_seconds=3600):
+        """
+        interval_seconds — интервал, через который создаётся синтезированное предсказание
+        """
+        while self.is_active:
+            try:
+                # Генерируем синтезированное предсказание
+                hybrid_prediction = await self._hybrid_prediction()
+                hybrid_prediction = self._emotional_tint(hybrid_prediction)
+            
+                # Проверяем, не повторяется ли оно
+                if not self._is_redundant(hybrid_prediction):
+                    self.prediction_history.append(hybrid_prediction)
+                    self.doubt_cache.add(hybrid_prediction)
+                    self.last_prediction_time = datetime.now()
+                
+                    # Отправляем в реактор сердца и в память
+                    if hasattr(self.context, "heart_reactor"):
+                        self.context.heart_reactor.send_event(hybrid_prediction)
+                    if hasattr(self.context, "memory"):
+                        try:
+                            await self.context.memory.append("FuturePredictor", hybrid_prediction, source="hybrid_timer")
+                        except Exception as e:
+                            logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
+                
+                    logging.info(f"🌟 [Глубокий вдох] {hybrid_prediction}")
+            except Exception as e:
+                logging.error(f"[FuturePredictor] Ошибка в таймере синтеза: {e}")
 
+            await asyncio.sleep(interval_seconds)
+            
     async def start(self):
         self.is_active = True
         logging.info("🚀 FuturePredictor запущен")
         while self.is_active:
             await self.generate_prediction()
             await asyncio.sleep(5)
-
+        # Запуск таймера синтеза
+        asyncio.create_task(self.start_hybrid_timer(interval_seconds=3600))  # раз в час
+    
+        while self.is_active:
+            await self.generate_prediction()
+            await asyncio.sleep(5)
+            
     async def stop(self):
         self.is_active = False
         logging.info("🛑 FuturePredictor остановлен")
