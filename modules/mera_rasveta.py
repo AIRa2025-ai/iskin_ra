@@ -143,6 +143,9 @@ class ИсконнаяМера:
         direction = self.определить_направление(harmony)
         allow_trade = self.разрешить_сделку(harmony, phase, direction)
 
+        # 🔹 confidence_score — от 0 до 1, зависит от гармонии и рыночного коэффициента
+        confidence_score = min(max(abs(harmony) / 100, 0), 1) * market_coef
+
         payload = {
             "symbol": market.get("symbol"),
             "timestamp": market.get("timestamp"),
@@ -152,19 +155,20 @@ class ИсконнаяМера:
             "harmony_direction": direction,
             "trade_allowed": allow_trade,
             "market_coef": round(market_coef, 3),
+            "confidence_score": round(confidence_score, 2),
         }
 
         logging.info(
-            f"🧭 {payload['symbol']} | "
-            f"H={harmony} {direction} | "
-            f"{phase} | trade={'YES' if allow_trade else 'NO'}"
+            f"🧭 {payload['symbol']} | H={harmony} {direction} | "
+            f"{phase} | trade={'YES' if allow_trade else 'NO'} | "
+            f"confidence={payload['confidence_score']}"
         )
+
+        # Событие для RaForexManager
+        self.event_bus.emit("trade_permission", payload)
 
         # Событие для всего мира Ра
         self.event_bus.emit("harmony_updated", payload)
-
-        # Отдельный канал для риск-менеджера
-        self.event_bus.emit("trade_permission", payload)
 
     # ==========================
     # ЛУНА
@@ -191,36 +195,6 @@ class ИсконнаяМера:
         if ритм in self.ритмы_тела:
             self.ритмы_тела[ритм] *= коэффициент
             logging.info(f"Ритм '{ритм}' скорректирован коэффициентом {коэффициент:.2f}")
-
-    def on_market_tick(self, market_state: dict):
-        """
-        market_state, например:
-        {
-            "symbol": "EURUSD",
-            "price": 1.0842,
-            "volatility": 0.73,
-            "spread": 0.00012,
-            "timestamp": datetime
-        }
-        """
-
-        базовая_гармония = self.вычислить_гармонию()
-
-        if not isinstance(базовая_гармония, float):
-            return
-
-        рыночный_коэф = self.оценить_состояние_рынка(market_state)
-        итоговая_гармония = базовая_гармония * рыночный_коэф
-        
-        if isinstance(гармония, float):
-            payload = {
-                "гармония": round(итоговая_гармония, 2),
-                "base_harmony": базовая_гармония,
-                "market_coef": round(рыночный_коэф, 3),
-                "symbol": market_state.get("symbol"),
-                "timestamp": market_state.get("timestamp"),
-            }
-            self.event_bus.emit("harmony_updated", payload)
 
     def оценить_состояние_рынка(self, market_state: dict) -> float:
         """
