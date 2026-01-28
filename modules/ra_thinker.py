@@ -345,8 +345,50 @@ class RaThinker:
                     
     # Создание модуля по желанию Ра
     async def _request_module_creation(self, module_name: str, reason: str):
+        """
+        Автосоздание модуля/органа Ра.
+        Включает:
+        - лог рождения органа в память
+        - уведомление HeartReactor
+        - событие в EventBus
+        """
         self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
 
+        try:
+            from modules import module_generator as mg
+
+            # 🔹 Создание модуля
+            mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
+
+            # 🔹 Лог рождения органа в память
+            if memory:
+                await memory.append(
+                    user_id="organs",
+                    message=f"🧬 Родился орган: {module_name}, причина: {reason}",
+                    layer="shared",
+                    source="RaThinker"
+                )
+
+            # 🔹 HeartReactor резонирует
+            if hasattr(self.master, "heart_reactor"):
+                self.master.heart_reactor.send_event(
+                    f"🌱 Родился новый орган: {module_name}"
+                )
+
+            # 🔹 Событие в систему
+            if self.event_bus:
+                await self.event_bus.emit(
+                    "module_created",
+                    {
+                        "name": module_name,
+                        "reason": reason,
+                        "auto": True
+                    }
+                )
+
+        except Exception as e:
+            self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
+        
         # Сообщаем сердцу
         if hasattr(self.master, "heart_reactor"):
             self.master.heart_reactor.send_event(
