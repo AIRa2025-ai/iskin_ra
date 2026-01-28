@@ -120,7 +120,30 @@ class ИсконнаяМера:
             }
 
             self.event_bus.emit("harmony_updated", payload)
-            
+
+    def оценить_состояние_рынка(self, market_state: dict) -> float:
+        """
+        Возвращает коэффициент рынка (0.7 – 1.3)
+        """
+        volatility = market_state.get("volatility", 0.5)
+        spread = market_state.get("spread", 0.0)
+
+        # Волатильность: слишком высокая — хаос
+        if volatility > 1.2:
+            vol_coef = 0.85
+        elif volatility < 0.3:
+            vol_coef = 0.9
+        else:
+            vol_coef = 1.05
+
+        # Спред: чем меньше — тем чище рынок
+        if spread > 0.0003:
+            spread_coef = 0.85
+        else:
+            spread_coef = 1.05
+
+        return vol_coef * spread_coef
+
 # Пример активации
 if __name__ == "__main__":
     мера = ИсконнаяМера()
