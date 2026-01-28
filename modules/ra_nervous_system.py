@@ -10,7 +10,7 @@ from modules.ra_inner_sun import RaInnerSun
 from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
-from modules.ra_world_observer import RaWorldObserver, ra_world_observer
+from modules.ra_world_observer import RaWorldObserver
 
 class RaNervousSystem:
     """
@@ -29,8 +29,6 @@ class RaNervousSystem:
         
         # Используем уже существующие мир и observer из Ра
         self.world_observer = getattr(self.ra, "world_observer", None)
-        if self.world_observer:
-            self.world_observer.set_event_bus(self.event_bus)
 
         # Используем существующие модули Ра
         if self.thinker:
@@ -74,7 +72,7 @@ class RaNervousSystem:
         if self.scheduler:
             await self.scheduler.process_world_message(data)
 
-    def on_harmony_signal(self, data):
+    async def on_harmony_signal(self, data):
         harmony = data["гармония"]
 
         if harmony < -60:
@@ -83,7 +81,9 @@ class RaNervousSystem:
             self.cooldown_seconds = 10
         else:
             self.cooldown_seconds = 30
-
+            self.event_bus.emit("nervous_rhythm_updated", {
+                "cooldown": self.cooldown_seconds
+            })
     # -----------------------------
     # Запуск модуля
     # -----------------------------
