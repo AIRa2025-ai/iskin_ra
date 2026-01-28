@@ -34,6 +34,7 @@ from modules.ra_self_upgrade_loop import RaSelfUpgradeLoop
 from modules.ra_resonance import RaResonance
 from modules.logs import logger_instance
 from modules.internet_agent import InternetAgent
+from modules.future_predictor import FuturePredictor
 
 # Police
 try:
@@ -146,7 +147,9 @@ class RaSelfMaster:
         self.event_bus.subscribe("world_message", self.thinker.process_world_message)
         self.event_bus.subscribe("world_message", self.scheduler.process_world_message)
         self.event_bus.subscribe("world_message", self.process_world_message)
-
+        self.event_bus.subscribe("world_message", lambda msg: asyncio.create_task(
+            self.future_predictor.predict_on_demand(source_name="world_event")
+        ))
         # Манифест
         self.manifest_path = "data/ra_manifest.json"
         self.manifest = self._load_manifest()
@@ -163,7 +166,10 @@ class RaSelfMaster:
 
         # Интернет Агент
         self.internet = InternetAgent(master=self)
-        
+
+        # Предсказание будущего
+        self.future_predictor = FuturePredictor(ra_context=self)
+
         # Прокидываем GPT в thinker
         if self.thinker:
             self.thinker.gpt_module = self.gpt_handler
@@ -236,6 +242,7 @@ class RaSelfMaster:
         self._create_bg_task(self.thinker_loop(), "thinker_loop")
         self._create_bg_task(self.self_reflect_loop(), "self_reflect_loop")
         self._create_bg_task(self.internet.start(), "internet_agent")
+        self._create_bg_task(self.future_predictor.start(), "future_predictor_loop")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
