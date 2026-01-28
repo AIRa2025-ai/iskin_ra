@@ -58,7 +58,7 @@ class RaNervousSystem:
             self.event_bus.subscribe("harmony_updated", self.on_harmony_signal)
             self.event_bus.subscribe("observer_tick", self._on_observer_tick)
             self.event_bus.subscribe("world_message", self._on_world_message)
-
+       
     # -----------------------------
     # Обработка событий
     # -----------------------------
@@ -73,6 +73,16 @@ class RaNervousSystem:
             await self.thinker.process_world_message(data)
         if self.scheduler:
             await self.scheduler.process_world_message(data)
+
+    def on_harmony_signal(self, data):
+        harmony = data["гармония"]
+
+        if harmony < -60:
+            self.cooldown_seconds = 120
+        elif harmony > 60:
+            self.cooldown_seconds = 10
+        else:
+            self.cooldown_seconds = 30
 
     # -----------------------------
     # Запуск модуля
