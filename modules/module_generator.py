@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# modules/module_generator.py
 # Автогенератор файлов Света ✨
 
 import os
