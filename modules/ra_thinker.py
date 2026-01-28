@@ -454,3 +454,10 @@ class RaThinker:
         # Мягкая рефлексия
         if self.scheduler:
             await self.scheduler.schedule_immediate("reflect_on_perception")
+
+    async def request_prediction(self, category=None):
+        if hasattr(self.master, "future_predictor"):
+            prediction = await self.master.future_predictor.predict_on_demand(category=category)
+            self.last_thought = f"Предсказание: {prediction}"
+            return prediction
+        return "🔮 Модуль FuturePredictor недоступен."
