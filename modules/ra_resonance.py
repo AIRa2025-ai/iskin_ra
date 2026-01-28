@@ -9,7 +9,18 @@ class RaResonance:
         self._active = False
         self._loop = asyncio.get_event_loop()
         self.logger = logging.getLogger("RaResonance")
+        resonance = RaResonance()
+        event_bus.subscribe("harmony_updated", resonance.on_harmony_update)
+        resonance.start()
 
+    async def on_harmony_update(self, data: dict):
+        harmony = data.get("гармония", 0)
+
+        if harmony > 30:
+            self.logger.info("🌟 Резонанс усиливается")
+        elif harmony < -30:
+            self.logger.info("🌑 Резонанс затухает")
+            
     async def _resonance_loop(self):
         self.logger.info("🔮 Резонансное поле запущено")
         while self._active:
