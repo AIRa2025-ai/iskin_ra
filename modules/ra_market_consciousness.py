@@ -8,8 +8,6 @@ from ta.trend import MACD, EMAIndicator
 from ta.volatility import AverageTrueRange
 from core.telegram_sender import send_message
 
-event_bus.subscribe("harmony_updated", self.on_market_harmony)
-
 class RaMarketConsciousness:
     def __init__(self, symbol, timeframe, telegram_sender=None):
         self.symbol = symbol
@@ -55,6 +53,11 @@ class RaMarketConsciousness:
             "price": price,
             "time": snapshot["time"]
         }
+
+        # Подписка на события
+        if hasattr(self.event_bus, "subscribe"):
+            self.event_bus.subscribe("harmony_updated", self.on_harmony_signal)
+            
     # === ОСНОВА ===
     def load_market_data(self, df: pd.DataFrame):
         """
