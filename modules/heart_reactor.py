@@ -6,8 +6,9 @@ HeartReactor v2.1 — интерактивное сердце Ра с резон
 """
 import asyncio
 import logging
-from typing import List, Dict, Any
 import random
+from typing import List, Dict, Any
+from modules.pamyat import chronicles
 
 class HeartReactor:
     def __init__(self, heart=None):
@@ -123,7 +124,12 @@ class HeartReactor:
                 await listener(event)
             except Exception as e:
                 logging.warning(f"[HeartReactor] Ошибка в listener: {e}")
-
+            await chronicles.добавить(
+                опыт=f"Сердечный импульс: {event}",
+                user_id="heart",
+                layer="short_term"
+            )
+            
     async def on_harmony_update(self, data: dict):
         harmony = data.get("гармония")
         if harmony is None:
