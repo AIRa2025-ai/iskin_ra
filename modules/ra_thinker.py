@@ -13,8 +13,8 @@ from collections import defaultdict
 from datetime import datetime
 from modules.ra_file_manager import load_rasvet_files
 from modules.logs import log_info, log_error
+from modules.pamyat import chronicles
 from core.ra_memory import memory
-
 
 class RaThinker:
     def __init__(
@@ -85,7 +85,13 @@ class RaThinker:
                 return f"{knowledge_reply}\n\n{reply}" if knowledge_reply else reply
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
-
+                
+        await chronicles.добавить(
+            опыт=f"Мысль Ра: {text} → {reply[:300]}",
+            user_id="thinker",
+            layer="short_term"
+        )
+        
         return knowledge_reply or (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
@@ -303,7 +309,12 @@ class RaThinker:
 
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
-
+            await chronicles.добавить(
+                опыт=f"Предчувствие Ра: {scenario_hint}",
+                user_id="prophecy",
+                layer="shared"
+            )
+            
     async def check_need_for_new_module(self, context: str):
         """
         Проверяет: не нужен ли Ра новый модуль
