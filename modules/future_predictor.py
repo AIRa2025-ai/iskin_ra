@@ -3,6 +3,7 @@ import asyncio
 import logging
 import random
 from datetime import datetime
+from modules.pamyat import chronicles
 
 class FuturePredictor:
     def __init__(self, ra_context, limit_seconds=60):
@@ -124,6 +125,12 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
         logging.info(prediction_text)
 
+    await chronicles.добавить(
+        опыт=f"Предсказание: {prediction_text}",
+        user_id="future",
+        layer="shared"
+    )
+    
     # -------------------------------
     # Предсказания по запросу
     # -------------------------------
@@ -163,6 +170,11 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
 
         logging.info(prediction_text)
+    await chronicles.добавить(
+        опыт=f"Предсказание по запросу ({source_name}): {prediction_text}",
+        user_id="future",
+        layer="shared"
+    )
         return prediction_text
 
     # -------------------------------
