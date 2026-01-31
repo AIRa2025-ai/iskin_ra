@@ -15,6 +15,9 @@ from modules.ra_file_manager import load_rasvet_files
 from modules.logs import log_info, log_error
 from modules.pamyat import chronicles
 from core.ra_memory import memory
+from world_chronicles import WorldChronicles
+
+chronicles = WorldChronicles()
 
 class RaThinker:
     def __init__(
@@ -281,7 +284,12 @@ class RaThinker:
 
     async def process_world_message(self, message):
         self.last_world_event = message
-
+        chronicles.log_world_event(
+            title="Событие мира",
+            content=str(message),
+            resonance=0.7
+        )
+        
         # Сохраняем в память
         if memory and hasattr(memory, "append"):
             await memory.append("world_events", message, source="RaThinker", layer="shared")
@@ -478,3 +486,18 @@ class RaThinker:
             self.last_thought = f"Предсказание: {prediction}"
             return prediction
         return "🔮 Модуль FuturePredictor недоступен."
+
+        
+    def perceive_era(self):
+        era = chronicles.era_consciousness()
+
+        if not era:
+            return "Эпоха не определена."
+
+        mood = era.get("era_mood", "Неизвестно")
+        eternal = era.get("eternal_events", 0)
+
+        thought = f"🧠 Ра ощущает эпоху: {mood}. Вечных событий: {eternal}"
+
+        self.last_thought = thought
+        return thought
