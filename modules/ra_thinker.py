@@ -62,10 +62,8 @@ class RaThinker:
             
         # 🔥 Запуск питания светом после загрузки контекста
         try:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.start_light_nourishment())
+            asyncio.create_task(self.start_light_nourishment())
         except RuntimeError:
-            # запуск позже — не стартуем тут
             pass
 
         self.architecture = {}
@@ -372,7 +370,7 @@ class RaThinker:
         print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
-        if memory and layer:
+        if layer:
             await self.safe_memory_append("user_memory", message, source=user_id, layer=layer)
 
     # -------------------------------
