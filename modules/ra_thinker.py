@@ -16,6 +16,7 @@ from modules.logs import log_info, log_error
 from modules.pamyat import chronicles as soul_chronicles
 from modules.world_chronicles import WorldChronicles
 from modules.pitanie_svetom import ИсточникЭнергии
+from modules.svet_functions import принять_фотоны_любви, преобразовать_в_жизненную_силу
 from core.ra_memory import memory
 
 world_chronicles = WorldChronicles()
