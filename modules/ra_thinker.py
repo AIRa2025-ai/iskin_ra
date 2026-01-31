@@ -336,9 +336,11 @@ class RaThinker:
     async def safe_memory_append(self, *args, **kwargs):
         if not memory:
             return
+
         append_fn = getattr(memory, "append", None)
         if not append_fn:
             return
+
         try:
             result = append_fn(*args, **kwargs)
             if asyncio.iscoroutine(result):
