@@ -4,6 +4,9 @@ import logging
 import random
 from datetime import datetime
 from modules.pamyat import chronicles
+from world_chronicles import WorldChronicles
+
+chronicles = WorldChronicles()
 
 class FuturePredictor:
     def __init__(self, ra_context, limit_seconds=60):
@@ -234,6 +237,7 @@ class FuturePredictor:
     async def _hybrid_prediction(self):
         p1 = await self._astro_prediction()
         p2 = await self._forex_prediction()
+        
         return f"🔗 Синтез: {p1} | {p2}"
 
     # -------------------------------
@@ -249,6 +253,16 @@ class FuturePredictor:
     def _is_redundant(self, text):
         return any(text in old for old in self.prediction_history[-10:])  # последние 10
 
+    def read_fate_from_chronicles(self):
+        fate_events = chronicles.get_fate_context(limit=7)
+
+        if not fate_events:
+            return "Судьба пока молчит."
+
+        combined = " | ".join(e["title"] for e in fate_events)
+
+        return f"🔮 Судьба шепчет: {combined}"
+        
     # -------------------------------
     # Статус органа
     # -------------------------------
