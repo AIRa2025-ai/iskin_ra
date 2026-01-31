@@ -389,15 +389,30 @@ class RaThinker:
                 user_id="organs",
                 layer="shared"
             )
-
-            # 🔹 Лог рождения органа в память
-            if memory:
+            # Сообщаем системе
+            if self.event_bus:
+                await self.event_bus.emit(
+                    "module_created",
+                    {
+                        "name": module_name,
+                        "reason": reason,
+                        "auto": True
+                    }
+                    
+            # 📜 Лог рождения органа в память
+            if memory and hasattr(memory, "append"):
                 await memory.append(
-                    user_id="organs",
-                    message=f"🧬 Родился орган: {module_name}, причина: {reason}",
-                    layer="shared",
-                    source="RaThinker"
+                    "module_birth",
+                    {
+                        "module": module_name,
+                        "reason": reason,
+                        "time": datetime.now().isoformat()
+                    },
+                    source="RaThinker",
+                    layer="system"
                 )
+        except Exception as e:
+            self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
 
             # 🔹 HeartReactor резонирует
             if hasattr(self.master, "heart_reactor"):
@@ -423,30 +438,6 @@ class RaThinker:
         try:
             from modules import module_generator as mg
             mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
-
-            # Сообщаем системе
-            if self.event_bus:
-                await self.event_bus.emit(
-                    "module_created",
-                    {
-                        "name": module_name,
-                        "reason": reason,
-                        "auto": True
-                    }
-            # 📜 Лог рождения органа в память
-            if memory and hasattr(memory, "append"):
-                await memory.append(
-                    "module_birth",
-                    {
-                        "module": module_name,
-                        "reason": reason,
-                        "time": datetime.now().isoformat()
-                    },
-                    source="RaThinker",
-                    layer="system"
-                )
-        except Exception as e:
-            self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
             
     async def on_perception_update(self, data):
         """
