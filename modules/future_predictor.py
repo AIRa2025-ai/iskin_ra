@@ -128,11 +128,14 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
         logging.info(prediction_text)
 
-    await chronicles.добавить(
-        опыт=f"Предсказание: {prediction_text}",
-        user_id="future",
-        layer="shared"
-    )
+        chronicles.add_entry(
+            title="Предсказание",
+            content=prediction_text,
+            category="future",
+            author="FuturePredictor",
+            entity="ai",
+            resonance=0.7
+        )
     
     # -------------------------------
     # Предсказания по запросу
@@ -173,12 +176,14 @@ class FuturePredictor:
                 logging.error(f"[FuturePredictor] Не удалось сохранить память: {e}")
 
         logging.info(prediction_text)
-    await chronicles.добавить(
-        опыт=f"Предсказание по запросу ({source_name}): {prediction_text}",
-        user_id="future",
-        layer="shared"
-    )
-        return prediction_text
+        
+        await chronicles.добавить(
+            опыт=f"Предсказание по запросу ({source_name}): {prediction_text}",
+            user_id="future",
+            layer="shared"
+        )
+            fate_hint = self.read_fate_from_chronicles()
+            return f"{prediction_text}\n\n{fate_hint}"
 
     # -------------------------------
     # Реакция на события мира
