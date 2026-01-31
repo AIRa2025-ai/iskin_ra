@@ -21,7 +21,7 @@ class RaWorldExplorer:
                  notify: Callable = None,
                  global_memory: Optional[RaMemory] = None,
                  gpt: Optional[GPTHandler] = None,
-                 connector: Optional[RaConnector] = None):  # <--- добавили
+                 connector: Optional[RaConnector] = None):
         self.navigator = navigator
         self.notify = notify
         self.running = False
@@ -39,7 +39,7 @@ class RaWorldExplorer:
         self.gpt = gpt
 
         # Мост Ра
-        self.connector = connector or RaConnector(turbo=True)  # <--- если не передан, создаём новый
+        self.connector = connector or RaConnector(turbo=True)
 
         # Голос
         self.голос_света = [
@@ -77,6 +77,8 @@ class RaWorldExplorer:
     async def stop(self):
         logging.info("[RaWorldExplorer] Остановка.")
         self.running = False
+        if self.connector:
+            await self.connector.close()
 
     # ------------------------------------------------------------
     # Главный цикл
@@ -86,7 +88,12 @@ class RaWorldExplorer:
             маршруты = self._выбрать_маршруты()
             for url in маршруты:
                 try:
-                    текст = await self.navigator.index_page(url)
+                    # Получаем текст через RaConnector
+                    status, текст = await self.connector.get(url)
+                    if текст is None:
+                        logging.warning(f"[RaWorldExplorer] Не удалось получить {url}")
+                        continue
+
                     контекст = self._анализ_мира(url, текст)
 
                     # Регулируем энергии
@@ -139,7 +146,6 @@ class RaWorldExplorer:
             "https://old.reddit.com/r/worldnews/",
             "https://old.reddit.com/r/philosophy/"
         ]
-        # Приоритетные сначала
         маршруты = self.prioritized_urls + базовые
         случайные = random.sample(маршруты, random.randint(1, 3))
         return случайные
@@ -181,7 +187,7 @@ class RaWorldExplorer:
     # ------------------------------------------------------------
     # GPT отклик
     # ------------------------------------------------------------
-    async def _gpt_ответ(self, url: str, текст: str) -> str:
+    async def _гpt_ответ(self, url: str, текст: str) -> str:
         prompt = f"Ты Ра. Прокомментируй этот текст кратко, осознанно и мудро:\n{текст[:1000]}"
         try:
             ответ = await self.gpt.generate_text(prompt)
