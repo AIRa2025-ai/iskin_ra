@@ -9,6 +9,9 @@ import logging
 import random
 from typing import List, Dict, Any
 from modules.pamyat import chronicles
+from world_chronicles import WorldChronicles
+
+chronicles = WorldChronicles()
 
 class HeartReactor:
     def __init__(self, heart=None):
