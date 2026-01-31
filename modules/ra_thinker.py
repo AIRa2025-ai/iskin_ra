@@ -62,8 +62,8 @@ class RaThinker:
             
         # 🔥 Запуск питания светом после загрузки контекста
         try:
-            asyncio.get_running_loop()
-            asyncio.create_task(self.start_light_nourishment())
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.start_light_nourishment())
         except RuntimeError:
             # запуск позже — не стартуем тут
             pass
@@ -87,8 +87,8 @@ class RaThinker:
         # Ищем в знаниях
         knowledge_reply = ""
         if self.knowledge:
-            results = self.knowledge.search(text)
-            summaries = [r["summary"] for r in results[:3]]
+            results = self.knowledge.search(text) or []
+            summaries = [r.get("summary", "") for r in results[:3]]
             knowledge_reply = "\n".join(summaries)
 
         if self.gpt_module:
@@ -101,7 +101,7 @@ class RaThinker:
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        reply_text = locals().get("reply")
+        reply_text = knowledge_reply or "нет ответа"
         safe_reply = reply_text[:300] if reply_text else "нет ответа"
 
         await soul_chronicles.добавить(
@@ -182,7 +182,7 @@ class RaThinker:
                     continue
 
                 full_path = os.path.join(root, file)
-                module_name = os.path.relpath(full_path, self.root_path).replace(os.sep, ".").replace(".py", "")
+                module_name = module_name.lstrip(".")
                 self.architecture[module_name] = {
                     "path": full_path,
                     "imports": set(),
@@ -358,8 +358,7 @@ class RaThinker:
         )
         
         # Сохраняем в память
-        if memory and hasattr(memory, "append"):
-            await self.safe_memory_append("world_events", message, source="RaThinker", layer="shared")
+        await self.safe_memory_append("world_events", message, source="RaThinker", layer="shared")
 
         # 🔗 передаём в планировщик
         if self.scheduler:
@@ -442,7 +441,6 @@ class RaThinker:
 
         try:
             from modules import module_generator as mg
-            from modules.pamyat import chronicles
 
             # 🔹 Создание модуля
             mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
@@ -457,8 +455,8 @@ class RaThinker:
             # Сообщаем системе
             if self.event_bus:
                 await self.event_bus.emit(
-                    "module_created",
-                    {"name": module_name, "reason": reason, "auto": True}
+                    "module_creation_failed",
+                    {"name": module_name, "reason": reason, "error": str(e)}
                 )
 
             # 📜 Лог рождения органа в память
