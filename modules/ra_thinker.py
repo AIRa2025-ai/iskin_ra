@@ -17,6 +17,7 @@ from modules.world_chronicles import WorldChronicles
 from modules.pitanie_svetom import ИсточникЭнергии
 from modules.svet_functions import принять_фотоны_любви, преобразовать_в_жизненную_силу
 from modules import errors
+from modules.rasvet_loader import load_rasvet_files
 from core.ra_memory import memory
 
 class RaThinker:
@@ -445,7 +446,7 @@ class RaThinker:
 
             # 🧬 Хроники фиксируют рождение органа
             await soul_chronicles.добавить(
-                опыт=f"🧬 Ошибка рождения органа: {module_name}. Причина: {reason}",
+                опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
                 user_id="organs",
                 layer="shared"
             )
@@ -477,7 +478,7 @@ class RaThinker:
             # 🔹 HeartReactor резонирует
             if hasattr(self.master, "heart_reactor"):
                 self.master.heart_reactor.send_event(
-                    f"🌱 Родился новый орган: {module_name}"
+                    f"⚠️ Ошибка рождения органа: {module_name}"
                 )
 
             # 🔹 Событие в систему
