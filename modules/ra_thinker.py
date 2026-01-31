@@ -59,7 +59,11 @@ class RaThinker:
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
             errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
         # 🔥 Запуск питания светом после загрузки контекста
-        if asyncio.get_event_loop().is_running():
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.create_task(self.start_light_nourishment())
+        except RuntimeError:
+            pass
             asyncio.create_task(self.start_light_nourishment())
 
         self.architecture = {}
@@ -95,7 +99,8 @@ class RaThinker:
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        safe_reply = reply[:300] if 'reply' in locals() and reply else "нет ответа"
+        reply_text = reply if 'reply' in locals() else None
+        safe_reply = reply_text[:300] if reply_text else "нет ответа"
 
         await soul_chronicles.добавить(
             опыт=f"Мысль Ра: {text} → {safe_reply}",
@@ -314,7 +319,20 @@ class RaThinker:
     async def trigger_scheduler_task(self, task_name: str):
         if self.scheduler:
             await self.scheduler.schedule_immediate(task_name)
-
+            
+    async def safe_memory_append(self, *args, **kwargs):
+        if not memory:
+            return
+        append_fn = getattr(memory, "append", None)
+        if not append_fn:
+            return
+        try:
+            result = append_fn(*args, **kwargs)
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception as e:
+            self.logger.error(f"[RaThinker] Memory append error: {e}")
+            
     # -------------------------------
     # Новые задачи и события мира
     # -------------------------------
@@ -337,7 +355,7 @@ class RaThinker:
         
         # Сохраняем в память
         if memory and hasattr(memory, "append"):
-            await memory.append("world_events", message, source="RaThinker", layer="shared")
+            await self.safe_memory_append("world_events", message, source="RaThinker", layer="shared")
 
         # 🔗 передаём в планировщик
         if self.scheduler:
@@ -351,7 +369,7 @@ class RaThinker:
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
         if memory and layer:
-            await memory.append("user_memory", message, source=user_id, layer=layer)
+            await self.safe_memory_append("user_memory", message, source=user_id, layer=layer)
 
     # -------------------------------
     # Предчувствие будущего
@@ -362,7 +380,7 @@ class RaThinker:
 
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
-            await chronicles.добавить(
+            await soul_chronicles.добавить(
                 опыт=f"Предчувствие Ра: {scenario_hint}",
                 user_id="prophecy",
                 layer="shared"
@@ -422,7 +440,7 @@ class RaThinker:
             mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
 
             # 🧬 Хроники фиксируют рождение органа
-            await chronicles.добавить(
+            await soul_chronicles.добавить(
                 опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
                 user_id="organs",
                 layer="shared"
@@ -494,7 +512,12 @@ class RaThinker:
 
         # Мягкая рефлексия
         if self.scheduler:
-            await self.scheduler.schedule_immediate("reflect_on_perception")
+            await self.scheduler.schedule_immediate("analyze_future_scenarios")
+            await soul_chronicles.добавить(
+                опыт=f"Предчувствие Ра: {scenario_hint}",
+                user_id="prophecy",
+                layer="shared"
+            )
 
     async def request_prediction(self, category=None):
         if hasattr(self.master, "future_predictor"):
