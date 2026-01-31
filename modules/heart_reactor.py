@@ -14,20 +14,18 @@ from world_chronicles import WorldChronicles
 chronicles = WorldChronicles()
 
 class HeartReactor:
-    def __init__(self, heart=None):
+    def __init__(self, heart=None, event_bus=None):
         self.heart = heart
         self.name = "Heart Reactor v2.1"
         self.listeners = []
         self.event_queue = asyncio.Queue()
         self.future_events_queue = asyncio.Queue()
         self.is_active = True
-        event_bus = EventBus()
+        self.event_bus = event_bus
 
-        heart = HeartReactor()
-        event_bus.subscribe("harmony_updated", heart.on_harmony_update)
-
-        asyncio.create_task(heart.start())
-        
+        if self.event_bus:
+            self.event_bus.subscribe("harmony_updated", self.on_harmony_update)
+            
     async def start(self):
         """Главный цикл обработки событий настоящего и будущего"""
         while self.is_active:
