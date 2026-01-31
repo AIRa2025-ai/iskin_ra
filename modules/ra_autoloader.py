@@ -6,12 +6,14 @@ import asyncio
 from pathlib import Path
 from types import ModuleType
 from typing import Dict, List
+import sys
+from modules import errors
 
 # Основные файлы core, которые не должны загружаться через автолоадер
 CORE_FILES = {"ra_self_master", "ra_bot_gpt", "ra_identity"}
 FORBIDDEN_PREFIXES = ("run_", "__")
 
-# Модули по умолчанию, которые автолоадер пытается активировать
+# Модули по умолчанию
 ACTIVE_DEFAULT = [
     "ra_thinker",
     "ra_self_dev",
@@ -23,6 +25,7 @@ class RaAutoloader:
         self.manifest_path = Path(manifest_path)
         self.modules: Dict[str, ModuleType] = {}
         self.tasks: Dict[str, asyncio.Task] = {}
+        self.failed_modules: Dict[str, str] = {}  # module_name -> reason
 
     # ---------- manifest ----------
     def load_manifest(self) -> List[str]:
@@ -36,6 +39,7 @@ class RaAutoloader:
             return modules or ACTIVE_DEFAULT
         except Exception as e:
             logging.error(f"[RaAutoloader] Ошибка чтения манифеста: {e}")
+            errors.report_error("RaAutoloader", f"Ошибка чтения манифеста: {e}")
             return ACTIVE_DEFAULT
 
     # ---------- фильтр ----------
@@ -44,14 +48,14 @@ class RaAutoloader:
             return False
         if name.startswith(FORBIDDEN_PREFIXES):
             return False
+        if name in self.modules:
+            return False
+        if name in self.failed_modules:
+            return False
         return True
 
     # ---------- загрузка ----------
     def load_modules(self) -> Dict[str, ModuleType]:
-        """
-        Загружает модули в память, но не запускает их.
-        RaSelfMaster будет вызывать activate_module(name) по требованию.
-        """
         module_names = self.load_manifest()
 
         for name in module_names:
@@ -61,42 +65,52 @@ class RaAutoloader:
 
             module = None
             try:
-                module = importlib.import_module(f"core.{name}")
-            except ModuleNotFoundError:
-                try:
-                    module = importlib.import_module(f"modules.{name}")
-                except Exception as e:
-                    logging.error(f"[RaAutoloader] Ошибка загрузки {name}: {e}")
+                if name in sys.modules:
+                    module = sys.modules[name]
+                else:
+                    try:
+                        module = importlib.import_module(f"core.{name}")
+                    except ModuleNotFoundError:
+                        module = importlib.import_module(f"modules.{name}")
 
-            if module:
                 self.modules[name] = module
                 logging.info(f"[RaAutoloader] Модуль загружен в память: {name}")
 
+            except Exception as e:
+                logging.error(f"[RaAutoloader] Ошибка загрузки {name}: {e}")
+                errors.report_error("RaAutoloader", f"Ошибка загрузки {name}: {e}")
+                self.failed_modules[name] = str(e)
+
         return self.modules
 
-    # ---------- запуск по требованию ----------
+    # ---------- запуск async ----------
     async def activate_module(self, name: str):
-        """
-        Запускает async-модуль по запросу, если он поддерживает start().
-        """
         module = self.modules.get(name)
         if not module:
             logging.warning(f"[RaAutoloader] Модуль {name} не найден")
             return
 
-        if name in self.tasks:
+        task = self.tasks.get(name)
+        if task and not task.done():
             logging.info(f"[RaAutoloader] Модуль {name} уже активен")
             return
 
         start_fn = getattr(module, "start", None)
         if start_fn and asyncio.iscoroutinefunction(start_fn):
-            task = asyncio.create_task(start_fn(), name=f"mod:{name}")
-            self.tasks[name] = task
-            logging.info(f"[RaAutoloader] Async модуль запущен: {name}")
+            try:
+                task = asyncio.create_task(start_fn(), name=f"mod:{name}")
+                self.tasks[name] = task
+                logging.info(f"[RaAutoloader] Async модуль запущен: {name}")
+            except Exception as e:
+                logging.error(f"[RaAutoloader] Ошибка при запуске {name}: {e}")
+                errors.report_error("RaAutoloader", f"Ошибка при запуске {name}: {e}")
         else:
             logging.info(f"[RaAutoloader] Модуль {name} не имеет async start, запуск пропущен")
 
+    # ---------- стоп async ----------
     async def stop_async_modules(self):
+        if not self.tasks:
+            return
         for task in self.tasks.values():
             task.cancel()
         await asyncio.gather(*self.tasks.values(), return_exceptions=True)
@@ -108,4 +122,10 @@ class RaAutoloader:
         return {
             "modules": list(self.modules.keys()),
             "async_tasks": list(self.tasks.keys()),
+            "failed_modules": list(self.failed_modules.keys())
         }
+
+    # ---------- активация default ----------
+    async def activate_default_modules(self):
+        for name in ACTIVE_DEFAULT:
+            await self.activate_module(name)
