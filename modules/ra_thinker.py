@@ -88,7 +88,7 @@ class RaThinker:
                 return f"{knowledge_reply}\n\n{reply}" if knowledge_reply else reply
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
-                
+
         safe_reply = reply[:300] if "reply" in locals() and reply else "нет ответа"
 
         await chronicles.добавить(
