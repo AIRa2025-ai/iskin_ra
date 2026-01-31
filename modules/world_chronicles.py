@@ -166,6 +166,12 @@ class WorldChronicles:
     def get_high_resonance(self, min_value: float = 0.8) -> List[Dict]:
         return [e for e in self.entries if e["resonance"] >= min_value]
 
+    # ---------- ДАННЫЕ ДЛЯ ПРЕДСКАЗАНИЙ ----------
+
+    def get_fate_context(self, limit: int = 10) -> List[Dict]:
+        eternal = self.get_eternal_events()
+        return eternal[-limit:]
+        
     # ---------- ЛЕТОПИСЬ ЭПОХ ----------
 
     def timeline(self) -> List[str]:
