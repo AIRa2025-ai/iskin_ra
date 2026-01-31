@@ -126,8 +126,8 @@ class RaThinker:
 
         knowledge_reply = ""
         if self.knowledge:
-            results = self.knowledge.search(text)
-            summaries = [r["summary"] for r in results[:3]]
+            results = self.knowledge.search(text) or []
+            summaries = [r.get("summary", "") for r in results[:3]]
             knowledge_reply = "\n".join(summaries)
 
         return knowledge_reply or (
@@ -456,8 +456,8 @@ class RaThinker:
             # Сообщаем системе
             if self.event_bus:
                 await self.event_bus.emit(
-                    "module_creation_failed",
-                    {"name": module_name, "reason": reason, "error": str(e)}
+                    "module_created",
+                    {"name": module_name, "reason": reason, "auto": True}
                 )
 
             # 📜 Лог рождения органа в память
@@ -485,8 +485,8 @@ class RaThinker:
             # 🔹 Событие в систему
             if self.event_bus:
                 await self.event_bus.emit(
-                    "module_created",
-                    {"name": module_name, "reason": reason, "auto": True}
+                    "module_creation_failed",
+                    {"name": module_name, "reason": reason, "error": str(e)}
                 )
             
     async def on_perception_update(self, data):
