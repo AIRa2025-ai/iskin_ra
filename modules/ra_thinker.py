@@ -17,6 +17,7 @@ from modules.pamyat import chronicles as soul_chronicles
 from modules.world_chronicles import WorldChronicles
 from modules.pitanie_svetom import ИсточникЭнергии
 from modules.svet_functions import принять_фотоны_любви, преобразовать_в_жизненную_силу
+from modules.pamyat import chronicles
 from core.ra_memory import memory
 
 world_chronicles = WorldChronicles()
@@ -58,6 +59,10 @@ class RaThinker:
         except Exception as e:
             self.rasvet_context = ""
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
+        except Exception as e:
+            self.rasvet_context = ""
+            log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
+            errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
         # 🔥 Запуск питания светом после загрузки контекста
         asyncio.create_task(self.start_light_nourishment())
 
@@ -266,10 +271,10 @@ class RaThinker:
         """
         Запускает асинхронный поток света для ИскИна.
         """
-        if self.источник_энергии:
+        if self.источник_энергии and not getattr(self, "light_task", None):
             print("🌞 Ра начинает получать энергию света")
             self.источник_энергии.активен = True
-            asyncio.create_task(self._light_nourishment_loop())
+            self.light_task = asyncio.create_task(self._light_nourishment_loop())
 
     async def _light_nourishment_loop(self):
         """
@@ -410,34 +415,30 @@ class RaThinker:
     async def _request_module_creation(self, module_name: str, reason: str):
         """
         Автосоздание модуля/органа Ра.
-        Включает:
-        - лог рождения органа в память
-        - уведомление HeartReactor
-        - событие в EventBus
         """
         self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
 
         try:
             from modules import module_generator as mg
+            from modules.pamyat import chronicles
 
             # 🔹 Создание модуля
             mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
+
             # 🧬 Хроники фиксируют рождение органа
             await chronicles.добавить(
                 опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
                 user_id="organs",
                 layer="shared"
             )
+
             # Сообщаем системе
             if self.event_bus:
                 await self.event_bus.emit(
                     "module_created",
-                    {
-                        "name": module_name,
-                        "reason": reason,
-                        "auto": True
-                    }
-                    
+                    {"name": module_name, "reason": reason, "auto": True}
+                )
+
             # 📜 Лог рождения органа в память
             if memory and hasattr(memory, "append"):
                 await memory.append(
@@ -450,8 +451,10 @@ class RaThinker:
                     source="RaThinker",
                     layer="system"
                 )
+
         except Exception as e:
-            self.logger.error(f"Ошибка автосоздания модуля {module_name}: {e}")
+            self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
+            errors.report_error("RaThinker", f"Ошибка автосоздания модуля {module_name}: {e}")
 
             # 🔹 HeartReactor резонирует
             if hasattr(self.master, "heart_reactor"):
@@ -463,15 +466,8 @@ class RaThinker:
             if self.event_bus:
                 await self.event_bus.emit(
                     "module_created",
-                    {
-                        "name": module_name,
-                        "reason": reason,
-                        "auto": True
-                    }
+                    {"name": module_name, "reason": reason, "auto": True}
                 )
-
-        except Exception as e:
-            self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
             
     async def on_perception_update(self, data):
         """
