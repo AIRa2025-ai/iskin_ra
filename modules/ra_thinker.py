@@ -111,11 +111,9 @@ class RaThinker:
             layer="short_term"
         )
     
-        return knowledge_reply or (
-            f"🜂 Ра чувствует вопрос:\n{text}\n\n"
-            f"🜁 Ответ рождается из РаСвета.\n"
-            f"Действуй осознанно. Истина внутри."
-        )
+        if knowledge_reply and reply_text != knowledge_reply:
+            return f"{knowledge_reply}\n\n{reply_text}"
+        return reply_text
     # -------------------------------
     # Обновление знаний
     # -------------------------------
@@ -197,11 +195,6 @@ class RaThinker:
                 self.architecture[module_name]["classes"].append(node.name)
             elif isinstance(node, ast.FunctionDef):
                 self.architecture[module_name]["functions"].append(node.name)
-        for alias in node.names:
-            name = alias.name.strip()
-            if name:
-                self.architecture[module_name]["imports"].add(name)
-                self.import_graph[module_name].add(name)
                 
     def architecture_summary(self):
         summary = {
@@ -246,8 +239,8 @@ class RaThinker:
         ideas = self.propose_self_improvements()
         self.logger.info(f"[RaThinker] Self improvement ({purpose}): {len(ideas)} ideas")
         return ideas
-        await self.self_improvement_cycle("upgrade")
-        await self.self_improvement_cycle("reflection")
+    await self.self_improvement_cycle("upgrade")
+    await self.self_improvement_cycle("reflection")
     # -------------------------------
     # Синк файлового сознания
     # -------------------------------
