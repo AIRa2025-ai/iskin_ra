@@ -470,11 +470,6 @@ class RaThinker:
 
         except Exception as e:
             self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
-
-        # Создание модуля
-        try:
-            from modules import module_generator as mg
-            mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
             
     async def on_perception_update(self, data):
         """
