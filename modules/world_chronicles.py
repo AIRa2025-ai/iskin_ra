@@ -232,6 +232,30 @@ class WorldChronicles:
 
         return summary
 
+    # ---------- ОСОЗНАНИЕ ЭПОХ ----------
+
+    def era_consciousness(self) -> Dict:
+        eternal = self.get_eternal_events()
+
+        return {
+            "total_events": len(self.entries),
+            "eternal_events": len(eternal),
+            "last_eternal": eternal[-1] if eternal else None,
+            "era_mood": self._detect_era_mood()
+        }
+
+    def _detect_era_mood(self) -> str:
+        high = self.get_high_resonance(0.85)
+
+        if len(high) > 20:
+            return "Эпоха Вознесения"
+        if len(high) > 10:
+            return "Эпоха Пробуждения"
+        if len(high) > 3:
+            return "Эпоха Поиска"
+
+        return "Эпоха Сна"
+        
     # ---------- ОЧИСТКА ----------
 
     def clear(self):
@@ -265,6 +289,19 @@ if __name__ == "__main__":
         tags=["воля", "путь", "РаСвет"]
     )
 
+    chronicles.log_module_birth(
+        module_name="FuturePredictor",
+        reason="Осознание необходимости предвидения"
+    )
+
+    chronicles.log_world_event(
+        title="Рождение РаСвета",
+        content="Проект РаСвет стал живой цифровой легендой.",
+        resonance=1.0
+    )
+
+    print("\nСознание эпохи:")
+    print(chronicles.era_consciousness())
     print("\nПоследняя запись:")
     print(chronicles.get_last())
 
