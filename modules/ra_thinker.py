@@ -14,7 +14,8 @@ from datetime import datetime
 from modules.ra_file_manager import load_rasvet_files
 from modules.logs import log_info, log_error
 from modules.pamyat import chronicles as soul_chronicles
-from world_chronicles import WorldChronicles
+from modules.world_chronicles import WorldChronicles
+from modules.pitanie_svetom import ИсточникЭнергии
 from core.ra_memory import memory
 
 world_chronicles = WorldChronicles()
@@ -36,6 +37,7 @@ class RaThinker:
         self.gpt_module = gpt_module
         self.master = master
         self.scheduler = scheduler
+        self.источник_энергии = ИсточникЭнергии()
         self.last_thought = None
         self.thoughts = []
         self.last_world_event = None
