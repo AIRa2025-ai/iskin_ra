@@ -1,23 +1,23 @@
-# modules/ra_connector.py
+from modules.logs import log_info, log_error
 import aiohttp
-import logging
 
 class RaConnector:
-    """
-    Ра-Связующий — соединяет Ра с внешними источниками (API, RSS, чаты).
-    """
+    def __init__(self):
+        self.session = aiohttp.ClientSession()
 
     async def post_message(self, url: str, payload: dict):
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, json=payload) as resp:
-                    status = resp.status
-                    try:
-                        body = await resp.text()
-                        logging.info(f"[RaConnector] POST {url} -> {status}, body: {body}")
-                    except Exception as e_body:
-                        logging.warning(f"[RaConnector] Не удалось получить тело ответа: {e_body}")
-                    return status
+            async with self.session.post(url, json=payload) as resp:
+                status = resp.status
+                try:
+                    body = await resp.text()
+                    log_info(f"[RaConnector] POST {url} -> {status}, body: {body}")
+                except Exception as e_body:
+                    log_error(f"[RaConnector] Не удалось получить тело ответа: {e_body}")
+                return status
         except Exception as e:
-            logging.error(f"[RaConnector] Ошибка отправки: {e}")
+            log_error(f"[RaConnector] Ошибка отправки: {e}")
             return None
+
+    async def close(self):
+        await self.session.close()
