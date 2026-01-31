@@ -182,8 +182,8 @@ class FuturePredictor:
             user_id="future",
             layer="shared"
         )
-            fate_hint = self.read_fate_from_chronicles()
-            return f"{prediction_text}\n\n{fate_hint}"
+        fate_hint = self.read_fate_from_chronicles()
+        return f"{prediction_text}\n\n{fate_hint}"
 
     # -------------------------------
     # Реакция на события мира
@@ -259,7 +259,7 @@ class FuturePredictor:
         return any(text in old for old in self.prediction_history[-10:])  # последние 10
 
     def read_fate_from_chronicles(self):
-        fate_events = chronicles.get_fate_context(limit=7)
+        fate_events = chronicles.get_destiny_events()[:7]
 
         if not fate_events:
             return "Судьба пока молчит."
