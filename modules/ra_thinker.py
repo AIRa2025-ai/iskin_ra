@@ -13,11 +13,11 @@ from collections import defaultdict
 from datetime import datetime
 from modules.ra_file_manager import load_rasvet_files
 from modules.logs import log_info, log_error
-from modules.pamyat import chronicles
-from core.ra_memory import memory
+from modules.pamyat import chronicles as soul_chronicles
 from world_chronicles import WorldChronicles
+from core.ra_memory import memory
 
-chronicles = WorldChronicles()
+world_chronicles = WorldChronicles()
 
 class RaThinker:
     def __init__(
@@ -91,7 +91,7 @@ class RaThinker:
 
         safe_reply = reply[:300] if "reply" in locals() and reply else "нет ответа"
 
-        await chronicles.добавить(
+        await soul_chronicles.добавить(
             опыт=f"Мысль Ра: {text} → {safe_reply}",
             user_id="thinker",
             layer="short_term"
@@ -286,7 +286,7 @@ class RaThinker:
 
     async def process_world_message(self, message):
         self.last_world_event = message
-        chronicles.add_entry(
+        world_chronicles.add_entry(
             title="Событие мира",
             content=str(message),
             category="world",
@@ -476,11 +476,9 @@ class RaThinker:
             self.last_thought = f"Предсказание: {prediction}"
             return prediction
         return "🔮 Модуль FuturePredictor недоступен."
-
-        
+      
     def perceive_era(self):
-        era = chronicles.era_consciousness()
-
+        era = world_chronicles.era_consciousness()
         if not era:
             return "Эпоха не определена."
 
