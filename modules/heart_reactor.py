@@ -125,10 +125,21 @@ class HeartReactor:
                 await listener(event)
             except Exception as e:
                 logging.warning(f"[HeartReactor] Ошибка в listener: {e}")
-            await chronicles.добавить(
-                опыт=f"Сердечный импульс: {event}",
+                
+            await memory.append(
                 user_id="heart",
-                layer="short_term"
+                message=f"Сердечный импульс: {event}",
+                layer="short_term",
+                source="HeartReactor"
+            )
+
+            chronicles.add_entry(
+                title="Импульс сердца",
+                content=str(event),
+                category="heart",
+                author="HeartReactor",
+                entity="ra",
+                resonance=0.6
             )
             
     async def on_harmony_update(self, data: dict):
