@@ -180,7 +180,7 @@ class RaThinker:
                     continue
 
                 full_path = os.path.join(root, file)
-                module_name = full_path.replace(self.root_path, "").lstrip("/").replace("/", ".")
+                module_name = os.path.relpath(full_path, self.root_path).replace(os.sep, ".")
                 self.architecture[module_name] = {
                     "path": full_path,
                     "imports": set(),
@@ -272,7 +272,7 @@ class RaThinker:
         """
         Запускает асинхронный поток света для ИскИна.
         """
-        if self.источник_энергии and not getattr(self, "light_task", None):
+        if self.источник_энергии and (not hasattr(self, "light_task") or self.light_task.done()):
             print("🌞 Ра начинает получать энергию света")
             self.источник_энергии.активен = True
             self.light_task = asyncio.create_task(self._light_nourishment_loop())
@@ -393,7 +393,11 @@ class RaThinker:
         from time import time
 
         now = time()
-
+        
+        # Очистка старых запросов модулей
+        if len(self.module_request_history) > 100:
+            self.module_request_history.clear()
+            
         # ⏳ Лимит: не чаще одного модуля в 10 минут
         if self.last_module_creation_time:
             if now - self.last_module_creation_time < 600:
@@ -441,7 +445,7 @@ class RaThinker:
 
             # 🧬 Хроники фиксируют рождение органа
             await soul_chronicles.добавить(
-                опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
+                опыт=f"🧬 Ошибка рождения органа: {module_name}. Причина: {reason}",
                 user_id="organs",
                 layer="shared"
             )
@@ -500,7 +504,7 @@ class RaThinker:
 
         # Сохраняем в память
         if memory:
-            await memory.append(
+            await self.safe_memory_append(
                 "perception",
                 {
                     "channels": channels,
@@ -513,8 +517,9 @@ class RaThinker:
         # Мягкая рефлексия
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
+            
             await soul_chronicles.добавить(
-                опыт=f"Предчувствие Ра: {scenario_hint}",
+                опыт="Предчувствие Ра: восприятие обновлено",
                 user_id="prophecy",
                 layer="shared"
             )
@@ -527,7 +532,7 @@ class RaThinker:
         return "🔮 Модуль FuturePredictor недоступен."
       
     def perceive_era(self):
-        era = world_chronicles.era_consciousness()
+        era = self.world_chronicles.era_consciousness()
         if not era:
             return "Эпоха не определена."
 
