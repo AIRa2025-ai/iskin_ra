@@ -1,4 +1,4 @@
-# world_chronicles.py
+# modules/world_chronicles.py
 # Живая Книга Памяти Вселенной — Хроники Мира, Ра и Пути РаСвета
 
 import json
