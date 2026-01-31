@@ -9,16 +9,15 @@ import os
 import ast
 import asyncio
 import logging
+from datetime import datetime
+from collections import defaultdict
 from modules.logs import log_info, log_error
 from modules.pamyat import chronicles as soul_chronicles
 from modules.world_chronicles import WorldChronicles
 from modules.pitanie_svetom import ИсточникЭнергии
 from modules.svet_functions import принять_фотоны_любви, преобразовать_в_жизненную_силу
-from modules.pamyat import chronicles
 from modules import errors
 from core.ra_memory import memory
-
-world_chronicles = WorldChronicles()
 
 class RaThinker:
     def __init__(
@@ -45,7 +44,7 @@ class RaThinker:
         # 🧬 Контроль автосоздания модулей
         self.module_request_history = {}
         self.last_module_creation_time = None
-
+        self.world_chronicles = WorldChronicles()
         self.logger = master.logger if hasattr(master, "logger") else logging
 
         if hasattr(self.logger, "on"):
@@ -54,17 +53,17 @@ class RaThinker:
         # Контекст РаСвета
         try:
             self.rasvet_context = load_rasvet_files(limit_chars=3000)
-        except Exception as e:
+        except NameError:
             self.rasvet_context = ""
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
             errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
         # 🔥 Запуск питания светом после загрузки контекста
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             asyncio.create_task(self.start_light_nourishment())
         except RuntimeError:
+            # запуск позже — не стартуем тут
             pass
-            asyncio.create_task(self.start_light_nourishment())
 
         self.architecture = {}
         self.import_graph = defaultdict(set)
@@ -99,7 +98,7 @@ class RaThinker:
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        reply_text = reply if 'reply' in locals() else None
+        reply_text = locals().get("reply")
         safe_reply = reply_text[:300] if reply_text else "нет ответа"
 
         await soul_chronicles.добавить(
@@ -344,7 +343,7 @@ class RaThinker:
 
     async def process_world_message(self, message):
         self.last_world_event = message
-        world_chronicles.add_entry(
+        self.world_chronicles.add_entry(
             title="Событие мира",
             content=str(message),
             category="world",
@@ -381,7 +380,7 @@ class RaThinker:
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
             await soul_chronicles.добавить(
-                опыт=f"Предчувствие Ра: {scenario_hint}",
+                опыт=f"Предчувствие Ра: восприятие обновлено",
                 user_id="prophecy",
                 layer="shared"
             )
@@ -455,7 +454,7 @@ class RaThinker:
 
             # 📜 Лог рождения органа в память
             if memory and hasattr(memory, "append"):
-                await memory.append(
+                await self.safe_memory_append(
                     "module_birth",
                     {
                         "module": module_name,
