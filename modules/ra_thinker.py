@@ -97,7 +97,7 @@ class RaThinker:
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка GPT: {e}")
 
-        safe_reply = reply[:300] if "reply" in locals() and reply else "нет ответа"
+        safe_reply = reply[:300] if 'reply' in locals() and reply else "нет ответа"
 
         await soul_chronicles.добавить(
             опыт=f"Мысль Ра: {text} → {safe_reply}",
