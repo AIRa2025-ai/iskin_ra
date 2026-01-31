@@ -36,7 +36,8 @@ class RaConnector:
 
         self.dynamic_timeout = timeout
         self.health_score = 100
-
+        self.last_successful_request = None  # время последнего успешного запроса
+        self.last_failed_request = None      # время последней ошибки
         self.fallback_urls = [
             "https://google.com",
             "https://cloudflare.com",
@@ -53,7 +54,9 @@ class RaConnector:
                     timeout=timeout,
                     connector=connector
                 )
-
+        if self.session and self.session.closed and self.turbo:
+            log_info("[RaConnector] Сессия закрыта, выполняется автоматический reset")
+            await self.reset()
                 log_info("[RaConnector] Сессия пересоздана")
             except Exception as e:
                 log_error(f"[RaConnector] Ошибка создания сессии: {e}")
@@ -65,14 +68,18 @@ class RaConnector:
             if delta < self.rate_limit:
                 await asyncio.sleep(self.rate_limit - delta)
             self.last_request_time = time.time()
-
+        if delta < self.rate_limit / 2:
+            log_info(f"[RaConnector] Внимание: запросы идут очень часто, пауза {self.rate_limit - delta:.2f} сек")
+            
     def _adapt_timeout(self, success: bool):
         if success:
             self.dynamic_timeout = max(5, self.dynamic_timeout - 1)
             self.health_score = min(100, self.health_score + 1)
+            self.last_successful_request = time.time()
         else:
             self.dynamic_timeout = min(60, self.dynamic_timeout + 3)
             self.health_score = max(0, self.health_score - 5)
+            self.last_failed_request = time.time()
 
     async def post_message(self, url: str, payload: dict):
         await self._ensure_session()
@@ -153,7 +160,8 @@ class RaConnector:
         success_rate = round(
             (1 - self.failed_requests / max(self.total_requests, 1)) * 100, 2
         )
-
+        "last_successful_request": self.last_successful_request,
+        "last_failed_request": self.last_failed_request,
         return {
             "total_requests": self.total_requests,
             "failed_requests": self.failed_requests,
