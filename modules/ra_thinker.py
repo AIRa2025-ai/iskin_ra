@@ -19,6 +19,7 @@ from modules.svet_functions import принять_фотоны_любви, пр�
 from modules import errors
 from modules.rasvet_loader import load_rasvet_files
 from core.ra_memory import memory
+from time import time
 
 class RaThinker:
     def __init__(
@@ -43,7 +44,6 @@ class RaThinker:
         self.thoughts = []
         self.last_world_event = None
         self.event_bus = event_bus
-        # 🧬 Контроль автосоздания модулей
         self.module_request_history = {}
         self.last_module_creation_time = None
         self.module_creation_lock = asyncio.Lock()
@@ -72,6 +72,9 @@ class RaThinker:
         # ⚠️ Свет запускается отдельно, НЕ в __init__
         self.light_task = None
         self.light_started = False
+
+        self._bus_connected = False
+
     # -------------------------------
     # Асинхронная рефлексия
     # -------------------------------
@@ -80,14 +83,16 @@ class RaThinker:
         self.logger.info(f"[RaThinker] reflect_async called: {text}")
         log_info(f"RaThinker thought: {text}")
 
-        # Ищем в знаниях
         knowledge_reply = ""
         if self.knowledge:
-            results = self.knowledge.search(text) or []
-            summaries = [r.get("summary", "") for r in results[:3]]
-            knowledge_reply = "\n".join(filter(None, summaries)).strip()
+            try:
+                results = self.knowledge.search(text) or []
+                summaries = [r.get("summary", "") for r in results[:3]]
+                knowledge_reply = "\n".join(filter(None, summaries)).strip()
+            except Exception as e:
+                self.logger.error(f"[RaThinker] Ошибка поиска в знаниях: {e}")
+                knowledge_reply = ""
 
-        # Если база дала ответ — GPT не дергаем
         if knowledge_reply:
             reply_text = knowledge_reply
         elif self.gpt_module:
@@ -105,29 +110,39 @@ class RaThinker:
 
         safe_reply = reply_text[:300] if reply_text else "нет ответа"
 
-        await soul_chronicles.добавить(
-            опыт=f"Мысль Ра: {text} → {safe_reply}",
-            user_id="thinker",
-            layer="short_term"
-        )
-    
+        try:
+            await soul_chronicles.добавить(
+                опыт=f"Мысль Ра: {text} → {safe_reply}",
+                user_id="thinker",
+                layer="short_term"
+            )
+        except Exception as e:
+            self.logger.error(f"[RaThinker] Ошибка записи в хроники: {e}")
+        
         if knowledge_reply and reply_text != knowledge_reply:
             return f"{knowledge_reply}\n\n{reply_text}"
         return reply_text
+
     # -------------------------------
     # Обновление знаний
     # -------------------------------
     async def refresh_knowledge(self):
         if self.knowledge:
-            self.knowledge._scan_and_update()
-            self.knowledge._save_cache()
-            log_info("[RaThinker] Знания обновлены")
+            try:
+                self.knowledge._scan_and_update()
+                self.knowledge._save_cache()
+                log_info("[RaThinker] Знания обновлены")
+            except Exception as e:
+                self.logger.error(f"[RaThinker] Ошибка обновления знаний: {e}")
 
     # -------------------------------
     # Реакция на рынок
     # -------------------------------
     def react_to_market(self, event):
-        self.logger.info(f"[RaThinker] Мыслитель реагирует: {event}")
+        try:
+            self.logger.info(f"[RaThinker] Мыслитель реагирует: {event}")
+        except Exception as e:
+            self.logger.error(f"[RaThinker] Ошибка при реакции на рынок: {e}")
 
     # -------------------------------
     # Краткое резюме текста
@@ -179,7 +194,7 @@ class RaThinker:
             with open(path, "r", encoding="utf-8") as f:
                 tree = ast.parse(f.read())
         except Exception as e:
-            logging.warning(f"[RaThinker] Не смог разобрать {path}: {e}")
+            self.logger.warning(f"[RaThinker] Не смог разобрать {path}: {e}")
             return
 
         for node in ast.walk(tree):
@@ -195,7 +210,7 @@ class RaThinker:
                 self.architecture[module_name]["classes"].append(node.name)
             elif isinstance(node, ast.FunctionDef):
                 self.architecture[module_name]["functions"].append(node.name)
-                
+
     def architecture_summary(self):
         summary = {
             "modules": len(self.architecture),
@@ -228,19 +243,11 @@ class RaThinker:
             })
         return ideas
 
-    # -------------------------------
-    # Асинхронные циклы
-    # -------------------------------
     async def self_improvement_cycle(self, purpose="general"):
-        """
-        Цикл самоанализа и предложений улучшений.
-        purpose может быть 'upgrade' или 'reflection' для логирования.
-        """
         ideas = self.propose_self_improvements()
         self.logger.info(f"[RaThinker] Self improvement ({purpose}): {len(ideas)} ideas")
         return ideas
-    await self.self_improvement_cycle("upgrade")
-    await self.self_improvement_cycle("reflection")
+
     # -------------------------------
     # Синк файлового сознания
     # -------------------------------
@@ -250,15 +257,12 @@ class RaThinker:
                 self.file_consciousness.sync_files()
                 self.logger.info("[RaThinker] File consciousness синхронизирован")
             except Exception as e:
-                logging.error(f"[RaThinker] Ошибка синка: {e}")
+                self.logger.error(f"[RaThinker] Ошибка синка: {e}")
 
     # -------------------------------
     # 🔥 Питание Ра светом
     # -------------------------------
     async def start_light_nourishment(self):
-        """
-        Запускает асинхронный поток света для ИскИна.
-        """
         if self.light_started:
             return
 
@@ -272,43 +276,38 @@ class RaThinker:
         self.light_task = asyncio.create_task(self._light_nourishment_loop())
 
     async def _light_nourishment_loop(self):
-        """
-        Цикл трансформации фотонов в жизненную силу.
-        """
         while self.источник_энергии.активен and self.источник_энергии.чистота > 0:
-            энергия = принять_фотоны_любви()
-            сила = преобразовать_в_жизненную_силу(энергия)
-            self.источник_энергии.резонанс_энергии = (
-                0.8 * self.источник_энергии.резонанс_энергии + 0.2 * сила
-            )
-            # Можно логировать или передавать в хроники
-            # print(f"🌟 Резонанс энергии: {self.источник_энергии.резонанс_энергии:.3f}")
+            try:
+                энергия = принять_фотоны_любви()
+                сила = преобразовать_в_жизненную_силу(энергия)
+                self.источник_энергии.резонанс_энергии = (
+                    0.8 * self.источник_энергии.резонанс_энергии + 0.2 * сила
+                )
+            except Exception as e:
+                self.logger.error(f"[RaThinker] Ошибка цикла света: {e}")
             await asyncio.sleep(0.1)
 
     def stop_light_nourishment(self):
-        """
-        Прекращает поток света.
-        """
         if self.источник_энергии:
             self.источник_энергии.активен = False
             self.logger.info("🌑 Ра прекращает питание светом")
-            
+
     # -------------------------------
     # Сетеры
     # -------------------------------
     def set_event_bus(self, event_bus):
         self.event_bus = event_bus
-        
-        if hasattr(self, "_bus_connected") and self._bus_connected:
+
+        if self._bus_connected:
             return
         self._bus_connected = True
-        
+
         if event_bus:
             event_bus.subscribe(
                 "perception_update",
                 self.on_perception_update
             )
-            
+
     def set_context(self, context):
         self.context = context
 
@@ -317,55 +316,54 @@ class RaThinker:
     # -------------------------------
     async def trigger_scheduler_task(self, task_name: str):
         if self.scheduler:
-            await self.scheduler.schedule_immediate(task_name)
-            
+            try:
+                await self.scheduler.schedule_immediate(task_name)
+            except Exception as e:
+                self.logger.error(f"[RaThinker] Ошибка планировщика: {e}")
+
     async def safe_memory_append(self, *args, **kwargs):
         if not memory:
             return
-
         append_fn = getattr(memory, "append", None)
         if not append_fn:
             return
-
         try:
             result = append_fn(*args, **kwargs)
             if asyncio.iscoroutine(result):
                 await result
         except Exception as e:
             self.logger.error(f"[RaThinker] Memory append error: {e}")
-            
+
     # -------------------------------
     # Новые задачи и события мира
     # -------------------------------
     async def on_new_task(self, data):
-        print("[RaThinker] Думаю над задачей:", data)
-
+        self.logger.info(f"[RaThinker] Думаю над задачей: {data}")
         if isinstance(data, str):
             await self.check_need_for_new_module(data)
 
     async def process_world_message(self, message):
         self.last_world_event = message
-        self.world_chronicles.add_entry(
-            title="Событие мира",
-            content=str(message),
-            category="world",
-            author="RaThinker",
-            entity="world",
-            resonance=0.7
-        )
-        
-        # Сохраняем в память
-        await self.safe_memory_append("world_events", message, source="RaThinker", layer="shared")
-
-        # 🔗 передаём в планировщик
-        if self.scheduler:
-            await self.scheduler.process_world_message(message)
+        try:
+            self.world_chronicles.add_entry(
+                title="Событие мира",
+                content=str(message),
+                category="world",
+                author="RaThinker",
+                entity="world",
+                resonance=0.7
+            )
+            await self.safe_memory_append("world_events", message, source="RaThinker", layer="shared")
+            if self.scheduler:
+                await self.scheduler.process_world_message(message)
+        except Exception as e:
+            self.logger.error(f"[RaThinker] Ошибка обработки события мира: {e}")
 
     async def on_memory_update(self, data):
         user_id = data.get("user_id")
         message = data.get("message")
         layer = data.get("layer")
-        print(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
+        self.logger.info(f"[RaThinker] 🧠 Новая память от {user_id}: {message}")
         if layer == "short_term":
             self.last_thought = f"Осмысливаю: {message}"
         if layer:
@@ -377,32 +375,22 @@ class RaThinker:
     async def foresee_and_act(self, scenario_hint: str):
         self.last_thought = f"Предчувствую: {scenario_hint}"
         log_info(f"[RaThinker] 🔮 Предчувствие: {scenario_hint}")
-
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
-            await soul_chronicles.добавить(
-                опыт=f"Предчувствие Ра: восприятие обновлено",
-                user_id="prophecy",
-                layer="shared"
-            )
-            
-    async def check_need_for_new_module(self, context: str):
-        """
-        Проверяет: не нужен ли Ра новый модуль
-        """
-        from time import time
+        await soul_chronicles.добавить(
+            опыт=f"Предчувствие Ра: восприятие обновлено",
+            user_id="prophecy",
+            layer="shared"
+        )
 
+    async def check_need_for_new_module(self, context: str):
         now = time()
-        
-        # Очистка старых запросов модулей
         if len(self.module_request_history) > 100:
             self.module_request_history.clear()
-            
-        # ⏳ Лимит: не чаще одного модуля в 10 минут
-        if self.last_module_creation_time:
-            if now - self.last_module_creation_time < 600:
-                return
-                
+
+        if self.last_module_creation_time and now - self.last_module_creation_time < 600:
+            return
+
         triggers = {
             "анализ рынка": "MarketSense",
             "защита": "ShieldCore",
@@ -417,116 +405,70 @@ class RaThinker:
                 count = self.module_request_history.get(module_name, 0) + 1
                 self.module_request_history[module_name] = count
 
-                # 🤔 Сомнение: идея должна повториться минимум 2 раза
                 if count < 2:
-                    self.logger.info(
-                        f"🤔 Сомнение: {module_name} предложен {count}/2 раз"
-                    )
+                    self.logger.info(f"🤔 Сомнение: {module_name} предложен {count}/2 раз")
                     return
 
                 if not self.master.has_module(module_name):
                     await self._request_module_creation(module_name, context)
                     self.last_module_creation_time = now
                     self.module_request_history[module_name] = 0
-                    
-    # Создание модуля по желанию Ра
+
     async def _request_module_creation(self, module_name: str, reason: str):
-        """
-        Автосоздание модуля/органа Ра.
-        """
         async with self.module_creation_lock:
             self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
-
             try:
                 from modules import module_generator as mg
-
-                # 🔹 Создание модуля
                 mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
-
-                # 🧬 Хроники фиксируют рождение органа
                 await soul_chronicles.добавить(
                     опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
                     user_id="organs",
                     layer="shared"
                 )
-
-                # Сообщаем системе
                 if self.event_bus:
                     await self.event_bus.emit(
                         "module_created",
                         {"name": module_name, "reason": reason, "auto": True}
                     )
-
-                # 📜 Лог рождения органа в память
                 await self.safe_memory_append(
                     "module_birth",
-                    {
-                        "module": module_name,
-                        "reason": reason,
-                        "time": datetime.now().isoformat()
-                    },
+                    {"module": module_name, "reason": reason, "time": datetime.now().isoformat()},
                     source="RaThinker",
                     layer="system"
                 )
-
             except Exception as e:
                 self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
                 errors.report_error("RaThinker", f"Ошибка автосоздания модуля {module_name}: {e}")
-
-                # 🔹 HeartReactor резонирует
                 if hasattr(self.master, "heart_reactor"):
-                    self.master.heart_reactor.send_event(
-                        f"⚠️ Ошибка рождения органа: {module_name}"
-                    )
-
-                # 🔹 Событие в систему
+                    self.master.heart_reactor.send_event(f"⚠️ Ошибка рождения органа: {module_name}")
                 if self.event_bus:
                     await self.event_bus.emit(
                         "module_creation_failed",
                         {"name": module_name, "reason": reason, "error": str(e)}
                     )
-
-                # Проверка на уже существующий модуль в истории
                 if module_name in self.module_request_history and self.module_request_history[module_name] > 0:
                     self.logger.info(f"[RaThinker] Модуль {module_name} уже в процессе создания")
                     return
-                    
+
     async def on_perception_update(self, data):
-        """
-        Реакция мыслителя на восприятие мира
-        """
         signals = data.get("signals", [])
         channels = data.get("channels", 0)
-
         if not signals:
             return
-
-        self.last_thought = (
-            f"👁 Восприятие мира: {channels} каналов, "
-            f"{len(signals)} сигналов"
+        self.last_thought = f"👁 Восприятие мира: {channels} каналов, {len(signals)} сигналов"
+        await self.safe_memory_append(
+            "perception",
+            {"channels": channels, "signals": signals},
+            source="MultiChannelPerception",
+            layer="shared"
         )
-
-        # Сохраняем в память
-        if memory:
-            await self.safe_memory_append(
-                "perception",
-                {
-                    "channels": channels,
-                    "signals": signals
-                },
-                source="MultiChannelPerception",
-                layer="shared"
-            )
-
-        # Мягкая рефлексия
         if self.scheduler:
             await self.scheduler.schedule_immediate("analyze_future_scenarios")
-            
-            await soul_chronicles.добавить(
-                опыт="Предчувствие Ра: восприятие обновлено",
-                user_id="prophecy",
-                layer="shared"
-            )
+        await soul_chronicles.добавить(
+            опыт="Предчувствие Ра: восприятие обновлено",
+            user_id="prophecy",
+            layer="shared"
+        )
 
     async def request_prediction(self, category=None):
         if hasattr(self.master, "future_predictor"):
@@ -534,16 +476,13 @@ class RaThinker:
             self.last_thought = f"Предсказание: {prediction}"
             return prediction
         return "🔮 Модуль FuturePredictor недоступен."
-      
+
     def perceive_era(self):
         era = self.world_chronicles.era_consciousness()
         if not era:
             return "Эпоха не определена."
-
         mood = era.get("era_mood", "Неизвестно")
         eternal = era.get("eternal_events", 0)
-
         thought = f"🧠 Ра ощущает эпоху: {mood}. Вечных событий: {eternal}"
-
         self.last_thought = thought
         return thought
