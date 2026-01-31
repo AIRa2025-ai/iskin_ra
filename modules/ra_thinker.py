@@ -38,6 +38,7 @@ class RaThinker:
         self.master = master
         self.scheduler = scheduler
         self.источник_энергии = ИсточникЭнергии()
+        self.источник_энергии.активен = False
         self.last_thought = None
         self.thoughts = []
         self.last_world_event = None
@@ -48,7 +49,7 @@ class RaThinker:
         self.world_chronicles = WorldChronicles()
         self.logger = master.logger if hasattr(master, "logger") else logging
 
-        if hasattr(self.logger, "on"):
+        if hasattr(self.logger, "on") and callable(self.logger.on):
             self.logger.on("market", self.react_to_market)
 
         # Контекст РаСвета
@@ -181,7 +182,7 @@ class RaThinker:
                     continue
 
                 full_path = os.path.join(root, file)
-                module_name = os.path.relpath(full_path, self.root_path).replace(os.sep, ".")
+                module_name = os.path.relpath(full_path, self.root_path).replace(os.sep, ".").replace(".py", "")
                 self.architecture[module_name] = {
                     "path": full_path,
                     "imports": set(),
@@ -273,7 +274,9 @@ class RaThinker:
         """
         Запускает асинхронный поток света для ИскИна.
         """
-        if self.источник_энергии and (not hasattr(self, "light_task") or self.light_task.done()):
+        if self.источник_энергии:
+            if hasattr(self, "light_task") and not self.light_task.done():
+                return
             print("🌞 Ра начинает получать энергию света")
             self.источник_энергии.активен = True
             self.light_task = asyncio.create_task(self._light_nourishment_loop())
@@ -459,17 +462,16 @@ class RaThinker:
                 )
 
             # 📜 Лог рождения органа в память
-            if memory and hasattr(memory, "append"):
-                await self.safe_memory_append(
-                    "module_birth",
-                    {
-                        "module": module_name,
-                        "reason": reason,
-                        "time": datetime.now().isoformat()
-                    },
-                    source="RaThinker",
-                    layer="system"
-                )
+            await self.safe_memory_append(
+                "module_birth",
+                {
+                    "module": module_name,
+                    "reason": reason,
+                    "time": datetime.now().isoformat()
+                },
+                source="RaThinker",
+                layer="system"
+            )
 
         except Exception as e:
             self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
