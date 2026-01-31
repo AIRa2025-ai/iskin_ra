@@ -413,12 +413,6 @@ class RaThinker:
 
         except Exception as e:
             self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
-        
-        # Сообщаем сердцу
-        if hasattr(self.master, "heart_reactor"):
-            self.master.heart_reactor.send_event(
-                f"⚡ Нехватка функции → требуется модуль {module_name}"
-            )
 
         # Создание модуля
         try:
