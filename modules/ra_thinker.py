@@ -286,9 +286,12 @@ class RaThinker:
 
     async def process_world_message(self, message):
         self.last_world_event = message
-        chronicles.log_world_event(
+        chronicles.add_entry(
             title="Событие мира",
             content=str(message),
+            category="world",
+            author="RaThinker",
+            entity="world",
             resonance=0.7
         )
         
