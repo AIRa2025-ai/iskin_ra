@@ -105,6 +105,37 @@ class WorldChronicles:
         base = f"{title}|{author}|{datetime.utcnow().isoformat()}"
         return str(abs(hash(base)))
 
+    # ---------- РОЖДЕНИЕ МОДУЛЕЙ ----------
+
+    def log_module_birth(self, module_name: str, reason: str = "unknown"):
+        return self.add_entry(
+            title=f"Рождение модуля: {module_name}",
+            content=f"Создан новый модуль. Причина: {reason}",
+            category="module_birth",
+            author="Ra",
+            entity="ra",
+            tags=["модуль", "рождение", "архитектура"],
+            resonance=0.85,
+            destiny_mark=True,
+            meta={
+                "module": module_name,
+                "reason": reason
+            }
+        )
+
+    # ---------- СОБЫТИЯ МИРА ----------
+
+    def log_world_event(self, title: str, content: str, resonance: float = 0.6):
+        return self.add_entry(
+            title=title,
+            content=content,
+            category="world_event",
+            author="World",
+            entity="world",
+            tags=["мир", "событие"],
+            resonance=resonance
+        )
+        
     # ---------- ЧТЕНИЕ ХРОНИК ----------
 
     def get_all(self) -> List[Dict]:
