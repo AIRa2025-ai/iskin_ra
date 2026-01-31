@@ -182,6 +182,7 @@ class RaThinker:
                     continue
 
                 full_path = os.path.join(root, file)
+                module_name = os.path.relpath(full_path, self.root_path).replace(os.sep, ".").replace(".py", "")
                 module_name = module_name.lstrip(".")
                 self.architecture[module_name] = {
                     "path": full_path,
