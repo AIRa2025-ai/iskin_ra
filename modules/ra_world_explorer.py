@@ -5,6 +5,7 @@ import random
 import datetime
 from typing import List, Callable, Optional
 from modules.ra_world_navigator import RaWorldNavigator
+from modules.ra_connector import RaConnector
 from core.ra_memory import RaMemory
 from core.gpt_module import GPTHandler
 
@@ -19,7 +20,8 @@ class RaWorldExplorer:
     def __init__(self, navigator: Optional[RaWorldNavigator] = None,
                  notify: Callable = None,
                  global_memory: Optional[RaMemory] = None,
-                 gpt: Optional[GPTHandler] = None):
+                 gpt: Optional[GPTHandler] = None,
+                 connector: Optional[RaConnector] = None):  # <--- добавили
         self.navigator = navigator
         self.notify = notify
         self.running = False
@@ -35,6 +37,9 @@ class RaWorldExplorer:
         self.память_мира: List[dict] = []
         self.global_memory = global_memory
         self.gpt = gpt
+
+        # Мост Ра
+        self.connector = connector or RaConnector(turbo=True)  # <--- если не передан, создаём новый
 
         # Голос
         self.голос_света = [
