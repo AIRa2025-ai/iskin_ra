@@ -10,6 +10,7 @@ import random
 from typing import List, Dict, Any
 from modules.pamyat import chronicles
 from world_chronicles import WorldChronicles
+from core.ra_memory import memory
 
 chronicles = WorldChronicles()
 
@@ -126,21 +127,21 @@ class HeartReactor:
             except Exception as e:
                 logging.warning(f"[HeartReactor] Ошибка в listener: {e}")
                 
-            await memory.append(
-                user_id="heart",
-                message=f"Сердечный импульс: {event}",
-                layer="short_term",
-                source="HeartReactor"
-            )
+        await memory.append(
+            user_id="heart",
+            message=f"Сердечный импульс: {event}",
+            layer="short_term",
+            source="HeartReactor"
+        )
 
-            chronicles.add_entry(
-                title="Импульс сердца",
-                content=str(event),
-                category="heart",
-                author="HeartReactor",
-                entity="ra",
-                resonance=0.6
-            )
+        chronicles.add_entry(
+            title="Импульс сердца",
+            content=str(event),
+            category="heart",
+            author="HeartReactor",
+            entity="ra",
+            resonance=0.6
+        )
             
     async def on_harmony_update(self, data: dict):
         harmony = data.get("гармония")
