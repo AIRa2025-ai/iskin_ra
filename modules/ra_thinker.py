@@ -61,7 +61,8 @@ class RaThinker:
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
             errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
         # 🔥 Запуск питания светом после загрузки контекста
-        asyncio.create_task(self.start_light_nourishment())
+        if asyncio.get_event_loop().is_running():
+            asyncio.create_task(self.start_light_nourishment())
 
         self.architecture = {}
         self.import_graph = defaultdict(set)
