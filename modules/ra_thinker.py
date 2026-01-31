@@ -53,10 +53,11 @@ class RaThinker:
         # Контекст РаСвета
         try:
             self.rasvet_context = load_rasvet_files(limit_chars=3000)
-        except NameError:
+        except Exception as e:
             self.rasvet_context = ""
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
             errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
+            
         # 🔥 Запуск питания светом после загрузки контекста
         try:
             asyncio.get_running_loop()
