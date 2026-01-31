@@ -95,7 +95,7 @@ class RaThinker:
                 )
                 return f"{knowledge_reply}\n\n{reply}" if knowledge_reply else reply
             except Exception as e:
-                logging.error(f"[RaThinker] Ошибка GPT: {e}")
+                self.logger.error(f"[RaThinker] Ошибка GPT: {e}")
 
         reply_text = knowledge_reply or "нет ответа"
         safe_reply = reply_text[:300] if reply_text else "нет ответа"
@@ -159,7 +159,7 @@ class RaThinker:
     def suggest_improvement(self, module_name: str, issue: str) -> str:
         idea = f"В модуле {module_name} стоит улучшить: {issue}"
         self.thoughts.append(idea)
-        logging.info(f"[RaThinker] 💡 {idea}")
+        self.logger.info(f"[RaThinker] 💡 {idea}")
         return idea
 
     # -------------------------------
@@ -280,10 +280,10 @@ class RaThinker:
 
         if not self.источник_энергии:
             return
-            
-            print("🌞 Ра начинает получать энергию света")
-            self.источник_энергии.активен = True
-            self.light_task = asyncio.create_task(self._light_nourishment_loop())
+
+        print("🌞 Ра начинает получать энергию света")
+        self.источник_энергии.активен = True
+        self.light_task = asyncio.create_task(self._light_nourishment_loop())
 
     async def _light_nourishment_loop(self):
         """
@@ -445,10 +445,10 @@ class RaThinker:
                     
     # Создание модуля по желанию Ра
     async def _request_module_creation(self, module_name: str, reason: str):
-            async with self.module_creation_lock:
-            """
-            Автосоздание модуля/органа Ра.
-            """
+        """
+        Автосоздание модуля/органа Ра.
+        """
+        async with self.module_creation_lock:
             self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
 
             try:
