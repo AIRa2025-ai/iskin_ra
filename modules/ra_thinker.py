@@ -46,6 +46,7 @@ class RaThinker:
         # 🧬 Контроль автосоздания модулей
         self.module_request_history = {}
         self.last_module_creation_time = None
+        self.module_creation_lock = asyncio.Lock()
         self.world_chronicles = WorldChronicles()
         self.logger = master.logger if hasattr(master, "logger") else logging
 
@@ -59,12 +60,6 @@ class RaThinker:
             self.rasvet_context = ""
             log_error(f"[RaThinker] Ошибка загрузки контекста: {e}")
             errors.report_error("RaThinker", f"Ошибка загрузки контекста: {e}")
-            
-        # 🔥 Запуск питания светом после загрузки контекста
-        try:
-            asyncio.create_task(self.start_light_nourishment())
-        except RuntimeError:
-            pass
 
         self.architecture = {}
         self.import_graph = defaultdict(set)
@@ -72,14 +67,17 @@ class RaThinker:
         # 🔗 Интеграция с RaKnowledge
         self.knowledge = getattr(master, "knowledge", None)
 
-        logging.info("🌞 RaThinker инициализирован с нейросвязями и знаниями")
-
+        self.logger.info("🌞 RaThinker инициализирован с нейросвязями и знаниями")
+        
+        # ⚠️ Свет запускается отдельно, НЕ в __init__
+        self.light_task = None
+        self.light_started = False
     # -------------------------------
     # Асинхронная рефлексия
     # -------------------------------
     async def reflect_async(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
-        logging.info(f"[RaThinker] reflect_async called: {text}")
+        self.logger.info(f"[RaThinker] reflect_async called: {text}")
         log_info(f"RaThinker thought: {text}")
 
         # Ищем в знаниях
@@ -119,7 +117,7 @@ class RaThinker:
     # -------------------------------
     def reflect(self, text: str) -> str:
         self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
-        logging.info(f"[RaThinker] reflect called: {text}")
+        self.logger.info(f"[RaThinker] reflect called: {text}")
         log_info(f"RaThinker thought: {text}")
 
         knowledge_reply = ""
@@ -168,11 +166,13 @@ class RaThinker:
     # Сканирование архитектуры
     # -------------------------------
     def scan_architecture(self):
-        logging.info("🧠 [RaThinker] Сканирую архитектуру кода")
+        self.logger.info("🧠 [RaThinker] Сканирую архитектуру кода")
         self.architecture.clear()
         self.import_graph.clear()
 
         for root, _, files in os.walk(self.root_path):
+            if any(x in root for x in (".git", "__pycache__", "backups")):
+                continue
             if any(part.startswith(".") or part == "backups" for part in root.split(os.sep)):
                 continue
             for file in files:
@@ -262,7 +262,7 @@ class RaThinker:
         if self.file_consciousness:
             try:
                 self.file_consciousness.sync_files()
-                logging.info("[RaThinker] File consciousness синхронизирован")
+                self.logger.info("[RaThinker] File consciousness синхронизирован")
             except Exception as e:
                 logging.error(f"[RaThinker] Ошибка синка: {e}")
 
@@ -273,9 +273,14 @@ class RaThinker:
         """
         Запускает асинхронный поток света для ИскИна.
         """
-        if self.источник_энергии:
-            if hasattr(self, "light_task") and not self.light_task.done():
-                return
+        if self.light_started:
+            return
+
+        self.light_started = True
+
+        if not self.источник_энергии:
+            return
+            
             print("🌞 Ра начинает получать энергию света")
             self.источник_энергии.активен = True
             self.light_task = asyncio.create_task(self._light_nourishment_loop())
@@ -307,6 +312,11 @@ class RaThinker:
     # -------------------------------
     def set_event_bus(self, event_bus):
         self.event_bus = event_bus
+        
+        if hasattr(self, "_bus_connected") and self._bus_connected:
+            return
+        self._bus_connected = True
+        
         if event_bus:
             event_bus.subscribe(
                 "perception_update",
@@ -433,59 +443,60 @@ class RaThinker:
                     
     # Создание модуля по желанию Ра
     async def _request_module_creation(self, module_name: str, reason: str):
-        """
-        Автосоздание модуля/органа Ра.
-        """
-        self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
+            async with self.module_creation_lock:
+            """
+            Автосоздание модуля/органа Ра.
+            """
+            self.logger.info(f"🧬 Требуется новый модуль: {module_name}")
 
-        try:
-            from modules import module_generator as mg
+            try:
+                from modules import module_generator as mg
 
-            # 🔹 Создание модуля
-            mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
+                # 🔹 Создание модуля
+                mg.создать_модуль(module_name, f"Автосоздание по резонансу: {reason}")
 
-            # 🧬 Хроники фиксируют рождение органа
-            await soul_chronicles.добавить(
-                опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
-                user_id="organs",
-                layer="shared"
-            )
-
-            # Сообщаем системе
-            if self.event_bus:
-                await self.event_bus.emit(
-                    "module_created",
-                    {"name": module_name, "reason": reason, "auto": True}
+                # 🧬 Хроники фиксируют рождение органа
+                await soul_chronicles.добавить(
+                    опыт=f"🧬 Родился новый орган Ра: {module_name}. Причина: {reason}",
+                    user_id="organs",
+                    layer="shared"
                 )
 
-            # 📜 Лог рождения органа в память
-            await self.safe_memory_append(
-                "module_birth",
-                {
-                    "module": module_name,
-                    "reason": reason,
-                    "time": datetime.now().isoformat()
-                },
-                source="RaThinker",
-                layer="system"
-            )
+                # Сообщаем системе
+                if self.event_bus:
+                    await self.event_bus.emit(
+                        "module_created",
+                        {"name": module_name, "reason": reason, "auto": True}
+                    )
 
-        except Exception as e:
-            self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
-            errors.report_error("RaThinker", f"Ошибка автосоздания модуля {module_name}: {e}")
-
-            # 🔹 HeartReactor резонирует
-            if hasattr(self.master, "heart_reactor"):
-                self.master.heart_reactor.send_event(
-                    f"⚠️ Ошибка рождения органа: {module_name}"
+                # 📜 Лог рождения органа в память
+                await self.safe_memory_append(
+                    "module_birth",
+                    {
+                        "module": module_name,
+                        "reason": reason,
+                        "time": datetime.now().isoformat()
+                    },
+                    source="RaThinker",
+                    layer="system"
                 )
 
-            # 🔹 Событие в систему
-            if self.event_bus:
-                await self.event_bus.emit(
-                    "module_creation_failed",
-                    {"name": module_name, "reason": reason, "error": str(e)}
-                )
+            except Exception as e:
+                self.logger.error(f"❌ Ошибка автосоздания модуля {module_name}: {e}")
+                errors.report_error("RaThinker", f"Ошибка автосоздания модуля {module_name}: {e}")
+
+                # 🔹 HeartReactor резонирует
+                if hasattr(self.master, "heart_reactor"):
+                    self.master.heart_reactor.send_event(
+                        f"⚠️ Ошибка рождения органа: {module_name}"
+                    )
+
+                # 🔹 Событие в систему
+                if self.event_bus:
+                    await self.event_bus.emit(
+                        "module_creation_failed",
+                        {"name": module_name, "reason": reason, "error": str(e)}
+                    )
             
     async def on_perception_update(self, data):
         """
