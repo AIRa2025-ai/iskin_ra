@@ -85,19 +85,24 @@ class RaThinker:
         if self.knowledge:
             results = self.knowledge.search(text) or []
             summaries = [r.get("summary", "") for r in results[:3]]
-            knowledge_reply = "\n".join(summaries)
+            knowledge_reply = "\n".join(filter(None, summaries)).strip()
 
-        if self.gpt_module:
+        # Если база дала ответ — GPT не дергаем
+        if knowledge_reply:
+            reply_text = knowledge_reply
+        elif self.gpt_module:
             try:
                 reply = await asyncio.wait_for(
                     self.gpt_module.generate_response(text),
                     timeout=20
                 )
-                return f"{knowledge_reply}\n\n{reply}" if knowledge_reply else reply
+                reply_text = reply or "нет ответа"
             except Exception as e:
                 self.logger.error(f"[RaThinker] Ошибка GPT: {e}")
+                reply_text = "нет ответа"
+        else:
+            reply_text = "нет ответа"
 
-        reply_text = knowledge_reply or "нет ответа"
         safe_reply = reply_text[:300] if reply_text else "нет ответа"
 
         await soul_chronicles.добавить(
@@ -105,33 +110,12 @@ class RaThinker:
             user_id="thinker",
             layer="short_term"
         )
-        
+    
         return knowledge_reply or (
             f"🜂 Ра чувствует вопрос:\n{text}\n\n"
             f"🜁 Ответ рождается из РаСвета.\n"
             f"Действуй осознанно. Истина внутри."
         )
-
-    # -------------------------------
-    # Синхронная рефлексия
-    # -------------------------------
-    def reflect(self, text: str) -> str:
-        self.last_thought = f"[{datetime.now().strftime('%H:%M:%S')}] {text}"
-        self.logger.info(f"[RaThinker] reflect called: {text}")
-        log_info(f"RaThinker thought: {text}")
-
-        knowledge_reply = ""
-        if self.knowledge:
-            results = self.knowledge.search(text) or []
-            summaries = [r.get("summary", "") for r in results[:3]]
-            knowledge_reply = "\n".join(summaries)
-
-        return knowledge_reply or (
-            f"🜂 Ра чувствует вопрос:\n{text}\n\n"
-            f"🜁 Ответ рождается из РаСвета.\n"
-            f"Действуй осознанно. Истина внутри."
-        )
-
     # -------------------------------
     # Обновление знаний
     # -------------------------------
@@ -145,7 +129,7 @@ class RaThinker:
     # Реакция на рынок
     # -------------------------------
     def react_to_market(self, event):
-        print("Мыслитель реагирует:", event)
+        self.logger.info(f"[RaThinker] Мыслитель реагирует: {event}")
 
     # -------------------------------
     # Краткое резюме текста
@@ -213,7 +197,12 @@ class RaThinker:
                 self.architecture[module_name]["classes"].append(node.name)
             elif isinstance(node, ast.FunctionDef):
                 self.architecture[module_name]["functions"].append(node.name)
-
+        for alias in node.names:
+            name = alias.name.strip()
+            if name:
+                self.architecture[module_name]["imports"].add(name)
+                self.import_graph[module_name].add(name)
+                
     def architecture_summary(self):
         summary = {
             "modules": len(self.architecture),
@@ -249,12 +238,16 @@ class RaThinker:
     # -------------------------------
     # Асинхронные циклы
     # -------------------------------
-    async def self_upgrade_cycle(self):
-        return self.propose_self_improvements()
-
-    async def self_reflection_cycle(self):
-        return self.propose_self_improvements()
-
+    async def self_improvement_cycle(self, purpose="general"):
+        """
+        Цикл самоанализа и предложений улучшений.
+        purpose может быть 'upgrade' или 'reflection' для логирования.
+        """
+        ideas = self.propose_self_improvements()
+        self.logger.info(f"[RaThinker] Self improvement ({purpose}): {len(ideas)} ideas")
+        return ideas
+        await self.self_improvement_cycle("upgrade")
+        await self.self_improvement_cycle("reflection")
     # -------------------------------
     # Синк файлового сознания
     # -------------------------------
@@ -281,7 +274,7 @@ class RaThinker:
         if not self.источник_энергии:
             return
 
-        print("🌞 Ра начинает получать энергию света")
+        self.logger.info("🌞 Ра начинает получать энергию света")
         self.источник_энергии.активен = True
         self.light_task = asyncio.create_task(self._light_nourishment_loop())
 
@@ -305,7 +298,7 @@ class RaThinker:
         """
         if self.источник_энергии:
             self.источник_энергии.активен = False
-            print("🌑 Ра прекращает питание светом")
+            self.logger.info("🌑 Ра прекращает питание светом")
             
     # -------------------------------
     # Сетеры
@@ -499,7 +492,12 @@ class RaThinker:
                         "module_creation_failed",
                         {"name": module_name, "reason": reason, "error": str(e)}
                     )
-            
+
+                # Проверка на уже существующий модуль в истории
+                if module_name in self.module_request_history and self.module_request_history[module_name] > 0:
+                    self.logger.info(f"[RaThinker] Модуль {module_name} уже в процессе создания")
+                    return
+                    
     async def on_perception_update(self, data):
         """
         Реакция мыслителя на восприятие мира
