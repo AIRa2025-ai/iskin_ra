@@ -137,3 +137,15 @@ class RaCreator:
 
         if self.event_bus:
             await self.event_bus.emit("manifesto_created", {"text": manifesto})
+
+    # -------------------------
+    # ПРИЁМ ИДЕЙ ОТ THINKER
+    # -------------------------
+    async def receive_thinker_signal(self, signal_text: str):
+        """
+        Получение сигнала от RaThinker и генерация идеи на его основе
+        """
+        idea = self.generate_from_heart(heart_signal=signal_text)
+        self.logger.info(f"💡 Получено от Thinker: {signal_text} → идея: {idea}")
+        if self.event_bus:
+            await self.event_bus.emit("idea_generated", {"idea": idea})
