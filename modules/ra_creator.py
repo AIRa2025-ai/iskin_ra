@@ -26,7 +26,7 @@ class RaCreator:
             self.event_bus.subscribe("heart_impulse", self.on_heart_impulse)
             self.event_bus.subscribe("resonance_wave", self.on_resonance_wave)
             self.event_bus.subscribe("creative_request", self.on_creative_request)
-
+            self.event_bus.subscribe("thinker_signal", self.receive_thinker_signal)
     # -------------------------
     # СОЗДАНИЕ МОДУЛЕЙ
     # -------------------------
