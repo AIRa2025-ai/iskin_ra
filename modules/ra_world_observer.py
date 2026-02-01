@@ -79,12 +79,23 @@ class RaWorldObserver:
     async def observer_loop(self):
         while True:
             try:
+                # 🔹 Если есть event_bus — шлём сигнал о рыночном резонансе
+                резонанс = 0.0  # пока фиктивное значение, потом можно брать реальное
+                if self._event_bus:
+                    await self._event_bus.emit(
+                        "market_resonance_detected",
+                        {"msg": "Рынок вибрирует", "резонанс": резонанс}
+                    )
+
+                # 🔹 Guardian наблюдает
                 if hasattr(guardian, "observe"):
                     await guardian.observe()
 
+                # 🔹 HeartReactor сигналит
                 if hasattr(heart_reactor, "send_event"):
                     heart_reactor.send_event("Ра наблюдает за миром")
 
+                # 🔹 Пишем в память
                 await memory.append(
                     "world",
                     "Ра наблюдает за миром",
@@ -99,7 +110,7 @@ class RaWorldObserver:
             except Exception as e:
                 print(f"Ошибка observer_loop: {e}")
                 await asyncio.sleep(60)
-
+                
     async def module_watcher(self):
         while True:
             try:
@@ -171,9 +182,24 @@ class RaWorldObserver:
             })
         return text
 
+    async def on_idea_from_creator(self, data):
+        idea = data.get("idea", "нет идеи")
+        print(f"🌟 [Observer] Идея от Creator: {idea}")
+        await memory.append("ideas", idea, source="creator", layer="shared")
+
+    async def on_signal_from_thinker(self, data):
+        signal = data.get("signal", "нет сигнала")
+        print(f"🧠 [Observer] Сигнал от Thinker: {signal}")
+        await memory.append("signals", signal, source="thinker", layer="shared")
+        
     def start_background_tasks(self):
         self._create_task(self.observer_loop(), "observer_loop")
         self._create_task(self.module_watcher(), "module_watcher")
         if hasattr(heart_reactor, "send_event"):
             heart_reactor.send_event("Природа излучает свет")
             heart_reactor.send_event("В городе тревога")
+        if self._event_bus:
+            # Получаем идеи от Creator
+            self._event_bus.subscribe("idea_generated", self.on_idea_from_creator)
+            # Получаем сигналы от Thinker
+            self._event_bus.subscribe("thinker_signal", self.on_signal_from_thinker)
