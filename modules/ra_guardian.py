@@ -65,6 +65,17 @@ class RaGuardian:
 
             # --- Обновляем файловое сознание ---
             self.file_manager.scan()
+
+            # --- Авто-передача нового модуля МироЛюбу для апгрейда ---
+            if self.ra_core.ready and self.ra_core.искр.file_consciousness:
+                idea = {
+                    "type": "add_module",
+                    "path": file_path,
+                    "content": open(file_path, "r", encoding="utf-8").read(),
+                    "reason": f"Авто-передача нового модуля {module_name} МироЛюбу"
+                }
+                self.ra_core.искр.file_consciousness.apply_upgrade(idea)
+
         return file_path
 
     # -------------------------------
