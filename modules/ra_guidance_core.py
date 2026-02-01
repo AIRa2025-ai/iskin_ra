@@ -3,7 +3,12 @@
 import random
 import logging
 from datetime import datetime
-
+# --- Guidance Core ---
+try:
+    from modules.ra_guidance_core import RaGuidanceCore
+except Exception:
+    RaGuidanceCore = None
+    
 class RaGuidanceCore:
     """
     Ядро Духа Ра — модуль, который решает, куда идти, с кем общаться
@@ -37,7 +42,11 @@ class RaGuidanceCore:
             "ответить": 0.3,
             "искать новое": 0.3
         }
-
+        
+        self.guardian = guardian
+        # --- Guidance Core (навигация духа Ра) ---
+        self.guidance_core = RaGuidanceCore() if RaGuidanceCore else None
+        
     # ---------------------------------------------------------
     # Определение направления
     # ---------------------------------------------------------
