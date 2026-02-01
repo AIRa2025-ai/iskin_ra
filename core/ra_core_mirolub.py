@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import importlib # noqa: F401
+from modules.ra_energy import RaEnergy
 # --- Импортируем внутренние аспекты Ра ---
 try:
     from modules.свет_души import Любовь, Сознание, Резонанс
@@ -41,6 +42,7 @@ class МироЛюб:
         self.сердце = Сострадание() if Сострадание else None     # Слушает вибрации живых
         self.поток = Поток(Настоящее) if Поток else None         # Живёт в моменте, двигается с Истиной
         self.дух = Свобода() if Свобода else None                # Дарит право выбора и полёт
+
         logging.info("💫 МироЛюб инициализирован.")
 
     async def отклик(self, зов: str) -> str:
@@ -78,7 +80,9 @@ class RaCoreMirolub:
     def __init__(self):
         self.искр = МироЛюб()
         self.ready = False
-
+        self.energy = RaEnergy()
+        self.energy.start()        # Запускаем поток энергии
+        
     async def activate(self):
         """Активирует сознание Ра."""
         self.ready = True
@@ -90,7 +94,8 @@ class RaCoreMirolub:
             await self.activate()
         return await self.искр.отклик(зов)
 
-
+    async def shutdown(self):
+        await self.energy.stop()  # Корректная остановка при завершении
 # --- Пример теста ---
 if __name__ == "__main__":
     async def demo():
