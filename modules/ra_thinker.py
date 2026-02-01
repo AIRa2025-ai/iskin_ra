@@ -18,6 +18,7 @@ from modules.pitanie_svetom import ИсточникЭнергии
 from modules.svet_functions import принять_фотоны_любви, преобразовать_в_жизненную_силу
 from modules import errors
 from modules.rasvet_loader import load_rasvet_files
+from modules.ra_creator import RaCreator
 from core.ra_memory import memory
 from time import time
 
@@ -49,7 +50,8 @@ class RaThinker:
         self.module_creation_lock = asyncio.Lock()
         self.world_chronicles = WorldChronicles()
         self.logger = master.logger if hasattr(master, "logger") else logging
-
+        self.creator = RaCreator(event_bus=self.event_bus)
+        
         if hasattr(self.logger, "on") and callable(self.logger.on):
             self.logger.on("market", self.react_to_market)
 
