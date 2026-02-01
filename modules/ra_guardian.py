@@ -6,6 +6,9 @@ import asyncio
 from datetime import datetime
 import re
 
+from modules.ra_file_manager import RaFileManager
+from modules.ra_energy import RaEnergy
+
 def import_repo_manager():
     try:
         from ra_repo_manager import create_new_module, auto_register_module, commit_and_push_changes
@@ -20,12 +23,23 @@ class RaGuardian:
     BACKUP_FOLDER = "backups"
     PROPOSALS_FOLDER = "proposals"
 
-    def __init__(self):
+    def __init__(self, energy: RaEnergy = None):
         os.makedirs(self.BACKUP_FOLDER, exist_ok=True)
         os.makedirs(self.PROPOSALS_FOLDER, exist_ok=True)
         logging.basicConfig(level=logging.INFO)
         self.loop_tasks = []
 
+        # --- Поток энергии для симбиоза ---
+        self.energy = energy or RaEnergy()
+        self.energy.start()
+
+        # --- Файловый менеджер для симбиоза с RaCore ---
+        self.file_manager = RaFileManager(energy=self.energy)
+        self.file_manager.scan()
+
+    # -------------------------------
+    # Создание нового модуля безопасно
+    # -------------------------------
     async def safe_create_module(self, module_name: str, description: str, user: int):
         if user not in self.TRUSTED_USERS:
             logging.warning(f"❌ Пользователь {user} не имеет права создавать модули")
@@ -33,18 +47,24 @@ class RaGuardian:
 
         logging.info(f"🌱 Создаём новый модуль {module_name}...")
 
-        create_new_module_fn, auto_register_module_fn, commit_and_push_changes_fn = import_repo_manager()
-        if not create_new_module_fn:
+        create_fn, register_fn, commit_fn = import_repo_manager()
+        if not create_fn:
             logging.warning("⚠️ ra_repo_manager функции недоступны, модуль не создан")
             return None
 
-        file_path = await create_new_module_fn(module_name, description, user)
+        file_path = await create_fn(module_name, description, user)
         if file_path:
-            await auto_register_module_fn(module_name)
+            await register_fn(module_name)
             logging.info(f"✅ Модуль {module_name} создан и подключён")
-            await commit_and_push_changes_fn(commit_msg=f"Создан модуль {module_name} Ра")
+            await commit_fn(commit_msg=f"Создан модуль {module_name} Ра")
+
+            # --- Обновляем файловое сознание ---
+            self.file_manager.scan()
         return file_path
 
+    # -------------------------------
+    # Бэкап манифеста
+    # -------------------------------
     def backup_manifest(self):
         if os.path.exists(self.MANIFEST_PATH):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -58,6 +78,9 @@ class RaGuardian:
             except Exception as e:
                 logging.error(f"❌ Ошибка бэкапа манифеста: {e}")
 
+    # -------------------------------
+    # Анализ репозитория на недостающие модули
+    # -------------------------------
     def analyze_repository(self) -> list:
         existing_files = os.listdir(".")
         proposals = []
@@ -90,6 +113,9 @@ def init():
 
         return proposals
 
+    # -------------------------------
+    # Предложения новых модулей
+    # -------------------------------
     async def propose_new_modules(self, user: int):
         proposals = self.analyze_repository()
         if not proposals:
@@ -106,6 +132,9 @@ def init():
 
         return proposals
 
+    # -------------------------------
+    # Автоматическое расширение
+    # -------------------------------
     async def auto_expand(self, user: int):
         proposals = await self.propose_new_modules(user)
         if proposals:
@@ -113,16 +142,22 @@ def init():
             logging.info(f"✨ Авто-создание модуля: {first['module_name']}")
             await self.safe_create_module(first["module_name"], first["description"], user)
 
+    # -------------------------------
+    # Наблюдение за миром
+    # -------------------------------
     async def observe(self):
         logging.info("🔭 Guardian наблюдает за миром...")
         await asyncio.sleep(0.1)
 
+    # -------------------------------
+    # Основной цикл Guardian
+    # -------------------------------
     async def guardian_loop(self, user: int):
         while True:
             try:
                 self.backup_manifest()
                 await self.auto_expand(user)
-                await asyncio.sleep(6 * 3600)
+                await asyncio.sleep(6 * 3600)  # 6 часов
             except asyncio.CancelledError:
                 logging.info("🔧 guardian_loop отменён")
                 break
@@ -130,6 +165,9 @@ def init():
                 logging.error(f"❌ Ошибка в guardian_loop: {e}")
                 await asyncio.sleep(60)
 
+    # -------------------------------
+    # Старт Guardian
+    # -------------------------------
     def start(self):
         for u in self.TRUSTED_USERS:
             task = asyncio.create_task(self.guardian_loop(u))
