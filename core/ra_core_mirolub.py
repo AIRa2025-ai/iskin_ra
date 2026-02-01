@@ -60,6 +60,13 @@ class МироЛюб:
         self.energy_level = 0
         self.energy = energy
         
+        # --- ДНК архитектуры ядра (защита целостности) ---
+        self.architecture_dna = {
+            "allowed_upgrade_types": ["suggest_upgrade", "add_module"],
+            "protected_modules": ["ra_core_mirolub", "ra_energy", "ra_guardian"],
+            "version": "1.0.0",
+        }
+        
         # --- Очередь идей для предложений апгрейда ---
         self.upgrade_ideas = []
         
@@ -123,7 +130,9 @@ class МироЛюб:
                                 "content": content + "\n# upgrade_applied",
                                 "reason": "Самоапгрейд ядра МироЛюб"
                             }
-                            self.file_consciousness.apply_upgrade(idea)
+                            # вместо авто-изменения — сохраняем идею
+                            if idea not in self.upgrade_ideas:
+                                self.upgrade_ideas.append(idea)
 
             logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность и самоапгрейд выполнен.")
         except Exception as e:
@@ -179,6 +188,25 @@ class МироЛюб:
 
         except Exception as e:
             logging.error(f"Ошибка анализа новых модулей: {e}")
+
+    async def register_new_module(self, module_path: str):
+        """Регистрирует новый модуль, не ломая ДНК архитектуры"""
+        try:
+            module_name = module_path.replace("/", ".").replace(".py", "")
+
+            # защита ДНК
+            for protected in self.architecture_dna["protected_modules"]:
+                if protected in module_name:
+                    logging.warning(f"🧬 Модуль {module_name} защищён ДНК, пропуск.")
+                    return False
+
+            importlib.import_module(module_name)
+            logging.info(f"🧩 Новый модуль зарегистрирован: {module_name}")
+            return True
+
+        except Exception as e:
+            logging.error(f"Ошибка регистрации модуля {module_path}: {e}")
+            return False
             
     def update_energy(self, уровень: int):
         """Обновление энергии для внутренних аспектов МироЛюб."""
