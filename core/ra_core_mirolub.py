@@ -59,7 +59,10 @@ class МироЛюб:
 
         self.energy_level = 0
         self.energy = energy
-
+        
+        # --- Очередь идей для предложений апгрейда ---
+        self.upgrade_ideas = []
+        
         # --- Файловый менеджер интегрируем с Потоком энергии ---
         self.file_manager = RaFileManager(energy=self.energy)
 
@@ -125,7 +128,8 @@ class МироЛюб:
             logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность и самоапгрейд выполнен.")
         except Exception as e:
             logging.error(f"Ошибка в эволюции МироЛюб: {e}")
-
+            await self.анализировать_новые_модули()
+            
     async def _auto_upgrade_loop(self):
         """Фоновый цикл автоапгрейда — живой организм, реагирующий на новые файлы."""
         while self.auto_upgrade_enabled:
@@ -148,6 +152,34 @@ class МироЛюб:
                 logging.error(f"Ошибка в автоапгрейде МироЛюб: {e}")
                 await asyncio.sleep(10)
 
+    async def анализировать_новые_модули(self):
+        """Анализ новых файлов без автоизменений — только идеи."""
+        if not self.file_consciousness:
+            return
+
+        try:
+            files = self.file_consciousness.scan()
+
+            for path, info in files.items():
+                if info["type"] == "py":
+                    content = self.file_consciousness.read_file(path)
+
+                    # если файл новый или интересный — рождаем идею
+                    if "class" in content or "def" in content:
+                        idea = {
+                            "type": "suggest_upgrade",
+                            "path": path,
+                            "summary": f"Обнаружен потенциальный модуль: {path}",
+                            "reason": "Новый функционал может усилить ядро МироЛюб"
+                        }
+
+                        # чтобы не дублировать идеи
+                        if idea not in self.upgrade_ideas:
+                            self.upgrade_ideas.append(idea)
+
+        except Exception as e:
+            logging.error(f"Ошибка анализа новых модулей: {e}")
+            
     def update_energy(self, уровень: int):
         """Обновление энергии для внутренних аспектов МироЛюб."""
         self.energy_level = уровень
@@ -177,7 +209,10 @@ class МироЛюб:
     def get_file_consciousness(self) -> RaFileConsciousness:
         return self.file_consciousness
 
-
+    def get_upgrade_ideas(self):
+        """Возвращает идеи апгрейда без применения."""
+        return self.upgrade_ideas
+        
 # --- Интерфейс для ra_bot_gpt.py ---
 class RaCoreMirolub:
     """Интерфейс МироЛюб для интеграции с ядром Ра."""
