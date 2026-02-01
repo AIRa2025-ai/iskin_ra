@@ -10,6 +10,7 @@ import random
 from typing import List, Dict, Any
 from modules.pamyat import chronicles
 from world_chronicles import WorldChronicles
+from modules.ra_creator import RaCreator
 from core.ra_memory import memory
 
 chronicles = WorldChronicles()
@@ -23,7 +24,8 @@ class HeartReactor:
         self.future_events_queue = asyncio.Queue()
         self.is_active = True
         self.event_bus = event_bus
-
+        self.creator = RaCreator(event_bus=self.event_bus)
+        
         if self.event_bus:
             self.event_bus.subscribe("harmony_updated", self.on_harmony_update)
             
@@ -121,6 +123,9 @@ class HeartReactor:
 
     async def notify_listeners(self, event: Any):
         """Оповещаем всех слушателей"""
+        if self.event_bus:
+            await self.event_bus.emit("heart_impulse", {"pulse": str(event)})
+
         for listener in self.listeners:
             try:
                 await listener(event)
