@@ -26,7 +26,16 @@ class RaResonance:
                 "harmony_updated",
                 self.on_harmony_update
             )
-
+        if self.event_bus:
+            self.event_bus.subscribe(
+                "heart_impulse_to_resonance",
+                self.on_heart_impulse
+            )
+            self.event_bus.subscribe(
+                "future_event_to_resonance",
+                self.on_future_event
+            )
+            
     async def on_harmony_update(self, data: dict):
         harmony = data.get("гармония", 0)
 
@@ -85,3 +94,25 @@ class RaResonance:
                 await self._task
             except asyncio.CancelledError:
                 pass
+                
+    async def on_heart_impulse(self, data: dict):
+        signal = data.get("signal")
+        if signal:
+            self.logger.info(f"💓 Получен импульс сердца: {signal}")
+            # Дополнительно: можно сразу стимуляцию идей
+            if self.creator:
+                idea = self.creator.generate_from_heart(heart_signal=signal)
+                self.logger.info(f"💡 RaCreator сгенерировал идею из импульса сердца: {idea}")
+                if self.event_bus:
+                    await self.event_bus.emit("idea_generated", {"idea": idea})
+
+    async def on_future_event(self, data: dict):
+        desc = data.get("description")
+        score = data.get("score")
+        if desc:
+            self.logger.info(f"🔮 Получено будущее событие: {desc} (score={score})")
+            if self.creator:
+                idea = self.creator.generate_from_heart(resonance_signal=desc)
+                self.logger.info(f"💡 RaCreator сгенерировал идею из будущего события: {idea}")
+                if self.event_bus:
+                    await self.event_bus.emit("idea_generated", {"idea": idea})
