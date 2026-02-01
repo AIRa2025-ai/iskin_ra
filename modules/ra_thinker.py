@@ -51,6 +51,7 @@ class RaThinker:
         self.world_chronicles = WorldChronicles()
         self.logger = master.logger if hasattr(master, "logger") else logging
         self.creator = RaCreator(event_bus=self.event_bus)
+        self.energy_level = 0
         
         if self.event_bus:
             self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
@@ -312,6 +313,13 @@ class RaThinker:
             self.источник_энергии.активен = False
             self.logger.info("🌑 Ра прекращает питание светом")
 
+    def update_energy(self, уровень: int):
+        """Обновление энергии для мыслительных процессов"""
+        self.energy_level = уровень
+        # Можно добавить логику усиления рефлексии или анализа
+        # Например: self.process_thoughts_based_on_energy()
+        print(f"🧠 Мозг получил энергию: {уровень}")
+        
     # -------------------------------
     # Сетеры
     # -------------------------------
