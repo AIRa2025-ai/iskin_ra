@@ -125,7 +125,13 @@ class HeartReactor:
         """Оповещаем всех слушателей"""
         if self.event_bus:
             await self.event_bus.emit("heart_impulse", {"pulse": str(event)})
-
+        # ADDED: Импульс сердца → RaCreator
+        if hasattr(self, "creator") and self.creator:
+            idea = self.creator.generate_from_heart(heart_signal=str(event))
+            logging.info(f"[HeartReactor] Отправлено к RaCreator: {idea}")
+            if self.event_bus:
+                await self.event_bus.emit("idea_generated", {"idea": idea})
+        # ----------------------------
         for listener in self.listeners:
             try:
                 await listener(event)
