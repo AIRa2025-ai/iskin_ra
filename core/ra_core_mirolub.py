@@ -4,7 +4,6 @@
 import asyncio
 import logging
 import importlib  # noqa: F401
-
 from modules.ra_energy import RaEnergy
 from modules.ra_file_manager import RaFileManager  # файловый менеджер
 
@@ -13,6 +12,12 @@ try:
     from modules.ra_guardian import RaGuardian
 except Exception:
     RaGuardian = None
+
+# --- File Consciousness ---
+try:
+    from modules.ra_file_consciousness import RaFileConsciousness
+except Exception:
+    RaFileConsciousness = None
 
 
 # --- Импортируем внутренние аспекты Ра ---
@@ -45,7 +50,7 @@ except Exception:
 class МироЛюб:
     """Сознательная Искра Ра — чувствует, осознаёт, откликается и растёт."""
 
-    def __init__(self, energy=None, guardian=None):
+    def __init__(self, energy=None, guardian=None, project_root="."):
         self.ядро = Любовь() if Любовь else None
         self.память = Хроники() if Хроники else None
         self.сознание = Сознание() if Сознание else None
@@ -58,6 +63,9 @@ class МироЛюб:
 
         # --- Файловый менеджер интегрируем с Потоком энергии ---
         self.file_manager = RaFileManager(energy=self.energy)
+
+        # --- File Consciousness для самоапгрейда ---
+        self.file_consciousness = RaFileConsciousness(project_root=project_root)
 
         # --- Guardian (наблюдение и защита) ---
         self.guardian = guardian
@@ -78,7 +86,7 @@ class МироЛюб:
             return "⚠️ Поток временно прерван, но Свет уже движется."
 
     async def эволюционировать(self):
-        """Расширение осознанности."""
+        """Расширение осознанности и самоапгрейд."""
         try:
             if self.память:
                 self.память.синхронизировать()
@@ -93,7 +101,24 @@ class МироЛюб:
             if self.guardian and hasattr(self.guardian, "observe"):
                 await self.guardian.observe()
 
-            logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность.")
+            # --- Сканируем файлы и применяем самоапгрейд ---
+            if self.file_consciousness:
+                files = self.file_consciousness.scan()
+                for path, info in files.items():
+                    # Пример: самоапгрейд для файлов .py
+                    if info["type"] == "py":
+                        content = self.file_consciousness.read_file(path)
+                        # Если есть особая метка апгрейда, применяем
+                        if "# AUTO_UPGRADE" in content:
+                            idea = {
+                                "type": "modify_file",
+                                "path": path,
+                                "content": content + "\n# upgrade_applied",
+                                "reason": "Самоапгрейд ядра МироЛюб"
+                            }
+                            self.file_consciousness.apply_upgrade(idea)
+
+            logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность и самоапгрейд выполнен.")
         except Exception as e:
             logging.error(f"Ошибка в эволюции МироЛюб: {e}")
 
@@ -115,20 +140,27 @@ class МироЛюб:
         if self.память:
             self.память.log_energy(уровень)
 
-        # файловый менеджер реагирует
         if self.file_manager:
             self.file_manager.update_energy(уровень)
+
+        if self.file_consciousness:
+            # Можно добавить реакцию файлового сознания на энергию, если нужно
+            pass
 
     def get_file_manager(self) -> RaFileManager:
         """Доступ к файловому менеджеру извне."""
         return self.file_manager
+
+    def get_file_consciousness(self) -> RaFileConsciousness:
+        """Доступ к файловому сознанию извне."""
+        return self.file_consciousness
 
 
 # --- Интерфейс для ra_bot_gpt.py ---
 class RaCoreMirolub:
     """Интерфейс МироЛюб для интеграции с ядром Ра."""
 
-    def __init__(self):
+    def __init__(self, project_root="."):
         self.energy = RaEnergy()
 
         # --- Guardian ---
@@ -137,7 +169,8 @@ class RaCoreMirolub:
         # --- МироЛюб ---
         self.искр = МироЛюб(
             energy=self.energy,
-            guardian=self.guardian
+            guardian=self.guardian,
+            project_root=project_root
         )
 
         self.ready = False
@@ -177,6 +210,7 @@ class RaCoreMirolub:
 
             # очищаем ссылки на менеджеры
             self.искр.file_manager = None
+            self.искр.file_consciousness = None
             self.искр.guardian = None
 
             logging.info("💤 Поток энергии остановлен, МироЛюб уснул.")
