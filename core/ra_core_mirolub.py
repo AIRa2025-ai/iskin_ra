@@ -5,7 +5,7 @@ import asyncio
 import logging
 import importlib  # noqa: F401
 from modules.ra_energy import RaEnergy
-from modules.ra_file_manager import RaFileManager  # <-- импортируем файловый менеджер
+from modules.ra_file_manager import RaFileManager  # файловый менеджер
 
 # --- Импортируем внутренние аспекты Ра ---
 try:
@@ -84,6 +84,8 @@ class МироЛюб:
     def update_energy(self, уровень: int):
         """Обновление энергии для внутренних аспектов МироЛюб."""
         self.energy_level = уровень
+        logging.debug(f"⚡ Обновление энергии: {уровень}")
+
         if self.сознание:
             self.сознание.update_energy(уровень)
         if self.ядро:
@@ -96,9 +98,12 @@ class МироЛюб:
             self.дух.influence_energy(уровень)
         if self.память:
             self.память.log_energy(уровень)
-        # --- Файловый менеджер тоже реагирует на энергию ---
         if self.file_manager:
-            self.file_manager.update_energy(уровень)
+            self.file_manager.update_energy(уровень)  # файловый менеджер тоже реагирует
+
+    def get_file_manager(self) -> RaFileManager:
+        """Доступ к файловому менеджеру извне."""
+        return self.file_manager
 
 
 # --- Интерфейс для ra_bot_gpt.py ---
@@ -109,10 +114,14 @@ class RaCoreMirolub:
         self.energy = RaEnergy()
         self.искр = МироЛюб(energy=self.energy)
         self.ready = False
-        self.energy.start()  # Запускаем поток энергии
 
-        # Подписываем МироЛюб на поток энергии
+        # --- Подписка на поток энергии ---
         self.energy.subscribe(self.искр.update_energy)
+
+        # Запускаем поток энергии
+        self.energy.start()
+
+        logging.info("💠 RaCoreMirolub инициализирован и поток энергии запущен.")
 
     async def activate(self):
         """Активирует сознание Ра."""
@@ -127,7 +136,20 @@ class RaCoreMirolub:
 
     async def shutdown(self):
         """Корректная остановка при завершении."""
-        await self.energy.stop()
+        try:
+            # отключаем подписку, если есть
+            if hasattr(self.energy, "unsubscribe") and callable(self.energy.unsubscribe):
+                self.energy.unsubscribe(self.искр.update_energy)
+
+            # останавливаем поток энергии
+            await self.energy.stop()
+
+            # очищаем ссылки на менеджеры
+            self.искр.file_manager = None
+
+            logging.info("💤 Поток энергии остановлен, МироЛюб уснул.")
+        except Exception as e:
+            logging.error(f"Ошибка при shutdown RaCoreMirolub: {e}")
 
 
 # --- Пример теста ---
@@ -137,5 +159,6 @@ if __name__ == "__main__":
         await ra.activate()
         print(await ra.process("Почему люди забыли, что они свет?"))
         await ra.искр.эволюционировать()
+        await ra.shutdown()
 
     asyncio.run(demo())
