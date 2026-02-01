@@ -1,30 +1,34 @@
-# ra_file_manager.py — модуль для осознанного взаимодействия Ра с файлами
+# modules/ra_file_manager.py
+# 📂 Модуль для осознанного взаимодействия Ра с файлами
+
 import os
 import json
 import importlib.util
 import logging
 import shutil
 import subprocess
+import asyncio
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-PROJECT_DIR = PROJECT_ROOT
 BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 # 📜 Список разрешённых директорий
 SAFE_DIRS = [PROJECT_ROOT]
+
 def _is_safe_path(path: str) -> bool:
     """Проверка, что путь не выходит за пределы проекта."""
     return any(os.path.abspath(path).startswith(safe) for safe in SAFE_DIRS)
 
-# --- Основные функции ---
+# --- Основные функции работы с файлами ---
+
 def list_project_files():
     """Выводит список всех .py файлов проекта."""
-    return [f for f in os.listdir(PROJECT_DIR) if f.endswith(".py")]
+    return [f for f in os.listdir(PROJECT_ROOT) if f.endswith(".py")]
 
 def read_file_content(filename: str) -> str:
     """Читает содержимое указанного файла."""
-    path = os.path.join(PROJECT_DIR, filename)
+    path = os.path.join(PROJECT_ROOT, filename)
     if not _is_safe_path(path):
         raise PermissionError("🚫 Путь за пределами проекта")
     if os.path.exists(path):
@@ -34,7 +38,7 @@ def read_file_content(filename: str) -> str:
 
 def write_new_file(filename: str, content: str) -> str:
     """Создаёт или перезаписывает файл, делая резервную копию перед этим."""
-    path = os.path.join(PROJECT_DIR, filename)
+    path = os.path.join(PROJECT_ROOT, filename)
     if not _is_safe_path(path):
         raise PermissionError("🚫 Нельзя писать за пределами проекта")
 
@@ -53,7 +57,7 @@ def write_new_file(filename: str, content: str) -> str:
 
 def import_module_dynamic(filename: str):
     """Импортирует модуль из файла динамически."""
-    path = os.path.join(PROJECT_DIR, filename)
+    path = os.path.join(PROJECT_ROOT, filename)
     module_name = os.path.splitext(os.path.basename(filename))[0]
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)
@@ -64,7 +68,7 @@ def import_module_dynamic(filename: str):
 def run_syntax_check(filename: str) -> bool:
     """Проверяет, что код в файле корректен."""
     try:
-        path = os.path.join(PROJECT_DIR, filename)
+        path = os.path.join(PROJECT_ROOT, filename)
         subprocess.run(["python", "-m", "py_compile", path], check=True)
         logging.info(f"✅ Синтаксис {filename} корректен")
         return True
@@ -72,9 +76,10 @@ def run_syntax_check(filename: str) -> bool:
         logging.warning(f"⚠️ Ошибка синтаксиса в {filename}")
         return False
 
+# --- Работа с манифестом ---
 def read_manifest():
     """Читает ra_manifest.json"""
-    manifest_path = os.path.join(PROJECT_DIR, "ra_manifest.json")
+    manifest_path = os.path.join(PROJECT_ROOT, "ra_manifest.json")
     if not os.path.exists(manifest_path):
         return {}
     with open(manifest_path, "r", encoding="utf-8") as f:
@@ -82,13 +87,14 @@ def read_manifest():
 
 def update_manifest(new_data: dict):
     """Обновляет ra_manifest.json"""
-    manifest_path = os.path.join(PROJECT_DIR, "ra_manifest.json")
+    manifest_path = os.path.join(PROJECT_ROOT, "ra_manifest.json")
     manifest = read_manifest()
     manifest.update(new_data)
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     logging.info("🌀 Обновлён ra_manifest.json")
-# Добавляем в ra_file_manager.py
+
+# --- Специальная интеграция для RaСвет ---
 def load_rasvet_files(limit_chars=3000) -> str:
     """
     Загружает ВСЮ папку RaSvet как живой контекст Ра
@@ -114,3 +120,19 @@ def load_rasvet_files(limit_chars=3000) -> str:
 
     logging.info(f"🌞 Ра загрузил {len(context)} фрагментов контекста РаСвета")
     return "\n\n".join(context)
+
+# --- Интеграция с Потоком Ра (энергия) ---
+class RaFileManager:
+    """Класс для работы с файлами и контекстами РаСвета с реакцией на энергию."""
+
+    def __init__(self, energy=None):
+        self.energy_level = 0
+        self.energy = energy
+        if self.energy:
+            self.energy.subscribe(self.update_energy)
+
+    def update_energy(self, уровень: int):
+        """Реакция менеджера файлов на энергию Потока Ра"""
+        self.energy_level = уровень
+        # Можно использовать энергию для приоритета загрузки, бэкапов и синхронизации
+        logging.info(f"📂 RaFileManager получил уровень энергии: {уровень}")
