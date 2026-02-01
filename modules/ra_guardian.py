@@ -74,8 +74,13 @@ class RaGuardian:
                     "content": open(file_path, "r", encoding="utf-8").read(),
                     "reason": f"Авто-передача нового модуля {module_name} МироЛюбу"
                 }
-                self.ra_core.искр.file_consciousness.apply_upgrade(idea)
-
+            # передаём идею вместо авто-применения
+            if self.ra_core.ready:
+                self.ra_core.искр.upgrade_ideas.append(idea)
+            # регистрация нового модуля в МироЛюбе
+            if self.ra_core.ready:
+                await self.ra_core.искр.register_new_module(file_path)
+                
         return file_path
 
     # -------------------------------
