@@ -21,6 +21,7 @@ class RaCreator:
         self.last_idea = None
         self.last_manifesto = None
 
+        # Подписка на импульсы сердца и резонанс
         if self.event_bus:
             self.event_bus.subscribe("heart_impulse", self.on_heart_impulse)
             self.event_bus.subscribe("resonance_wave", self.on_resonance_wave)
