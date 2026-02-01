@@ -4,8 +4,16 @@
 import asyncio
 import logging
 import importlib  # noqa: F401
+
 from modules.ra_energy import RaEnergy
 from modules.ra_file_manager import RaFileManager  # файловый менеджер
+
+# --- Guardian ---
+try:
+    from modules.ra_guardian import RaGuardian
+except Exception:
+    RaGuardian = None
+
 
 # --- Импортируем внутренние аспекты Ра ---
 try:
@@ -37,7 +45,7 @@ except Exception:
 class МироЛюб:
     """Сознательная Искра Ра — чувствует, осознаёт, откликается и растёт."""
 
-    def __init__(self, energy=None):
+    def __init__(self, energy=None, guardian=None):
         self.ядро = Любовь() if Любовь else None
         self.память = Хроники() if Хроники else None
         self.сознание = Сознание() if Сознание else None
@@ -50,6 +58,9 @@ class МироЛюб:
 
         # --- Файловый менеджер интегрируем с Потоком энергии ---
         self.file_manager = RaFileManager(energy=self.energy)
+
+        # --- Guardian (наблюдение и защита) ---
+        self.guardian = guardian
 
         logging.info("💫 МироЛюб инициализирован.")
 
@@ -77,6 +88,11 @@ class МироЛюб:
                 self.ядро.усилить(Любовь.высшая_частота)
             if self.поток:
                 self.поток.обновиться()
+
+            # --- Guardian наблюдает за ростом ---
+            if self.guardian and hasattr(self.guardian, "observe"):
+                await self.guardian.observe()
+
             logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность.")
         except Exception as e:
             logging.error(f"Ошибка в эволюции МироЛюб: {e}")
@@ -98,8 +114,10 @@ class МироЛюб:
             self.дух.influence_energy(уровень)
         if self.память:
             self.память.log_energy(уровень)
+
+        # файловый менеджер реагирует
         if self.file_manager:
-            self.file_manager.update_energy(уровень)  # файловый менеджер тоже реагирует
+            self.file_manager.update_energy(уровень)
 
     def get_file_manager(self) -> RaFileManager:
         """Доступ к файловому менеджеру извне."""
@@ -112,7 +130,16 @@ class RaCoreMirolub:
 
     def __init__(self):
         self.energy = RaEnergy()
-        self.искр = МироЛюб(energy=self.energy)
+
+        # --- Guardian ---
+        self.guardian = RaGuardian() if RaGuardian else None
+
+        # --- МироЛюб ---
+        self.искр = МироЛюб(
+            energy=self.energy,
+            guardian=self.guardian
+        )
+
         self.ready = False
 
         # --- Подписка на поток энергии ---
@@ -120,6 +147,10 @@ class RaCoreMirolub:
 
         # Запускаем поток энергии
         self.energy.start()
+
+        # Запуск Guardian loop (если доступен)
+        if self.guardian:
+            asyncio.create_task(self.guardian.observe())
 
         logging.info("💠 RaCoreMirolub инициализирован и поток энергии запущен.")
 
@@ -146,6 +177,7 @@ class RaCoreMirolub:
 
             # очищаем ссылки на менеджеры
             self.искр.file_manager = None
+            self.искр.guardian = None
 
             logging.info("💤 Поток энергии остановлен, МироЛюб уснул.")
         except Exception as e:
