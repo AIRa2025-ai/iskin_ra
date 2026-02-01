@@ -2,6 +2,7 @@
 import asyncio
 import random
 import logging
+from modules.ra_creator import RaCreator
 
 class RaResonance:
     def __init__(self, event_bus):
@@ -14,6 +15,7 @@ class RaResonance:
             "harmony_updated",
             self.on_harmony_update
         )
+        self.creator = RaCreator(event_bus=self.event_bus)
         res = RaResonance(event_bus)
         res.start()
         resonance.start()
@@ -33,7 +35,8 @@ class RaResonance:
             self.logger.info(f"Резонансное поле: {вибрация}")
             await asyncio.sleep(2)
         self.logger.info("🛑 Резонансное поле остановлено")
-
+            await self.event_bus.emit("resonance_wave", {"wave": vibration})
+        
     def start(self):
         if not self._active:
             self._active = True
