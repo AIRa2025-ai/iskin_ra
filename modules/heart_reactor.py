@@ -98,6 +98,13 @@ class HeartReactor:
         if best_event:
             msg = f"🔮 Предчувствие будущего: выбрано оптимальное событие -> {best_event['description']} (score={best_score})"
             logging.info(f"[HeartReactor] {msg}")
+            # ADDED: Будущее событие → RaCreator
+            if hasattr(self, "creator") and self.creator:
+                idea = self.creator.generate_from_heart(resonance_signal=str(best_event))
+                logging.info(f"[HeartReactor] Будущее событие отправлено к RaCreator: {idea}")
+                if self.event_bus:
+                    await self.event_bus.emit("idea_generated", {"idea": idea})
+            # ----------------------------
             await self.notify_listeners(best_event)
 
     def _evaluate_event(self, event: Dict[str, Any]) -> float:
