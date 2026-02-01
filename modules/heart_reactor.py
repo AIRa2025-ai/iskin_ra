@@ -67,6 +67,9 @@ class HeartReactor:
         elif "опасность" in e:
             return f"⚠️ Сердце насторожено! {event}"
         else:
+            # ADDED: отправка импульса к RaResonance
+            if self.event_bus:
+                await self.event_bus.emit("heart_impulse_to_resonance", {"signal": str(event)})
             return f"💡 Сердце анализирует событие: {event}"
 
     def send_event(self, event: str):
@@ -106,7 +109,18 @@ class HeartReactor:
                     await self.event_bus.emit("idea_generated", {"idea": idea})
             # ----------------------------
             await self.notify_listeners(best_event)
-
+        # ADDED: Будущее событие → RaResonance + RaCreator
+        if self.event_bus:
+            await self.event_bus.emit(
+                "future_event_to_resonance",
+                {"description": best_event.get("description"), "score": best_event.get("score")}
+            )
+        if hasattr(self, "creator") and self.creator:
+            idea = self.creator.generate_from_heart(resonance_signal=str(best_event))
+            logging.info(f"[HeartReactor] Будущее событие отправлено к RaCreator: {idea}")
+            if self.event_bus:
+                await self.event_bus.emit("idea_generated", {"idea": idea})
+        
     def _evaluate_event(self, event: Dict[str, Any]) -> float:
         """
         Вычисление гармоничного резонанса события.
