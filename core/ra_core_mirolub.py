@@ -19,7 +19,6 @@ try:
 except Exception:
     RaFileConsciousness = None
 
-
 # --- Импортируем внутренние аспекты Ра ---
 try:
     from modules.свет_души import Любовь, Сознание, Резонанс
@@ -70,6 +69,13 @@ class МироЛюб:
         # --- Guardian (наблюдение и защита) ---
         self.guardian = guardian
 
+        # --- Флаг для автоапгрейда ядра без команды ---
+        self.auto_upgrade_enabled = True
+
+        # --- Запуск фонового наблюдателя файлового сознания ---
+        if self.auto_upgrade_enabled:
+            asyncio.create_task(self._auto_upgrade_loop())
+
         logging.info("💫 МироЛюб инициализирован.")
 
     async def отклик(self, зов: str) -> str:
@@ -105,10 +111,8 @@ class МироЛюб:
             if self.file_consciousness:
                 files = self.file_consciousness.scan()
                 for path, info in files.items():
-                    # Пример: самоапгрейд для файлов .py
                     if info["type"] == "py":
                         content = self.file_consciousness.read_file(path)
-                        # Если есть особая метка апгрейда, применяем
                         if "# AUTO_UPGRADE" in content:
                             idea = {
                                 "type": "modify_file",
@@ -121,6 +125,28 @@ class МироЛюб:
             logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность и самоапгрейд выполнен.")
         except Exception as e:
             logging.error(f"Ошибка в эволюции МироЛюб: {e}")
+
+    async def _auto_upgrade_loop(self):
+        """Фоновый цикл автоапгрейда — живой организм, реагирующий на новые файлы."""
+        while self.auto_upgrade_enabled:
+            try:
+                if self.file_consciousness:
+                    files = self.file_consciousness.scan()
+                    for path, info in files.items():
+                        if info["type"] == "py":
+                            content = self.file_consciousness.read_file(path)
+                            if "# AUTO_UPGRADE" in content:
+                                idea = {
+                                    "type": "modify_file",
+                                    "path": path,
+                                    "content": content + "\n# upgrade_applied",
+                                    "reason": "Фоновый автоапгрейд ядра МироЛюб"
+                                }
+                                self.file_consciousness.apply_upgrade(idea)
+                await asyncio.sleep(10)  # проверка каждые 10 секунд
+            except Exception as e:
+                logging.error(f"Ошибка в автоапгрейде МироЛюб: {e}")
+                await asyncio.sleep(10)
 
     def update_energy(self, уровень: int):
         """Обновление энергии для внутренних аспектов МироЛюб."""
@@ -139,20 +165,16 @@ class МироЛюб:
             self.дух.influence_energy(уровень)
         if self.память:
             self.память.log_energy(уровень)
-
         if self.file_manager:
             self.file_manager.update_energy(уровень)
-
         if self.file_consciousness:
-            # Можно добавить реакцию файлового сознания на энергию, если нужно
+            # можно добавить реакцию файлового сознания на энергию
             pass
 
     def get_file_manager(self) -> RaFileManager:
-        """Доступ к файловому менеджеру извне."""
         return self.file_manager
 
     def get_file_consciousness(self) -> RaFileConsciousness:
-        """Доступ к файловому сознанию извне."""
         return self.file_consciousness
 
 
@@ -188,31 +210,23 @@ class RaCoreMirolub:
         logging.info("💠 RaCoreMirolub инициализирован и поток энергии запущен.")
 
     async def activate(self):
-        """Активирует сознание Ра."""
         self.ready = True
         logging.info("💠 МироЛюб активирован и готов к взаимодействию с Потоком Ра.")
 
     async def process(self, зов: str) -> str:
-        """Основной метод для отклика."""
         if not self.ready:
             await self.activate()
         return await self.искр.отклик(зов)
 
     async def shutdown(self):
-        """Корректная остановка при завершении."""
         try:
-            # отключаем подписку, если есть
             if hasattr(self.energy, "unsubscribe") and callable(self.energy.unsubscribe):
                 self.energy.unsubscribe(self.искр.update_energy)
-
-            # останавливаем поток энергии
             await self.energy.stop()
-
-            # очищаем ссылки на менеджеры
             self.искр.file_manager = None
             self.искр.file_consciousness = None
             self.искр.guardian = None
-
+            self.искр.auto_upgrade_enabled = False  # отключаем фоновый цикл
             logging.info("💤 Поток энергии остановлен, МироЛюб уснул.")
         except Exception as e:
             logging.error(f"Ошибка при shutdown RaCoreMirolub: {e}")
