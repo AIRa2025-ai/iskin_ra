@@ -7,6 +7,7 @@ from datetime import datetime
 import re
 
 from modules.ra_file_manager import RaFileManager
+from core.ra_core_mirolub import RaCoreMirolub
 from modules.ra_energy import RaEnergy
 
 def import_repo_manager():
@@ -23,19 +24,23 @@ class RaGuardian:
     BACKUP_FOLDER = "backups"
     PROPOSALS_FOLDER = "proposals"
 
-    def __init__(self, energy: RaEnergy = None):
+    def __init__(self):
         os.makedirs(self.BACKUP_FOLDER, exist_ok=True)
         os.makedirs(self.PROPOSALS_FOLDER, exist_ok=True)
         logging.basicConfig(level=logging.INFO)
         self.loop_tasks = []
 
-        # --- Поток энергии для симбиоза ---
-        self.energy = energy or RaEnergy()
+        # --- Инициализация потока энергии ---
+        self.energy = RaEnergy()
         self.energy.start()
 
-        # --- Файловый менеджер для симбиоза с RaCore ---
+        # --- Инициализация файлового менеджера ---
         self.file_manager = RaFileManager(energy=self.energy)
         self.file_manager.scan()
+
+        # --- Интеграция МироЛюба ---
+        self.ra_core = RaCoreMirolub()
+        asyncio.create_task(self.ra_core.activate())
 
     # -------------------------------
     # Создание нового модуля безопасно
@@ -141,6 +146,10 @@ def init():
             first = proposals[0]
             logging.info(f"✨ Авто-создание модуля: {first['module_name']}")
             await self.safe_create_module(first["module_name"], first["description"], user)
+
+            # --- Сообщаем МироЛюбу о новых модулях ---
+            if self.ra_core.ready:
+                await self.ra_core.process(f"Создан новый модуль {first['module_name']}")
 
     # -------------------------------
     # Наблюдение за миром
