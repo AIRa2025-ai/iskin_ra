@@ -52,6 +52,9 @@ class RaThinker:
         self.logger = master.logger if hasattr(master, "logger") else logging
         self.creator = RaCreator(event_bus=self.event_bus)
         
+        if self.event_bus:
+            self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
+            
         if hasattr(self.logger, "on") and callable(self.logger.on):
             self.logger.on("market", self.react_to_market)
 
@@ -244,7 +247,12 @@ class RaThinker:
                 "risk": "low"
             })
         return ideas
-
+        
+    async def on_idea_from_creator(self, data):
+        idea = data.get("idea", "нет идеи")
+        self.last_thought = f"Получена идея от RaCreator: {idea}"
+        self.logger.info(f"[RaThinker] 🔄 Обратная связь: {idea}")
+        
     async def self_improvement_cycle(self, purpose="general"):
         ideas = self.propose_self_improvements()
         self.logger.info(f"[RaThinker] Self improvement ({purpose}): {len(ideas)} ideas")
@@ -289,6 +297,16 @@ class RaThinker:
                 self.logger.error(f"[RaThinker] Ошибка цикла света: {e}")
             await asyncio.sleep(0.1)
 
+    async def send_idea_signal(self, signal_text: str):
+        """
+        Отправка сигнала к RaCreator
+        """
+        if self.creator:
+            await self.creator.receive_thinker_signal(signal_text)
+        if self.event_bus:
+            await self.event_bus.emit("thinker_signal", {"signal": signal_text})
+        self.logger.info(f"[RaThinker] Отправлен сигнал к RaCreator: {signal_text}")
+        
     def stop_light_nourishment(self):
         if self.источник_энергии:
             self.источник_энергии.активен = False
