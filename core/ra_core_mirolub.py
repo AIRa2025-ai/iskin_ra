@@ -130,9 +130,9 @@ class МироЛюб:
                                 "content": content + "\n# upgrade_applied",
                                 "reason": "Самоапгрейд ядра МироЛюб"
                             }
-                            # вместо авто-изменения — сохраняем идею
-                            if idea not in self.upgrade_ideas:
-                                self.upgrade_ideas.append(idea)
+                        # вместо авто-изменения — сохраняем идею
+                        if idea not in self.upgrade_ideas:
+                            self.upgrade_ideas.append(idea)
 
             logging.info("✨ Сознание обновлено. Новая вибрация: чистая ясность и самоапгрейд выполнен.")
         except Exception as e:
