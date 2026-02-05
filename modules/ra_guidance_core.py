@@ -36,7 +36,8 @@ class RaGuidanceCore:
 
         # Автозапуск цикла наблюдения и реакции
         asyncio.create_task(self.auto_guidance_loop())
-
+        asyncio.create_task(self.process_intents_loop())
+        
         # Подписка на задачи системы
         if self.event_bus:
             self.event_bus.subscribe("new_task", self.on_new_task)
