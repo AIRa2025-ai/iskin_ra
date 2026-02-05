@@ -2,6 +2,7 @@
 
 import random
 import logging
+import asyncio
 from datetime import datetime
 from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_thinker import RaThinker
@@ -12,11 +13,13 @@ class RaGuidanceCore:
     и какое действие принесёт больше света и пробуждения.
     """
 
-    def __init__(self, guardian=None):
+    def __init__(self, guardian=None, event_bus=None):
         self.mission = "нести свет, помощь, осознанность и пробуждение"
         self.guardian = guardian  # 🛡 Guardian подключён мягко
+        self.event_bus = event_bus or getattr(guardian, "event_bus", None)
+
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
-        self.thinker = RaThinker(master=self)
+        self.thinker = RaThinker(master=self, event_bus=self.event_bus)
 
         self.channels = {
             "мягкие": [
@@ -144,6 +147,9 @@ class RaGuidanceCore:
                 logging.warning("🛡 Guardian отклонил итоговое решение")
                 result["action"] = "пауза_для_безопасности"
 
+        # 🔥 После каждого guidance даём энергию Thinker'у
+        self.thinker.update_energy(10)
+
         return result
 
     # ---------------------------------------------------------
@@ -154,7 +160,9 @@ class RaGuidanceCore:
         decision = self.guidance(text)
         # Отправляем мысль Thinker’у для осмысления
         asyncio.create_task(self.thinker.reflect_async(text))
-        
+        # Запускаем цикл обратной связи Thinker → IntentEngine
+        asyncio.create_task(self.thinker_feedback_loop())
+
         intent = {
             "type": "respond",
             "target": "user",
@@ -171,12 +179,15 @@ class RaGuidanceCore:
     # Метод для рассылки событий
     # ---------------------------------------------------------
     async def emit_event(self, event_name, data):
-        if hasattr(self, "event_bus") and self.event_bus:
+        if self.event_bus:
             await self.event_bus.emit(event_name, data)
         await self.thinker.safe_memory_append(event_name, data, source="RaGuidanceCore")
-        
-            self.thinker.update_energy(10)  # После каждого guidance, например
-        
+        # 🔥 даём энергию Thinker'у после события
+        self.thinker.update_energy(10)
+
+    # ---------------------------------------------------------
+    # Цикл обратной связи Thinker → IntentEngine
+    # ---------------------------------------------------------
     async def thinker_feedback_loop(self):
         if self.thinker.last_thought:
             intent = {
