@@ -41,10 +41,19 @@ class RaGuidanceCore:
         # Подписка на задачи системы
         if self.event_bus:
             self.event_bus.subscribe("new_task", self.on_new_task)
-            self.world_responder.set_event_bus(self.event_bus)
+
+            if hasattr(self, "world_responder") and self.world_responder:
+                self.world_responder.set_event_bus(self.event_bus)
+
         # Мир → TrendScout → Thinker → Guidance
-        if self.event_bus and hasattr(self.thinker, "trend_scout"):
-            self.event_bus.subscribe("world_event", self.thinker.trend_scout.ingest_world_event)
+        if self.event_bus:
+            self.event_bus.subscribe("world_event", self.on_world_event)
+
+            if hasattr(self.thinker, "trend_scout"):
+                self.event_bus.subscribe(
+                    "world_event",
+                    self.thinker.trend_scout.ingest_world_event
+                )
             
     # ---------------------------------------------------------
     # Определение направления
