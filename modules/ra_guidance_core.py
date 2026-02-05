@@ -7,6 +7,9 @@ from datetime import datetime
 from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_thinker import RaThinker
 from modules.ra_world_responder import RaWorldResponder
+from modules.ra_memory import memory
+from modules.logs import logger_instance as logger
+from modules.ra_energy import RaEnergy  # допустим, там есть класс RaEnergy
 
 class RaGuidanceCore:
     """
@@ -19,7 +22,9 @@ class RaGuidanceCore:
         self.mission = "нести свет, помощь, осознанность и пробуждение"
         self.guardian = guardian
         self.event_bus = event_bus or getattr(guardian, "event_bus", None)
-
+        self.memory = memory
+        self.logger = logger
+        self.energy = RaEnergy(master=self)
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
         self.thinker = RaThinker(master=self, event_bus=self.event_bus)
         self.world_responder = RaWorldResponder()
@@ -48,7 +53,11 @@ class RaGuidanceCore:
         # Мир → TrendScout → Thinker → Guidance
         if self.event_bus:
             self.event_bus.subscribe("world_event", self.on_world_event)
-
+            self.event_bus.subscribe("new_task", self.on_new_task)
+            
+            if hasattr(self, "world_responder") and self.world_responder:
+                self.world_responder.set_event_bus(self.event_bus)
+                
             if hasattr(self.thinker, "trend_scout"):
                 self.event_bus.subscribe(
                     "world_event",
