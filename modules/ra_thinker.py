@@ -19,6 +19,7 @@ from modules.svet_functions import принять_фотоны_любви, пр�
 from modules import errors
 from modules.rasvet_loader import load_rasvet_files
 from modules.ra_creator import RaCreator
+from modules.ra_trend_scout import RaTrendScout
 from core.ra_memory import memory
 from time import time
 
@@ -52,6 +53,7 @@ class RaThinker:
         self.logger = master.logger if hasattr(master, "logger") else logging
         self.creator = RaCreator(event_bus=self.event_bus)
         self.energy_level = 0
+        self.trend_scout = RaTrendScout(thinker=self, event_bus=event_bus)
         
         if self.event_bus:
             self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
@@ -128,7 +130,15 @@ class RaThinker:
         if knowledge_reply and reply_text != knowledge_reply:
             return f"{knowledge_reply}\n\n{reply_text}"
         return reply_text
-
+        
+        if self.last_thought and hasattr(self.master, "intent_engine"):
+            intent = {
+                "type": "trend_response",
+                "target": "world",
+                "reason": self.last_thought,
+                "priority": 2
+            }
+            self.master.intent_engine.propose(intent)
     # -------------------------------
     # Обновление знаний
     # -------------------------------
