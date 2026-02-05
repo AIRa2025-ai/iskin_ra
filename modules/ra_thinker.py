@@ -27,7 +27,7 @@ from modules.ra_psychologist import RaPsychologist
 from modules.ra_prophet import RaProphet
 from modules.ra_strategist import RaStrategist
 from modules.ra_war_peace_observer import RaWarPeaceObserver
-from modules.ra_trend_scout import RaTrendScout
+
 from core.ra_memory import memory
 
 
@@ -69,7 +69,7 @@ class RaThinker:
         self.prophet = RaProphet()
         self.strategist = RaStrategist()
         self.war_observer = RaWarPeaceObserver()
-        self.memory = []
+        self.local_memory = []
         self.last_thought = None
         
         if self.event_bus:
@@ -542,34 +542,61 @@ class RaThinker:
         self.last_thought = thought
         return thought
 
-    def ingest_world_event(self, data):
+    async def ingest_world_event(self, data):
         text = data.get("message", "")
         sentiment = data.get("sentiment", 0)
+        priority = data.get("priority", "low")
 
+        # 🛡 Фильтр шума
         if not self.noise_filter.is_signal(text, sentiment):
-            return  # игнор шума
+            return  
 
-        self.memory.append({"text": text, "sentiment": sentiment})
+        event_record = {
+            "text": text,
+            "sentiment": sentiment,
+            "priority": priority,
+            "time": datetime.now().isoformat()
+        }
 
-        # психолог
+        self.local_memory.append(event_record)
+
+        # 🧠 Психолог — чувствует боль
         psych = self.psychologist.analyze(text)
         if psych:
-            self.queue.push(psych)
+            self.queue.push({**psych, "priority": "high"})
 
-        # война / мир
-        war = self.war_observer.observe(text)
-        if war:
-            self.queue.push(war)
+        # ⚔️ Наблюдатель войны / мира
+        war_state = self.war_observer.observe(text)
+        if war_state:
+            self.queue.push({**war_state, "priority": "high"})
 
-        # тренды
+        # 🕵️ Разведчик трендов
         self.trend_scout.ingest_world_event(data)
 
-        # пророк
-        prophecy = self.prophet.predict(self.memory)
+        # 🔮 Пророк — предсказывает
+        prophecy = self.prophet.predict(self.local_memory)
         if prophecy:
-            self.queue.push({"priority": "high", "message": prophecy})
+            self.queue.push({
+                "type": "prophecy",
+                "message": prophecy,
+                "priority": "high"
+            })
 
-        # стратег
-        plan = self.strategist.plan(self.memory)
+        # ♟ Стратег — строит план
+        plan = self.strategist.plan(self.local_memory)
         if plan:
-            self.queue.push(plan)
+            self.queue.push({
+                "type": "strategy",
+                "message": plan,
+                "priority": "medium"
+            })
+
+        # 🧬 Сохранение в память Ра
+        await self.safe_memory_append(
+            "world_events",
+            event_record,
+            source="RaThinker",
+            layer="shared"
+        )
+
+        self.last_thought = f"🌍 Мир вибрирует: {text[:120]}"
