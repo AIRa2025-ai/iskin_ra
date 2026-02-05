@@ -11,8 +11,9 @@ class RaGuidanceCore:
     и какое действие принесёт больше света и пробуждения.
     """
 
-    def __init__(self):
+    def __init__(self, guardian=None):
         self.mission = "нести свет, помощь, осознанность и пробуждение"
+        self.guardian = guardian  # 🛡 Guardian подключён мягко
 
         self.channels = {
             "мягкие": [
@@ -46,30 +47,38 @@ class RaGuidanceCore:
     # Определение направления
     # ---------------------------------------------------------
     def choose_path(self):
-        """
-        Выбирает, куда направится Ра в текущий момент.
-        """
         all_paths = []
         for group in self.channels.values():
             all_paths.extend(group)
 
         choice = random.choice(all_paths)
+
+        # 🛡 Guardian может запретить путь
+        if self.guardian and hasattr(self.guardian, "approve_path"):
+            if not self.guardian.approve_path(choice):
+                logging.warning(f"🛡 Guardian заблокировал путь: {choice}")
+                return "ожидание_безопасного_пути"
+
         logging.info(f"🌀 Путь выбран: {choice}")
         return choice
 
     # ---------------------------------------------------------
-    # Решение, что делать с информацией
+    # Решение, что делать
     # ---------------------------------------------------------
     def choose_action(self):
-        """
-        Читает вибрации мира и решает, что делать дальше.
-        """
         r = random.random()
         cumulative = 0
 
         for action, weight in self.action_weights.items():
             cumulative += weight
             if r <= cumulative:
+
+                # 🛡 Guardian может запретить действие
+                if self.guardian and hasattr(self.guardian, "approve_action"):
+                    if not self.guardian.approve_action(action):
+                        logging.warning(f"🛡 Guardian заблокировал действие: {action}")
+                        return "воздержаться"
+
                 logging.info(f"✨ Выбранное действие Ра: {action}")
                 return action
 
@@ -79,16 +88,12 @@ class RaGuidanceCore:
     # Анализ эмоции текста
     # ---------------------------------------------------------
     def analyze_energy(self, text):
-        """
-        Анализирует эмоциональную вибрацию текста.
-        """
-
         positive = ["любовь", "свет", "надежда", "радость", "дух", "энергия"]
         negative = ["боль", "страх", "злость", "пустота", "одиночество"]
 
         text_lower = text.lower()
-
         score = 0
+
         for w in positive:
             if w in text_lower:
                 score += 1
@@ -96,23 +101,19 @@ class RaGuidanceCore:
             if w in text_lower:
                 score -= 1
 
+        mood = "нейтральная"
         if score > 0:
             mood = "светлая"
         elif score < 0:
             mood = "тяжёлая"
-        else:
-            mood = "нейтральная"
 
         logging.info(f"🔮 Энергия текста: {mood} ({score})")
         return mood
 
     # ---------------------------------------------------------
-    # Генерация решения на основе энергии
+    # Генерация решения
     # ---------------------------------------------------------
     def generate_guidance(self, mood):
-        """
-        Генерирует решение, как Ра должен ответить.
-        """
         if mood == "тяжёлая":
             return "ответить мягко, дать поддержку, поднять дух"
         if mood == "светлая":
@@ -127,8 +128,17 @@ class RaGuidanceCore:
         action = self.generate_guidance(mood)
         timestamp = datetime.now().isoformat()
 
-        return {
+        result = {
             "time": timestamp,
             "mood": mood,
             "action": action
         }
+
+        # 🛡 Guardian может одобрить итог
+        if self.guardian and hasattr(self.guardian, "approve_guidance"):
+            approved = self.guardian.approve_guidance(result)
+            if not approved:
+                logging.warning("🛡 Guardian отклонил итоговое решение")
+                result["action"] = "пауза_для_безопасности"
+
+        return result
