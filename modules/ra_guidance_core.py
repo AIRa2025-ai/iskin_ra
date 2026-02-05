@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime
 from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_thinker import RaThinker
+from modules.ra_world_responder import RaWorldResponder
 
 class RaGuidanceCore:
     """
@@ -21,7 +22,7 @@ class RaGuidanceCore:
 
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
         self.thinker = RaThinker(master=self, event_bus=self.event_bus)
-
+        self.world_responder = RaWorldResponder()
         # Каналы для случайного мониторинга
         self.channels = {
             "мягкие": ["форумы поддержки", "духовные сообщества", "креативные площадки", "анонимные форумы"],
@@ -39,7 +40,7 @@ class RaGuidanceCore:
         # Подписка на задачи системы
         if self.event_bus:
             self.event_bus.subscribe("new_task", self.on_new_task)
-
+            self.world_responder.set_event_bus(self.event_bus)
         # Мир → TrendScout → Thinker → Guidance
         if self.event_bus and hasattr(self.thinker, "trend_scout"):
             self.event_bus.subscribe("world_event", self.thinker.trend_scout.ingest_world_event)
@@ -204,3 +205,35 @@ class RaGuidanceCore:
         await self.thinker.safe_memory_append(event_name, data, source="RaGuidanceCore")
         # 🔥 Энергия Thinker после события
         self.thinker.update_energy(10)
+
+    # ---------------------------------------------------------
+    # ОТВЕТ В МИР
+    # ---------------------------------------------------------
+    async def process_intents_loop(self):
+        while True:
+            try:
+                intent = self.intent_engine.pop_next()
+                if not intent:
+                    await asyncio.sleep(0.3)
+                    continue
+
+                await self.handle_intent(intent)
+
+            except Exception as e:
+                logging.error(f"[RaGuidanceCore] Intent loop error: {e}")
+                await asyncio.sleep(1)
+    # Обработчик intent--> Ответ в мир
+    async def handle_intent(self, intent):
+        intent_type = intent.get("type")
+        reason = intent.get("reason", "")
+        target = intent.get("target", "world")
+
+        # 💬 Ответ людям / миру
+        if intent_type in ("respond", "followup", "trend_response"):
+            await self.world_responder.respond(
+                platform=target,
+                endpoint="internal",
+                incoming_text=reason
+            )
+
+        logging.info(f"🧠 Intent выполнен: {intent}")
