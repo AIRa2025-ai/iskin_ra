@@ -47,6 +47,10 @@ class RaIntentEngine:
         logging.info(f"🎯 Добавлено намерение: {intent}")
         return intent
 
+    def pop_next(self):
+        if not self.queue:
+            return None
+        return self.queue.pop(0)
     # ---------------------------------------------------------
     # Нормализация intent
     # ---------------------------------------------------------
