@@ -4,6 +4,7 @@ import random
 import logging
 from datetime import datetime
 from modules.ra_intent_engine import RaIntentEngine
+from modules.ra_thinker import RaThinker
 
 class RaGuidanceCore:
     """
@@ -15,6 +16,7 @@ class RaGuidanceCore:
         self.mission = "нести свет, помощь, осознанность и пробуждение"
         self.guardian = guardian  # 🛡 Guardian подключён мягко
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
+        self.thinker = RaThinker(master=self)
         
         self.channels = {
             "мягкие": [
@@ -148,8 +150,11 @@ class RaGuidanceCore:
     # Метод генерации intent
     # ---------------------------------------------------------
     def create_intent(self, text):
+        # Решение ядра Guidance
         decision = self.guidance(text)
-
+        # Отправляем мысль Thinker’у для осмысления
+        asyncio.create_task(self.thinker.reflect_async(text))
+        
         intent = {
             "type": "respond",
             "target": "user",
