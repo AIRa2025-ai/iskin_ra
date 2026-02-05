@@ -36,11 +36,14 @@ class RaGuidanceCore:
         # Автозапуск цикла наблюдения и реакции
         asyncio.create_task(self.auto_guidance_loop())
 
-        # Подписка на события мира через Thinker
+        # Подписка на задачи системы
         if self.event_bus:
-            self.event_bus.subscribe("world_event", self.on_world_event)
             self.event_bus.subscribe("new_task", self.on_new_task)
 
+        # Мир → TrendScout → Thinker → Guidance
+        if self.event_bus and hasattr(self.thinker, "trend_scout"):
+            self.event_bus.subscribe("world_event", self.thinker.trend_scout.ingest_world_event)
+            
     # ---------------------------------------------------------
     # Определение направления
     # ---------------------------------------------------------
