@@ -75,6 +75,7 @@
     "ra_self_writer.py",
     "ra_synthesizer.py",
     "ra_thinker.py",
+    "ra_trend_scout.py",
     "ra_videocom.py",
     "ra_voice.py",
     "ra_world_control_center.py",
