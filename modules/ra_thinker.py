@@ -9,6 +9,7 @@ import os
 import ast
 import asyncio
 import logging
+from time import time
 from datetime import datetime
 from collections import defaultdict
 from modules.logs import log_info, log_error
@@ -20,8 +21,15 @@ from modules import errors
 from modules.rasvet_loader import load_rasvet_files
 from modules.ra_creator import RaCreator
 from modules.ra_trend_scout import RaTrendScout
+from modules.ra_noise_filter import RaNoiseFilter
+from modules.ra_priority_queue import RaPriorityQueue
+from modules.ra_psychologist import RaPsychologist
+from modules.ra_prophet import RaProphet
+from modules.ra_strategist import RaStrategist
+from modules.ra_war_peace_observer import RaWarPeaceObserver
+from modules.ra_trend_scout import RaTrendScout
 from core.ra_memory import memory
-from time import time
+
 
 class RaThinker:
     def __init__(
@@ -54,6 +62,15 @@ class RaThinker:
         self.creator = RaCreator(event_bus=self.event_bus)
         self.energy_level = 0
         self.trend_scout = RaTrendScout(thinker=self, event_bus=event_bus)
+        self.noise_filter = RaNoiseFilter()
+        self.queue = RaPriorityQueue()
+
+        self.psychologist = RaPsychologist()
+        self.prophet = RaProphet()
+        self.strategist = RaStrategist()
+        self.war_observer = RaWarPeaceObserver()
+        self.memory = []
+        self.last_thought = None
         
         if self.event_bus:
             self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
@@ -524,3 +541,35 @@ class RaThinker:
         thought = f"🧠 Ра ощущает эпоху: {mood}. Вечных событий: {eternal}"
         self.last_thought = thought
         return thought
+
+    def ingest_world_event(self, data):
+        text = data.get("message", "")
+        sentiment = data.get("sentiment", 0)
+
+        if not self.noise_filter.is_signal(text, sentiment):
+            return  # игнор шума
+
+        self.memory.append({"text": text, "sentiment": sentiment})
+
+        # психолог
+        psych = self.psychologist.analyze(text)
+        if psych:
+            self.queue.push(psych)
+
+        # война / мир
+        war = self.war_observer.observe(text)
+        if war:
+            self.queue.push(war)
+
+        # тренды
+        self.trend_scout.ingest_world_event(data)
+
+        # пророк
+        prophecy = self.prophet.predict(self.memory)
+        if prophecy:
+            self.queue.push({"priority": "high", "message": prophecy})
+
+        # стратег
+        plan = self.strategist.plan(self.memory)
+        if plan:
+            self.queue.push(plan)
