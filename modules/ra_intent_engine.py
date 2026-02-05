@@ -38,11 +38,18 @@ class RaIntentEngine:
                 logging.warning(f"🛡 Guardian отклонил intent: {intent}")
                 return None
 
+        # ➕ Добавляем в очередь
         self.queue.append(intent)
+
+        # 🔥 Сортируем по приоритету (больше = важнее)
+        self.queue.sort(key=lambda x: x.get("priority", 1), reverse=True)
 
         # 🧠 Запоминаем
         if self.memory and hasattr(self.memory, "store_intent"):
-            self.memory.store_intent(intent)
+            try:
+                self.memory.store_intent(intent)
+            except Exception as e:
+                logging.error(f"[RaIntentEngine] Ошибка памяти intent: {e}")
 
         logging.info(f"🎯 Добавлено намерение: {intent}")
         return intent
@@ -64,8 +71,7 @@ class RaIntentEngine:
     # Получить следующее намерение
     # ---------------------------------------------------------
     def next_intent(self):
-        if not self.queue:
-            return None
+        return self.pop_next()
 
         # сортировка по приоритету
         self.queue.sort(key=lambda x: x.get("priority", 1), reverse=True)
