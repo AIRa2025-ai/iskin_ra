@@ -3,7 +3,7 @@
 import random
 import logging
 from datetime import datetime
-
+from modules.ra_intent_engine import RaIntentEngine
 
 class RaGuidanceCore:
     """
@@ -14,7 +14,8 @@ class RaGuidanceCore:
     def __init__(self, guardian=None):
         self.mission = "нести свет, помощь, осознанность и пробуждение"
         self.guardian = guardian  # 🛡 Guardian подключён мягко
-
+        self.intent_engine = RaIntentEngine(guardian=self.guardian)
+        
         self.channels = {
             "мягкие": [
                 "форумы поддержки",
@@ -142,3 +143,21 @@ class RaGuidanceCore:
                 result["action"] = "пауза_для_безопасности"
 
         return result
+
+    # ---------------------------------------------------------
+    # Метод генерации intent
+    # ---------------------------------------------------------
+    def create_intent(self, text):
+        decision = self.guidance(text)
+
+        intent = {
+            "type": "respond",
+            "target": "user",
+            "reason": decision["action"],
+            "priority": 2 if decision["mood"] == "тяжёлая" else 1
+        }
+
+        if self.intent_engine:
+            self.intent_engine.propose(intent)
+
+        return intent
