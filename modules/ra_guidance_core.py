@@ -17,7 +17,7 @@ class RaGuidanceCore:
         self.guardian = guardian  # 🛡 Guardian подключён мягко
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
         self.thinker = RaThinker(master=self)
-        
+
         self.channels = {
             "мягкие": [
                 "форумы поддержки",
@@ -174,3 +174,15 @@ class RaGuidanceCore:
         if hasattr(self, "event_bus") and self.event_bus:
             await self.event_bus.emit(event_name, data)
         await self.thinker.safe_memory_append(event_name, data, source="RaGuidanceCore")
+        
+            self.thinker.update_energy(10)  # После каждого guidance, например
+        
+    async def thinker_feedback_loop(self):
+        if self.thinker.last_thought:
+            intent = {
+                "type": "followup",
+                "target": "system",
+                "reason": self.thinker.last_thought,
+                "priority": 1
+            }
+            self.intent_engine.propose(intent)
