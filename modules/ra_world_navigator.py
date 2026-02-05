@@ -110,7 +110,13 @@ class RaWorldNavigator:
         signal_hash = hash(text[:200])
         if signal_hash == self.last_signal_hash:
             return
+        priority = "low"
 
+        if abs(sentiment) > 0.05:
+            priority = "medium"
+
+        if abs(sentiment) > 0.15 or len(key_words) >= 2:
+            priority = "high"
         # минимальный порог значимости
         if abs(sentiment) < 0.01 and not key_words:
             return
@@ -119,6 +125,7 @@ class RaWorldNavigator:
             "message": text[:300],
             "sentiment": sentiment,
             "key_words": key_words,
+            "priority": priority,
             "гармония": self.гармония,
             "эмпатия": self.эмпатия,
             "вдохновение": self.вдохновение
