@@ -166,3 +166,11 @@ class RaGuidanceCore:
             self.intent_engine.propose(intent)
 
         return intent
+
+    # ---------------------------------------------------------
+    # Метод для рассылки событий
+    # ---------------------------------------------------------
+    async def emit_event(self, event_name, data):
+        if hasattr(self, "event_bus") and self.event_bus:
+            await self.event_bus.emit(event_name, data)
+        await self.thinker.safe_memory_append(event_name, data, source="RaGuidanceCore")
