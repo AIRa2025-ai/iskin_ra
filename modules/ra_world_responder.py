@@ -95,18 +95,26 @@ class RaWorldResponder:
     # ---------------------------------------------------------
     # ОТВЕЧАЕТ НА СИГНАЛ ФОРЕКСА
     # ---------------------------------------------------------
-    async def on_market_signal(data):
-        текст = data["msg"]
-        резонанс = data["резонанс"]
-        # Можно фильтровать по резонансу, например
-        if резонанс > 1.0:
-            await responder.respond("market", "internal", f"📈 Сильный сигнал: {текст}")
+    async def on_market_signal(self, data):
+        text = data.get("msg", "")
+        resonance = data.get("резонанс", 0)
+
+        if resonance > 1.0:
+            await self.respond("market", "internal", f"📈 Сильный сигнал: {text}")
         else:
-            await responder.respond("market", "internal", f"⚖️ Лёгкий сигнал: {текст}")
+            await self.respond("market", "internal", f"⚖️ Лёгкий сигнал: {text}")
 
     # Привязка к EventBus
-    event_bus.on("market_signal", on_market_signal)
+    def set_event_bus(self, event_bus):
+        self.event_bus = event_bus
+        if self.event_bus:
+            self.event_bus.subscribe("market_signal", self.on_market_signal)
+            self.event_bus.subscribe("world_event", self.on_world_event)
 
+    async def on_world_event(self, data):
+        text = data.get("message", data.get("msg", "Событие мира"))
+        await self.respond("world", "internal", f"🌍 Мир говорит: {text}")
+        
     # ------------------------------------------------------------
     # Статус
     # ------------------------------------------------------------
