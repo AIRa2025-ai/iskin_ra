@@ -141,22 +141,43 @@ class RaGuidanceCore:
             self.intent_engine.propose(intent)
 
     # ---------------------------------------------------------
-    # Автопилот: случайные сигналы мира
+    # Автопилот: реакция на мир, динамическое ожидание
     # ---------------------------------------------------------
-    async def auto_guidance_loop(self, interval=3.0):
+    async def auto_guidance_loop(self, base_interval=3.0, max_interval=10.0):
+        """
+        Автопилот автоматически проверяет каналы,
+        но не спамит, ждёт реальной активности.
+        """
+        last_energy = 0
         while True:
             try:
-                path = self.choose_path()
-                action = self.choose_action()
-                text = f"Сигнал с канала {path}: действие {action}"
-                self.create_intent(text)
-
+                # Считаем «энергию мира» — сигналов, важных событий, мыслей
+                current_energy = sum(len(group) for group in self.channels.values())
                 if self.event_bus:
-                    await self.emit_event("auto_guidance_signal", {"text": text, "mood": self.analyze_energy(text)})
+                    # Можно добавить метрики активности событий
+                    pass
 
+                # Действуем только если есть новая энергия или новая мысль
+                if current_energy != last_energy or self.thinker.last_thought:
+                    path = self.choose_path()
+                    action = self.choose_action()
+                    text = f"Сигнал с канала {path}: действие {action}"
+                    self.create_intent(text)
+
+                    if self.event_bus:
+                        await self.emit_event(
+                            "auto_guidance_signal",
+                            {"text": text, "mood": self.analyze_energy(text)}
+                        )
+
+                    last_energy = current_energy
+
+                # Интервал ждём динамически: больше активности → меньше пауза
+                interval = base_interval + (max_interval - base_interval) * random.random()
                 await asyncio.sleep(interval)
             except Exception as e:
                 logging.error(f"[RaGuidanceCore] Ошибка автопилота: {e}")
+                await asyncio.sleep(base_interval)
 
     # ---------------------------------------------------------
     # Обработка событий мира
