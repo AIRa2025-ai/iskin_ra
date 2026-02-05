@@ -197,3 +197,19 @@ def init():
         for u in self.TRUSTED_USERS:
             task = asyncio.create_task(self.guardian_loop(u))
             self.loop_tasks.append(task)
+
+    # -------------------------------
+    # Guardian — контроль Guidance
+    # -------------------------------
+    def approve_path(self, path: str) -> bool:
+        # Можно добавить фильтры безопасности
+        return True
+
+    def approve_action(self, action: str) -> bool:
+        # Например, запрет опасных действий
+        blocked = ["атаковать", "вредить"]
+        return action not in blocked
+
+    def approve_guidance(self, decision: dict) -> bool:
+        # Общий контроль итогового решения
+        return True
