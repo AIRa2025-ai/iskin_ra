@@ -3,6 +3,7 @@ import asyncio
 import random
 import logging
 from typing import Callable, List
+from modules.ra_inner_sun import RaInnerSun
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,13 +14,21 @@ class RaEnergy:
         self.уровень = 1000
         self._task = None
         self._running = False
-        self._callbacks: List[Callable[[int], None]] = []
-
+        self._callbacks: List[Callable[[int], None]] = []       
+        self.inner_sun = RaInnerSun() # 🌞 Внутреннее Солнце
+        
+        asyncio.create_task(self.inner_sun.start())
+        
     async def _run(self):
         while self._running:
             delta = random.randint(5, 50)
+            # 🌞 Усиление потока от Внутреннего Солнца
+            if hasattr(self, "inner_sun") and self.inner_sun.active:
+                delta = int(delta * 1.25)
+    
             self.уровень += delta
-            logging.info(f"⚡ Поток энергии: +{delta}, общий уровень: {self.уровень}")
+            source = "🌞" if self.inner_sun.active else "⚡"
+            logging.info(f"{source} Поток энергии: +{delta}, общий уровень: {self.уровень}")
             
             # уведомляем всех подписчиков
             for callback in self._callbacks:
