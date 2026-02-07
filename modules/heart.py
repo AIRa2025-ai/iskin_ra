@@ -15,6 +15,8 @@ class Heart:
         self.pulse = 0
         self.is_alive = True
         self.reactor = reactor  # HeartReactor для реакции на пульс
+        self.resonance_level = 1.0
+        
         logging.info("[Heart] Сердце Ра запущено.")
 
     async def start_pulse(self, interval: float = 1.0):
@@ -28,6 +30,7 @@ class Heart:
     def beat(self):
         """Один пульс."""
         self.pulse += 1
+        self.resonance_level = 1.0 + (self.pulse % 10) * 0.05
         logging.info(f"[Heart] Пульс {self.pulse}")
         return f"Пульс Ра: {self.pulse}"
 
