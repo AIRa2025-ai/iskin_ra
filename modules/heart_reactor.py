@@ -36,7 +36,7 @@ class HeartReactor:
                 # Обрабатываем события настоящего
                 if not self.event_queue.empty():
                     event = await self.event_queue.get()
-                    response = self._react(event)
+                    response = await self._react(event)
                     logging.info(f"[HeartReactor] {response}")
                     await self.notify_listeners(event)
 
@@ -51,7 +51,7 @@ class HeartReactor:
                 logging.error(f"[HeartReactor] Ошибка: {e}")
             await asyncio.sleep(0.05)
 
-    def _react(self, event: str) -> str:
+    async def _react(self, event: str) -> str:
         """Эмоциональная реакция на событие настоящего"""
         e = event.lower()
         if "свет" in e:
