@@ -12,6 +12,7 @@ from modules.ra_scheduler import RaScheduler
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 from modules.ra_world_observer import RaWorldObserver
 from modules.ra_intent_engine import RaIntentEngine
+from modules.ra_light import излучать_мудрость, делиться_теплом
 
 # глобальный объект intent engine
 intent_engine = RaIntentEngine()
@@ -103,6 +104,12 @@ class RaNervousSystem:
                 "cooldown": self.cooldown_seconds,
                 "timestamp": datetime.datetime.utcnow().isoformat()
             })
+
+    async def _лучистая_активация(self):
+        while True:
+            await излучать_мудрость()
+            await делиться_теплом()
+            await asyncio.sleep(5)  # пауза между излучениями
             
     # -----------------------------
     # Запуск модуля
@@ -117,7 +124,8 @@ class RaNervousSystem:
         self._tasks.append(asyncio.create_task(self.world_system.start(), name="world_system_loop"))
         self._tasks.append(asyncio.create_task(self.energy.start(), name="energy_loop"))
         self._tasks.append(asyncio.create_task(self.inner_sun.start(), name="inner_sun_loop"))
-
+        self._tasks.append(asyncio.create_task(self._лучистая_активация(), name="light_task"))
+        
     # HeartReactor
         if self.heart_reactor:
             self._tasks.append(
@@ -136,7 +144,7 @@ class RaNervousSystem:
             "level": level,
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
-        
+
         logging.info("🧠 Модуль нервной системы активен.")
     # -----------------------------
     # Остановка
