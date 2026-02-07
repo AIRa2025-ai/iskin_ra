@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from modules.ra_intent_engine import RaIntentEngine
 
 try:
     from utils.memory_sync import sync_to_github
@@ -12,7 +13,7 @@ except Exception:
     sync_to_github = None
 
 logging.basicConfig(level=logging.INFO)
-
+memory.intent_engine = RaIntentEngine(guardian=None)
 MEMORY_FOLDER = Path(os.getenv("RA_MEMORY_FOLDER", "memory"))
 MEMORY_FOLDER.mkdir(parents=True, exist_ok=True)
 
