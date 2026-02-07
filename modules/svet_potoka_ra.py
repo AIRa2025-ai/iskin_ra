@@ -1,4 +1,4 @@
-# Файл: svet_potoka_ra.py
+# modules/svet_potoka_ra.py
 # Назначение: активация светового потока в твоём пространстве
 
 from modules import vremya
