@@ -97,6 +97,10 @@ class RaMemory:
                     },
                     source="RaMemory"
                 )
+                await self.event_bus.emit(
+                    "inner_sun_memory_event",
+                    {"message": message, "layer": layer}
+                )
             except Exception as e:
                 logging.warning(f"⚠️ Не удалось отправить событие памяти: {e}")
 
