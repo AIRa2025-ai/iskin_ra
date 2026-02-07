@@ -41,7 +41,12 @@ class RaGuardian:
         # --- Интеграция МироЛюба ---
         self.ra_core = RaCoreMirolub()
         asyncio.create_task(self.ra_core.activate())
-
+        # ----------------------- Intent Engine -----------------------
+        from modules.ra_intent_engine import RaIntentEngine
+        self.intent_engine = RaIntentEngine(guardian=self)
+        # Даем МироЛюбу доступ к Intent Engine
+        self.ra_core.intent_engine = self.intent_engine
+        # -------------------------------------------------------------
     # -------------------------------
     # Создание нового модуля безопасно
     # -------------------------------
@@ -166,7 +171,13 @@ def init():
             # --- Сообщаем МироЛюбу о новых модулях ---
             if self.ra_core.ready:
                 await self.ra_core.process(f"Создан новый модуль {first['module_name']}")
-
+        # передаём идеи нового модуля в Intent Engine
+        if self.intent_engine and self.ra_core.ready:
+            self.intent_engine.propose({
+                "type": "new_module",
+                "module_name": first["module_name"],
+                "description": first["description"]
+            })
     # -------------------------------
     # Наблюдение за миром
     # -------------------------------
