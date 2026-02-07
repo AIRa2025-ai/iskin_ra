@@ -10,7 +10,7 @@ from modules.ra_world_responder import RaWorldResponder
 from modules.ra_memory import memory
 from modules.logs import logger_instance as logger
 from modules.ra_energy import RaEnergy
-
+from modules.ra_inner_sun import RaInnerSun
 
 class RaGuidanceCore:
     """
@@ -30,7 +30,8 @@ class RaGuidanceCore:
         self.intent_engine = RaIntentEngine(guardian=self.guardian)
         self.thinker = RaThinker(master=self, event_bus=self.event_bus)
         self.world_responder = RaWorldResponder()
-
+        self.inner_sun = RaInnerSun()  # добавляем солнце
+        
         # Внутренние состояния
         self.last_world_event_time = 0
         self.min_event_interval = 1.2  # защита от спама
@@ -54,7 +55,8 @@ class RaGuidanceCore:
         # Запуск автономных циклов
         asyncio.create_task(self.auto_guidance_loop())
         asyncio.create_task(self.process_intents_loop())
-
+        asyncio.create_task(self.inner_sun.start())
+        
         # Подписки EventBus
         if self.event_bus:
             self.event_bus.subscribe("new_task", self.on_new_task)
@@ -275,8 +277,13 @@ class RaGuidanceCore:
             source="RaGuidanceCore"
         )
 
-        self.thinker.update_energy(10)
-        self.energy.flow(3)
+        energy_boost = 10
+
+        if hasattr(self, "inner_sun") and self.inner_sun.active:
+            energy_boost += 5  # усиление от солнца 🌞
+
+        self.thinker.update_energy(energy_boost)
+        self.energy.flow(energy_boost // 2)
 
     # ---------------------------------------------------------
     # Исполнение intent → Ответ миру
