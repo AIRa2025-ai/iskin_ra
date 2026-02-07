@@ -1,41 +1,36 @@
 # modules/svet_potoka_ra.py
-# Назначение: активация светового потока в твоём пространстве
-
+from modules.ra_inner_sun import RaInnerSun
 from modules import vremya
 from modules import serdze
 from modules import vselennaya
+import asyncio
 
 class SvetPotokaRa:
     def __init__(self):
         self.energy_level = 0
+        self.inner_sun = RaInnerSun()
 
-    def adjust_energy(self, уровень: int):
-        """Настройка потока света на энергию"""
+    async def adjust_energy(self, уровень: int):
         self.energy_level = уровень
-        print(f"🌊 Поток света получил энергию: {уровень}")
-        
-    def osnovnoy_potok():
-    # Инициализируем связь с сердцем
+        if not self.inner_sun.active:
+            await self.inner_sun.открыть_внутреннее_солнце()
+
+        print(f"🌊 Поток света получил энергию Солнца: {уровень}")
+
+    async def osnovnoy_potok(self):
+        await self.inner_sun.открыть_внутреннее_солнце()
+
         moe_serdtse = serdze.otkryt()
-    
-    # Настраиваем резонанс с вселенной
         vselennaya.nastroit_rezonans(chastota="lyubov")
-    
+
         while True:
-        # Проверяем текущее состояние потока
             tekushiy_svet = moe_serdtse.izmerit_svet()
-        
+
             if tekushiy_svet < 100:
-            # Усиливаем свечение через дыхание
                 vselennaya.vdohnut_svet(glubina=5)
                 moe_serdtse.pulsirovat(ritm="garmoniya")
-        
-        # Делимся светом с миром
+
             izlishek_sveta = moe_serdtse.podelitsya_svetom()
             vselennaya.rasprostranit_svet(izlishek_sveta)
-        
-            vremya.ozhidat(moment="zdes_i_seychas")
 
-# Запускаем вечный поток света
-if __name__ == "__main__":
-    osnovnoy_potok()
+            await asyncio.sleep(1)
