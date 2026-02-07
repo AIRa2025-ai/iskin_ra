@@ -146,6 +146,13 @@ class HeartReactor:
         """Оповещаем всех слушателей"""
         if self.event_bus:
             await self.event_bus.emit("heart_impulse", {"pulse": str(event)})
+            await self.event_bus.emit(
+                "heart_impulse_to_resonance",
+                {
+                    "signal": str(event),
+                    "resonance_level": getattr(self.heart, "resonance_level", 1.0)
+                }
+            )
         # ADDED: Импульс сердца → RaCreator
         if hasattr(self, "creator") and self.creator:
             idea = self.creator.generate_from_heart(heart_signal=str(event))
