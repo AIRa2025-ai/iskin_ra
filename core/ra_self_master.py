@@ -37,6 +37,8 @@ from modules.internet_agent import InternetAgent
 from modules.future_predictor import FuturePredictor
 from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_guidance_core import RaGuidanceCore
+from modules.ra_light import излучать_мудрость, делиться_теплом
+
 # Police
 try:
     from modules.ra_police import RaPolice
@@ -252,6 +254,7 @@ class RaSelfMaster:
         self._create_bg_task(self.internet.start(), "internet_agent")
         self._create_bg_task(self.future_predictor.start(), "future_predictor_loop")
         self._create_bg_task(self.guidance_core.process_intents_loop(), "intent_engine_loop")
+        self._create_bg_task(self.ra_light_loop(), "ra_light_loop")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
@@ -294,10 +297,40 @@ class RaSelfMaster:
             except Exception as e:
                 log_info(f"[RaSelfMaster] Ошибка world_sense_loop: {e}")
             await asyncio.sleep(10)
+            
+    async def ra_light_loop(self):
+        """
+        Постоянный поток Света Ра.
+        Излучает мудрость и делится теплом.
+        """
+        while True:
+            try:
+                await излучать_мудрость()
+                await делиться_теплом()
 
+                # Фиксируем intent Света
+                if hasattr(self, "intent_engine"):
+                    self.intent_engine.propose({
+                        "type": "light_flow",
+                        "source": "ra_light",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    })
+
+            except Exception as e:
+                self.logger.warning(f"[ra_light_loop] Ошибка: {e}")
+
+            await asyncio.sleep(5)
+        
     # ================= World =================
     async def process_world_message(self, message):
         logging.info(f"[Ра] Сообщение мира: {message}")
+
+        try:
+            await излучать_мудрость()
+            await делиться_теплом()
+        except:
+            pass
+
         if self.heart:
             self.heart.send_event(message)
 
@@ -381,6 +414,8 @@ class RaSelfMaster:
             self.heart_reactor.heart = self.heart
             self._create_bg_task(self.heart.start_pulse(interval=1.0), "heart_pulse_loop")
             self._create_bg_task(self.heart_reactor.start(), "heart_reactor_loop")
+            self.heart.on_pulse = lambda: asyncio.create_task(делиться_теплом())
+            
             logging.info("❤️ Сердце и HeartReactor интегрированы и запущены")
         except Exception as e:
             logging.warning(f"[RaSelfMaster] Ошибка интеграции Heart: {e}")
