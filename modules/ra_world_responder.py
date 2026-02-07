@@ -1,9 +1,11 @@
 # modules/ra_world_responder.py
+import asyncio
 import logging
 import random
 import datetime
 import httpx
 from modules.ra_intent_engine import RaIntentEngine
+from modules.ra_light import излучать_мудрость, делиться_теплом
 
 intent_engine = RaIntentEngine()
 
@@ -58,8 +60,13 @@ class RaWorldResponder:
             ok = 200 <= r.status_code < 300
             logging.info(f"[Ра → {platform}] Ответ: {reply_text} | статус={r.status_code}")
             self.remember_dialog(platform, incoming_text, reply_text)
-            return ok
 
+            await asyncio.gather(
+                излучать_мудрость(),
+                делиться_теплом()
+            )
+            return ok
+            
         except Exception as _e:  # noqa: F841
             logging.exception("[RaWorldResponder] Ошибка ответа")
             return False
@@ -137,7 +144,11 @@ class RaWorldResponder:
             })
         text = data.get("message", data.get("msg", "Событие мира"))
         await self.respond("world", "internal", f"🌍 Мир говорит: {text}")
-        
+        # 🌟 добавляем свет и тепло при событии
+        await asyncio.gather(
+            излучать_мудрость(),
+            делиться_теплом()
+        )
     # ------------------------------------------------------------
     # Статус
     # ------------------------------------------------------------
