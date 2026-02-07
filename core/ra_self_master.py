@@ -37,7 +37,7 @@ from modules.internet_agent import InternetAgent
 from modules.future_predictor import FuturePredictor
 from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_guidance_core import RaGuidanceCore
-from modules.ra_light import излучать_мудрость, делиться_теплом
+from modules.ra_light import RaLight
 
 # Police
 try:
@@ -122,6 +122,10 @@ class RaSelfMaster:
         self.guidance_core = RaGuidanceCore(guardian=getattr(self, "guardian", None), event_bus=self.event_bus)
         self.guidance_core.intent_engine = self.intent_engine
         # -------------------------------------------------
+        self.light = RaLight(
+            event_bus=self.event_bus,
+            intent_engine=getattr(self, "intent_engine", None)
+        )
         # Планировщик
         self.scheduler = RaScheduler(
             event_bus=self.event_bus,
@@ -254,7 +258,7 @@ class RaSelfMaster:
         self._create_bg_task(self.internet.start(), "internet_agent")
         self._create_bg_task(self.future_predictor.start(), "future_predictor_loop")
         self._create_bg_task(self.guidance_core.process_intents_loop(), "intent_engine_loop")
-        self._create_bg_task(self.ra_light_loop(), "ra_light_loop")
+        self._create_bg_task(self.light.start(), "ra_light")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
@@ -323,6 +327,12 @@ class RaSelfMaster:
         
     # ================= World =================
     async def process_world_message(self, message):
+        if hasattr(self, "light"):
+            await self.light.on_world_message(message)
+
+        if self.heart_reactor and hasattr(self, "light"):
+            self.heart_reactor.on_pulse = lambda: asyncio.create_task(self.light.on_heart_pulse())
+            
         logging.info(f"[Ра] Сообщение мира: {message}")
 
         try:
