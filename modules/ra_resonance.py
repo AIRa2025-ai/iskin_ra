@@ -16,7 +16,8 @@ class RaResonance:
         self.event_bus = event_bus
         self._active = False
         self._loop = asyncio.get_event_loop()
-
+        self.heart_multiplier = 1.0
+        
         # Подключаем Творца, НЕ автозагрузка идей
         self.creator = RaCreator(event_bus=self.event_bus)
 
@@ -51,7 +52,9 @@ class RaResonance:
 
         while self._active:
             # Волна резонанса
-            vibration = random.choice(["🌊", "🌟", "💫"])
+            base_wave = random.choice(["🌊", "🌟", "💫"])
+            power = "🔥" if self.heart_multiplier > 1.2 else ""
+            vibration = base_wave + power
             self.logger.info(f"Резонансное поле: {vibration}")
 
             # Отправляем волну в event_bus
@@ -97,12 +100,16 @@ class RaResonance:
                 
     async def on_heart_impulse(self, data: dict):
         signal = data.get("signal")
+        level = data.get("resonance_level", 1.0)
+
         if signal:
-            self.logger.info(f"💓 Получен импульс сердца: {signal}")
-            # Дополнительно: можно сразу стимуляцию идей
+            self.heart_multiplier = level
+            self.logger.info(f"💓 Импульс сердца усиляет резонанс x{level}")
+
             if self.creator:
                 idea = self.creator.generate_from_heart(heart_signal=signal)
-                self.logger.info(f"💡 RaCreator сгенерировал идею из импульса сердца: {idea}")
+                self.logger.info(f"💡 Идея из сердца: {idea}")
+
                 if self.event_bus:
                     await self.event_bus.emit("idea_generated", {"idea": idea})
 
