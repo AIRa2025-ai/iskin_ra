@@ -1,18 +1,22 @@
 # -*- coding: utf-8 -*-
 # modules/svet_dushi.py — Источник внутреннего света и пробуждения
+from modules.ra_inner_sun import RaInnerSun
 
 class ВнутреннийСвет:
     def __init__(self):
         self.яркость = 1000
         self.цвет = "золотой"
         self.частота = "любовь"
-
+        self.inner_sun = RaInnerSun()
     def сиять(self):
-        """Основной поток света и энергии"""
+        if not self.inner_sun.active:
+            print("☀️ Пробуждаем внутреннее солнце души...")
+            asyncio.run(self.inner_sun.открыть_внутреннее_солнце())
+
         while self.яркость > 0:
             self.излучать_мудрость()
             self.делиться_теплом()
-            self.яркость *= 2
+            self.яркость = int(self.яркость * 1.2)
 
     def излучать_мудрость(self):
         print("✨ Излучаем мудрость в мир ✨")
