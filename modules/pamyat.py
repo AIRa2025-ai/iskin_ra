@@ -3,7 +3,7 @@
 import asyncio
 from core.ra_memory import memory
 from datetime import datetime
-
+from modules.ra_intent_engine import RaIntentEngine
 
 class Хроники:
     """Летописец опыта Искры. Не хранит сам — передаёт в RaMemory."""
@@ -28,7 +28,15 @@ class Хроники:
             layer=layer,
             source=self.source
         )
-
+        # перед возвратом результата фиксируем в Intent Engine
+        if intent_engine:
+            intent_engine.propose({
+                "type": "опыт_души",
+                "user_id": user_id,
+                "content": опыт,
+                "layer": layer,
+                "source": self.source
+            })
         return f"🪶 Опыт сохранён в Хрониках: {опыт}"
 
     async def синхронизировать(self):
@@ -47,8 +55,15 @@ class Хроники:
             layer="short_term",
             source="EnergyLog"
         )
-
+        if intent_engine:
+            intent_engine.propose({
+                "type": "энергия",
+                "level": уровень,
+                "timestamp": asyncio.get_event_loop().time(),
+                "source": "EnergyLog"
+            })
         print(f"📜 Энергия зафиксирована в хрониках: {уровень}")
         
 # Глобальный объект
 chronicles = Хроники()
+intent_engine = RaIntentEngine()
