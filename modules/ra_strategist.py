@@ -1,3 +1,4 @@
+# modules/ra_strategist.py
 class RaStrategist:
     """
     Не реагирует сразу — строит план влияния
