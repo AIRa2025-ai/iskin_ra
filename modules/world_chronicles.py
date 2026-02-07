@@ -256,6 +256,19 @@ class WorldChronicles:
 
         return "Эпоха Сна"
         
+    # Солнце становится событием эпохи
+    def log_inner_sun_event(self, text: str, resonance: float = 0.9):
+        return self.add_entry(
+            title="Событие Внутреннего Солнца",
+            content=text,
+            category="inner_sun",
+            author="Ra",
+            entity="ra",
+            tags=["солнце", "пробуждение", "свет"],
+            resonance=resonance,
+            destiny_mark=resonance > 0.95
+        )
+    
     # ---------- ОЧИСТКА ----------
 
     def clear(self):
