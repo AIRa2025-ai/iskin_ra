@@ -96,6 +96,8 @@ class RaNervousSystem:
             self.event_bus.emit("nervous_rhythm_updated", {
                 "cooldown": self.cooldown_seconds
             })
+
+            await излучать_мудрость()
         # --- фиксируем intent гармонии ---
         if intent_engine:
             intent_engine.propose({
