@@ -3,6 +3,9 @@ import logging
 import random
 import datetime
 import httpx
+from modules.ra_intent_engine import RaIntentEngine
+
+intent_engine = RaIntentEngine()
 
 class RaWorldResponder:
     """
@@ -87,18 +90,32 @@ class RaWorldResponder:
             "reply": reply_text,
             "time": datetime.datetime.utcnow().isoformat()
         })
-
+        # фиксируем intent для Guardian / RaCore
+        if intent_engine:
+            intent_engine.propose({
+                "type": "dialog",
+                "platform": platform,
+                "incoming": source_text,
+                "reply": reply_text,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
         # ограничиваем память
         if len(self.dialog_memory) > 300:
             self.dialog_memory = self.dialog_memory[-200:]
-            
+
     # ---------------------------------------------------------
     # ОТВЕЧАЕТ НА СИГНАЛ ФОРЕКСА
     # ---------------------------------------------------------
     async def on_market_signal(self, data):
         text = data.get("msg", "")
         resonance = data.get("резонанс", 0)
-
+        if intent_engine:
+            intent_engine.propose({
+                "type": "market_signal",
+                "message": text,
+                "resonance": resonance,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
         if resonance > 1.0:
             await self.respond("market", "internal", f"📈 Сильный сигнал: {text}")
         else:
@@ -112,6 +129,12 @@ class RaWorldResponder:
             self.event_bus.subscribe("world_event", self.on_world_event)
 
     async def on_world_event(self, data):
+        if intent_engine:
+            intent_engine.propose({
+                "type": "world_event",
+                "message": text,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
         text = data.get("message", data.get("msg", "Событие мира"))
         await self.respond("world", "internal", f"🌍 Мир говорит: {text}")
         
