@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-
+from modules.ra_inner_sun import RaInnerSun
 
 class RaIntentEngine:
     """
@@ -14,6 +14,7 @@ class RaIntentEngine:
         self.queue = []
         self.guardian = guardian
         self.memory = memory
+        self.inner_sun = RaInnerSun()
 
         logging.info("🎯 RaIntentEngine активирован")
 
@@ -31,7 +32,10 @@ class RaIntentEngine:
         """
 
         intent = self._normalize_intent(intent)
-
+        
+        if hasattr(self, "inner_sun") and self.inner_sun.active:
+            intent["priority"] = intent.get("priority", 1) + 1
+    
         # 🛡 Guardian проверяет намерение
         if self.guardian and hasattr(self.guardian, "approve_intent"):
             if not self.guardian.approve_intent(intent):
