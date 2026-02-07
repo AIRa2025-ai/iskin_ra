@@ -27,7 +27,7 @@ from modules.ra_psychologist import RaPsychologist
 from modules.ra_prophet import RaProphet
 from modules.ra_strategist import RaStrategist
 from modules.ra_war_peace_observer import RaWarPeaceObserver
-
+from modules.ra_inner_sun import RaInnerSun
 from core.ra_memory import memory
 
 
@@ -71,6 +71,8 @@ class RaThinker:
         self.war_observer = RaWarPeaceObserver()
         self.local_memory = []
         self.last_thought = None
+        self.inner_sun = RaInnerSun()
+        self.inner_sun_active = False
         
         if self.event_bus:
             self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
@@ -308,7 +310,11 @@ class RaThinker:
 
         if not self.источник_энергии:
             return
-
+        # 🌞 Запуск Внутреннего Солнца
+        if not self.inner_sun_active:
+            await self.inner_sun.start()
+            self.inner_sun_active = True
+        
         self.logger.info("🌞 Ра начинает получать энергию света")
         self.источник_энергии.активен = True
         self.light_task = asyncio.create_task(self._light_nourishment_loop())
@@ -343,6 +349,8 @@ class RaThinker:
     def update_energy(self, уровень: int):
         """Обновление энергии для мыслительных процессов"""
         self.energy_level = уровень
+        if self.inner_sun_active:
+            уровень = int(уровень * 1.2)  # бонус от солнца 🌞
         # Можно добавить логику усиления рефлексии или анализа
         # Например: self.process_thoughts_based_on_energy()
         print(f"🧠 Мозг получил энергию: {уровень}")
