@@ -35,7 +35,8 @@ from modules.ra_resonance import RaResonance
 from modules.logs import logger_instance
 from modules.internet_agent import InternetAgent
 from modules.future_predictor import FuturePredictor
-
+from modules.ra_intent_engine import RaIntentEngine
+from modules.ra_guidance_core import RaGuidanceCore
 # Police
 try:
     from modules.ra_police import RaPolice
@@ -90,6 +91,7 @@ class RaSelfMaster:
         self.gpt_handler = GPTHandler(self.openrouter_client) if self.openrouter_client else None
         self.gpt_module = gpt_module or self.gpt_handler
         
+        self.intent_engine = RaIntentEngine(guardian=getattr(self, "guardian", None))
         # Мышление
         self.thinker = RaThinker(
             master=self,
@@ -100,6 +102,8 @@ class RaSelfMaster:
             gpt_module=self.gpt_module
         )
         
+        self.thinker.intent_engine = self.intent_engine
+        self.upgrade_loop.intent_engine = self.intent_engine
         # Знания    
         self.knowledge = RaKnowledge(knowledge_dir="modules/data")
         self.json_data = self.knowledge.load_json_knowledge()
@@ -112,6 +116,10 @@ class RaSelfMaster:
             file_consciousness=self.file_consciousness,
             git=self.git
         )
+        # ----------------- Guidance Core -----------------
+        self.guidance_core = RaGuidanceCore(guardian=getattr(self, "guardian", None), event_bus=self.event_bus)
+        self.guidance_core.intent_engine = self.intent_engine
+        # -------------------------------------------------
         # Планировщик
         self.scheduler = RaScheduler(
             event_bus=self.event_bus,
@@ -243,6 +251,7 @@ class RaSelfMaster:
         self._create_bg_task(self.self_reflect_loop(), "self_reflect_loop")
         self._create_bg_task(self.internet.start(), "internet_agent")
         self._create_bg_task(self.future_predictor.start(), "future_predictor_loop")
+        self._create_bg_task(self.guidance_core.process_intents_loop(), "intent_engine_loop")
         
         if self.gpt_handler:
             self._create_bg_task(self.gpt_handler.background_model_monitor(), "gpt_monitor")
