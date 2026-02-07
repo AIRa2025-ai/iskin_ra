@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from core.ra_event_bus import RaEventBus
-
+from modules.ra_intent_engine import RaIntentEngine
 from modules.ra_world_system import RaWorldSystem
 from modules.ra_world_observer import RaWorldObserver
 from modules.ra_guardian import RaGuardian
@@ -37,6 +37,7 @@ ra_self_writer = RaSelfWriter()
 heart_reactor = HeartReactor()
 ra_world_observer = RaWorldObserver()
 event_bus = RaEventBus()
+intent_engine = RaIntentEngine()
 
 # --- Папки ---
 for folder in ["static", "templates", "modules", KNOWLEDGE_FOLDER, "logs"]:
@@ -70,6 +71,15 @@ control_center = RaWorldControlCenter(event_bus)
             self.world_mode = "🔥 Активное творение"
         else:
             self.world_mode = "🌀 Наблюдение"
+
+        # фиксируем intent
+        if intent_engine:
+            intent_engine.propose({
+                "type": "world_harmony",
+                "harmony": harmony,
+                "world_mode": self.world_mode,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
             
 class DummyMaster:
     def __init__(self):
@@ -83,6 +93,13 @@ ra_world_system.set_event_bus(event_bus)
 # --- Startup / Shutdown ---
 @app.on_event("startup")
 async def on_startup():
+    # при старте
+    if intent_engine:
+        intent_engine.propose({
+            "type": "system_event",
+            "event": "startup",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
     log("🚀 Ra Control Center запускается...")
     await ra_world_observer.auto_load_modules()
     await ra_world_observer.awaken_reflection()
@@ -91,6 +108,13 @@ async def on_startup():
     
 @app.on_event("shutdown")
 async def on_shutdown():
+    # при остановке
+    if intent_engine:
+        intent_engine.propose({
+            "type": "system_event",
+            "event": "shutdown",
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
     log("🛑 Остановка Control Center...")
     await ra_world_observer.stop()
     await ra_world_system.stop()
