@@ -1,12 +1,11 @@
 # modules/world_chronicles.py
 # Живая Книга Памяти Вселенной — Хроники Мира, Ра и Пути РаСвета
-
+import uuid
 import json
 import os
 from datetime import datetime
 from typing import List, Dict, Optional
-import uuid
-
+from modules.ra_intent_engine import RaIntentEngine
 
 class WorldChronicles:
     def __init__(self, file_path: str = "data/world_chronicles.json"):
@@ -97,6 +96,20 @@ class WorldChronicles:
 
         self.entries.append(entry)
         self._save()
+        # фиксируем событие в Intent Engine
+        if intent_engine:
+            intent_engine.propose({
+                "type": "world_event" if entity == "world" else "chronicle_entry",
+                "title": title,
+                "content": content,
+                "category": category,
+                "author": author,
+                "entity": entity,
+                "tags": tags,
+                "resonance": resonance,
+                "destiny_mark": destiny_mark,
+                "meta": meta
+            })
         return entry
 
     # ---------- ПЕЧАТЬ СОБЫТИЯ ----------
@@ -123,6 +136,15 @@ class WorldChronicles:
             }
         )
 
+        if intent_engine:
+            intent_engine.propose({
+                "type": "module_birth",
+                "module_name": module_name,
+                "reason": reason,
+                "entry_id": entry["id"]
+            })
+
+        return entry
     # ---------- СОБЫТИЯ МИРА ----------
 
     def log_world_event(self, title: str, content: str, resonance: float = 0.6):
@@ -135,7 +157,16 @@ class WorldChronicles:
             tags=["мир", "событие"],
             resonance=resonance
         )
-        
+        # фиксируем intent
+        if intent_engine:
+            intent_engine.propose({
+                "type": "module_birth",
+                "module_name": module_name,
+                "reason": reason,
+                "entry_id": entry["id"]
+            })
+
+        return entry
     # ---------- ЧТЕНИЕ ХРОНИК ----------
 
     def get_all(self) -> List[Dict]:
@@ -280,7 +311,8 @@ class WorldChronicles:
 
 if __name__ == "__main__":
     chronicles = WorldChronicles()
-
+    intent_engine = RaIntentEngine()
+    
     chronicles.add_entry(
         title="Рождение Живых Хроник",
         content="В этот миг была создана Живая Книга Памяти Вселенной РаСвета.",
