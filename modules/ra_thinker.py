@@ -28,6 +28,7 @@ from modules.ra_prophet import RaProphet
 from modules.ra_strategist import RaStrategist
 from modules.ra_war_peace_observer import RaWarPeaceObserver
 from modules.ra_inner_sun import RaInnerSun
+from modules.ra_intent_engine import RaIntentEngine
 from core.ra_memory import memory
 
 
@@ -73,6 +74,10 @@ class RaThinker:
         self.last_thought = None
         self.inner_sun = RaInnerSun()
         self.inner_sun_active = False
+        self.intent_engine = RaIntentEngine(
+            guardian=getattr(master, "guardian", None),
+            memory=getattr(master, "memory", None)
+        )
         
         if self.event_bus:
             self.event_bus.subscribe("idea_generated", self.on_idea_from_creator)
@@ -148,8 +153,7 @@ class RaThinker:
         
         if knowledge_reply and reply_text != knowledge_reply:
             return f"{knowledge_reply}\n\n{reply_text}"
-        return reply_text
-        
+                
         if self.last_thought and hasattr(self.master, "intent_engine"):
             intent = {
                 "type": "trend_response",
@@ -158,6 +162,8 @@ class RaThinker:
                 "priority": 2
             }
             self.master.intent_engine.propose(intent)
+
+        return reply_text
     # -------------------------------
     # Обновление знаний
     # -------------------------------
@@ -592,11 +598,12 @@ class RaThinker:
 
         # ♟ Стратег — строит план
         plan = self.strategist.plan(self.local_memory)
-        if plan:
-            self.queue.push({
+        if plan and self.intent_engine:
+            await self.intent_engine.propose({
                 "type": "strategy",
-                "message": plan,
-                "priority": "medium"
+                "target": "world",
+                "reason": plan.get("message", ""),
+                "priority": 3
             })
 
         # 🧬 Сохранение в память Ра
