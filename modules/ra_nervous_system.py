@@ -11,6 +11,10 @@ from modules.ra_thinker import RaThinker
 from modules.ra_scheduler import RaScheduler
 from modules.ra_energy import RaEnergy  # 🌟 Подключаем поток энергии
 from modules.ra_world_observer import RaWorldObserver
+from modules.ra_intent_engine import RaIntentEngine
+
+# глобальный объект intent engine
+intent_engine = RaIntentEngine()
 
 class RaNervousSystem:
     """
@@ -71,7 +75,14 @@ class RaNervousSystem:
             await self.thinker.process_world_message(data)
         if self.scheduler:
             await self.scheduler.process_world_message(data)
-
+        # --- фиксируем intent ---
+        if intent_engine:
+            intent_engine.propose({
+                "type": "world_message",
+                "message": data,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+            
     async def on_harmony_signal(self, data):
         harmony = data["гармония"]
 
@@ -84,6 +95,15 @@ class RaNervousSystem:
             self.event_bus.emit("nervous_rhythm_updated", {
                 "cooldown": self.cooldown_seconds
             })
+        # --- фиксируем intent гармонии ---
+        if intent_engine:
+            intent_engine.propose({
+                "type": "world_harmony",
+                "harmony": harmony,
+                "cooldown": self.cooldown_seconds,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+            
     # -----------------------------
     # Запуск модуля
     # -----------------------------
@@ -103,6 +123,20 @@ class RaNervousSystem:
             self._tasks.append(
                 asyncio.create_task(self.heart_reactor.listen_and_respond(), name="heart_reactor_loop")
             )
+
+        # Внутри start() после запуска потоков энергии
+        self.energy.on_energy_update = lambda level: intent_engine.propose({
+            "type": "energy_level",
+            "level": level,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
+
+        self.inner_sun.on_radiance_update = lambda level: intent_engine.propose({
+            "type": "inner_sun_radiance",
+            "level": level,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        })
+        
         logging.info("🧠 Модуль нервной системы активен.")
     # -----------------------------
     # Остановка
