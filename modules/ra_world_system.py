@@ -8,6 +8,7 @@ from modules.ra_world_responder import RaWorldResponder
 from modules.ra_synthesizer import RaSynthesizer
 from modules.ra_world_observer import RaWorldObserver
 from modules.market_watcher import MarketWatcher
+from modules.ra_light import излучать_мудрость, делиться_теплом
 from core.ra_event_bus import RaEventBus
 
 class RaWorldSystem:
@@ -51,9 +52,19 @@ class RaWorldSystem:
         # Параллельные циклы навигации и ответов
         await asyncio.gather(
             self.navigator_loop(),
-            self.responder_loop()
+            self.responder_loop(),
+            self.light_loop()
         )
-
+    # ----------------------------------
+    # Цикл света
+    # ----------------------------------
+    async def light_loop(self):
+        while self.running:
+            await asyncio.gather(
+                излучать_мудрость(),
+                делиться_теплом()
+            )
+            await asyncio.sleep(5)  # пауза между циклами
         # Логируем, что система готова
         self.logger.log_module_action("ra_world", "инициализирован")
 
